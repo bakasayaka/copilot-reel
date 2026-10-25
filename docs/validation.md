@@ -2,6 +2,19 @@
 
 Snapshot: 2026-10-25, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.8**. This records demonstrated behavior and its limits, not full release acceptance.
 
+## Not yet verified: legibility floor (P1, 2026-10-25)
+
+The user approved P1 of the design audit (`design/vi/proposals/2026-10-25-audit/`): the center name never draws below 11 device pixels, the monograms below 9 and the update dot below a 3 px radius; text below 13 px uses Segoe UI Variable Small; the name line is 160 DIP. It was written in a Linux container without the Windows toolchain, so nothing below has been built or run on Windows.
+
+| Area | State |
+| --- | --- |
+| Tokens | `tools/gen-vi-tokens.ps1` (run with PowerShell 7.4 on Linux) regenerated `src/vi_tokens.h`, and `-Check` reports it up to date. |
+| Unit tests | The new checks in `tests/typography_tests.cpp` (the floors at 20 DPI and size-step combinations, the 1.5 times cap, the optical-size switch, the 160 DIP line against every seat for 1-9 items) compiled and passed with g++ `-Wall -Wextra -Wshadow` on a copy of the pure functions. The full test, with DirectWrite, still has to run through `tools/test.ps1`. |
+| Renderer | `src/renderer.cpp` has not been compiled. |
+| Rendering | Expected changes: at 100% display scaling the name and the monograms draw in the Small master, so the 100% variants' stills with text change; at the 70% and 85% steps the text and the update dot stop at their floors. Nothing changes at 150% and 200% except names that 132 DIP trimmed. `output/runtime/v0.3.8` has to be recaptured with `tools/capture-seam.py` and reviewed before this ships. |
+
+To do on Windows: `tools/test.ps1`; recapture and review the references; one look at the 70% and 85% steps on a 100% display in all three languages.
+
 ## Verified in v0.3.8
 
 0.3.8 adds About to the hub and the in-app updater, fixes the Choose app list's leak and height limit, and leaves only the name in the tray tooltip. About's art was chosen by the user from three options drawn with the VI generator (option C, with GitHub's official mark).

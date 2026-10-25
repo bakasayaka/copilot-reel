@@ -137,8 +137,10 @@ struct OrbitRenderer::Impl {
     com_ptr<ID2D1Device> d2d;
     com_ptr<IDWriteFactory2> dwrite;
     com_ptr<IDWriteFontFallback> fallback;
-    com_ptr<IDWriteTextFormat> labelFormat, monogramFormat, sizeMonogramFormat;
-    float capRatio = .7f;
+    // A text role at the current DPI: its size after the device-pixel floor, the optical master
+    // that size resolves to, and that face's cap height.
+    struct TextStyle { com_ptr<IDWriteTextFormat> format; std::wstring family; float size = 0, capRatio = .7f; };
+    TextStyle labelStyle, monogramStyle, sizeMonogramStyle;
 
     wc::CompositionEasingFunction linear{nullptr}, decelerate{nullptr}, accelerate{nullptr}, drill{nullptr};
     wc::ContainerVisual pixelRoot{nullptr}, dpiRoot{nullptr}, root{nullptr}, pagesLayer{nullptr}, handoffLayer{nullptr};
@@ -322,34 +324,47 @@ struct OrbitRenderer::Impl {
         RebuildAll();
     }
 
+    // Formats depend on the language and the DPI: Initialize, SetLanguage and Resize call this.
     void CreateTextFormats() {
         // One CJK fallback for every language; the formats' locale picks its mapping (src/typography.h).
         if (!fallback && FAILED(CreateCjkFallback(dwrite.get(), ExecutableFolder(), fallback.put()))) fallback = nullptr;
-        // The WWS family of the Windows 11 variable face; static Segoe UI elsewhere.
-        textFamily = vi::kTextFallbackFamily;
         com_ptr<IDWriteFontCollection> fonts;
+        if (FAILED(dwrite->GetSystemFontCollection(fonts.put()))) fonts = nullptr;
+        labelStyle = MakeTextStyle(fonts.get(), vi::kLabelSize, vi::kLabelMinimumPx);
+        monogramStyle = MakeTextStyle(fonts.get(), vi::kMonogramSize, vi::kMonogramMinimumPx);
+        sizeMonogramStyle = MakeTextStyle(fonts.get(), vi::kSizeMonogramSize, vi::kMonogramMinimumPx);
+        textFamily = labelStyle.family;
+    }
+
+    // Text keeps scaling with the reel down to `minimumPx` device pixels (typography.minimumPx).
+    // The WWS family of the Windows 11 variable face at the optical size of the drawn pixels, Small
+    // or Text; static Segoe UI where the variable face is missing.
+    TextStyle MakeTextStyle(IDWriteFontCollection* fonts, float dip, float minimumPx) {
+        TextStyle style;
+        style.size = FloorDip(dip, minimumPx, static_cast<float>(dpi));
+        style.family = vi::kTextFallbackFamily;
         com_ptr<IDWriteFontFamily> family;
         com_ptr<IDWriteFont> font;
         UINT32 index = 0;
         BOOL exists = FALSE;
-        if (SUCCEEDED(dwrite->GetSystemFontCollection(fonts.put())) &&
-            SUCCEEDED(fonts->FindFamilyName(vi::kTextFamily, &index, &exists)) && exists) textFamily = vi::kTextFamily;
-        else if (fonts) fonts->FindFamilyName(vi::kTextFallbackFamily, &index, &exists);
+        for (const wchar_t* name : {TextFamilyForPx(style.size * Scale()), vi::kTextFamily, vi::kTextFallbackFamily}) {
+            if (fonts && SUCCEEDED(fonts->FindFamilyName(name, &index, &exists)) && exists) { style.family = name; break; }
+            exists = FALSE;
+        }
         if (exists && SUCCEEDED(fonts->GetFontFamily(index, family.put())) &&
             SUCCEEDED(family->GetFirstMatchingFont(static_cast<DWRITE_FONT_WEIGHT>(vi::kTextWeight),
                 DWRITE_FONT_STRETCH_NORMAL, DWRITE_FONT_STYLE_NORMAL, font.put()))) {
             DWRITE_FONT_METRICS metrics{};
             font->GetMetrics(&metrics);
-            if (metrics.designUnitsPerEm) capRatio = static_cast<float>(metrics.capHeight) / metrics.designUnitsPerEm;
+            if (metrics.designUnitsPerEm) style.capRatio = static_cast<float>(metrics.capHeight) / metrics.designUnitsPerEm;
         }
-        labelFormat = TextFormat(vi::kLabelSize);
-        monogramFormat = TextFormat(vi::kMonogramSize);
-        sizeMonogramFormat = TextFormat(vi::kSizeMonogramSize);
+        style.format = TextFormat(style.family, style.size);
+        return style;
     }
 
-    com_ptr<IDWriteTextFormat> TextFormat(float size) {
+    com_ptr<IDWriteTextFormat> TextFormat(const std::wstring& family, float size) {
         com_ptr<IDWriteTextFormat> result;
-        winrt::check_hresult(dwrite->CreateTextFormat(textFamily.c_str(), nullptr,
+        winrt::check_hresult(dwrite->CreateTextFormat(family.c_str(), nullptr,
             static_cast<DWRITE_FONT_WEIGHT>(vi::kTextWeight), DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
             size, LocaleName(language), result.put()));
         winrt::check_hresult(result->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER));
@@ -514,18 +529,19 @@ struct OrbitRenderer::Impl {
     }
 
     // One line centered on the cap height (not the line box), ellipsis beyond `width`.
-    void DrawCentered(ID2D1DeviceContext* context, const std::wstring& text, IDWriteTextFormat* format,
-                      float size, D2D1_POINT_2F centerDip, float width, const D2D1_COLOR_F& color) {
-        if (text.empty()) return;
+    void DrawCentered(ID2D1DeviceContext* context, const std::wstring& text, const TextStyle& style,
+                      D2D1_POINT_2F centerDip, float width, const D2D1_COLOR_F& color) {
+        if (text.empty() || !style.format) return;
+        const float size = style.size;
         com_ptr<IDWriteTextLayout> layout;
-        winrt::check_hresult(dwrite->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format,
+        winrt::check_hresult(dwrite->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), style.format.get(),
             width, size * 4, layout.put()));
         // A name with kana is Japanese in every interface language, so its kanji take Japanese forms.
         if (HasKana(text)) layout->SetLocaleName(vi::kJapaneseLocale, {0, static_cast<UINT32>(text.size())});
         DWRITE_LINE_METRICS line{};
         UINT32 lines = 0;
         layout->GetLineMetrics(&line, 1, &lines);
-        const float baseline = SnapDip(centerDip.y + capRatio * size / 2);
+        const float baseline = SnapDip(centerDip.y + style.capRatio * size / 2);
         context->DrawTextLayout({centerDip.x - width / 2, baseline - line.baseline}, layout.get(),
             SolidBrush(context, color).get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
     }
@@ -606,10 +622,9 @@ struct OrbitRenderer::Impl {
         const auto glyph = Color(selected && appearance.highContrast ? appearance.selectionText : appearance.foreground);
         const bool darkPlate = DarkPlate();
         if (visual.target == kLanguageTarget) {
-            DrawCentered(context, Monogram(language), monogramFormat.get(),
-                vi::kMonogramSize, {h, h}, vi::kTile, glyph);
+            DrawCentered(context, Monogram(language), monogramStyle, {h, h}, vi::kTile, glyph);
         } else if (visual.target == kSizeTarget) {
-            DrawCentered(context, sizeLabel.c_str(), sizeMonogramFormat.get(), vi::kSizeMonogramSize, {h, h}, vi::kTile, glyph);
+            DrawCentered(context, sizeLabel, sizeMonogramStyle, {h, h}, vi::kTile, glyph);
         } else {
             DrawArtwork(context, visual, tile, ArtworkStyle{static_cast<float>(dpi), darkPlate,
                 appearance.highContrast, glyph});
@@ -618,9 +633,12 @@ struct OrbitRenderer::Impl {
         }
         if (badge != TileBadge::None) {
             // Accent disc with a plate-colored ring that reads as a cutout; the dot is smaller and has no check.
+            // The dot keeps a device-pixel floor, never larger than the check's disc, and its ring keeps its width.
             const bool check = badge == TileBadge::Check;
             const D2D1_POINT_2F at{h + vi::kBadgeOffset, h - vi::kBadgeOffset};
-            const float ring = check ? vi::kBadgeRingRadius : vi::kBadgeDotRingRadius, disc = check ? vi::kBadgeRadius : vi::kBadgeDotRadius;
+            const float disc = check ? vi::kBadgeRadius : FloorDip(vi::kBadgeDotRadius, vi::kBadgeDotMinimumPx,
+                static_cast<float>(dpi), vi::kBadgeRadius / vi::kBadgeDotRadius);
+            const float ring = disc + (check ? vi::kBadgeRingRadius - vi::kBadgeRadius : vi::kBadgeDotRingRadius - vi::kBadgeDotRadius);
             context->FillEllipse(D2D1::Ellipse(at, ring, ring),
                 SolidBrush(context, Color(selected ? appearance.selection : appearance.surface)).get());
             context->FillEllipse(D2D1::Ellipse(at, disc, disc), SolidBrush(context, Color(appearance.accent)).get());
@@ -725,8 +743,10 @@ struct OrbitRenderer::Impl {
             });
             (active ? chevronActiveBrush : chevronBrush) = compositor.CreateSurfaceBrush(canvas.surface);
         }
+        // The name's box grows with a size the device-pixel floor raised.
+        const float labelHalfHeight = vi::kLabelHeight * labelStyle.size / vi::kLabelSize / 2;
         for (int i = 0; i != 2; ++i) {
-            canvas = MakeCanvas(vi::kLabelWidth / 2 + 4, vi::kLabelHeight / 2 + 4);
+            canvas = MakeCanvas(vi::kLabelWidth / 2 + 4, labelHalfHeight + 4);
             labelSurfaces[i] = canvas.surface;
             Place(labels[i], canvas, c);
         }
@@ -1275,8 +1295,7 @@ struct OrbitRenderer::Impl {
             auto& surface = labelSurfaces[next];
             const auto size = labels[next].Size();
             Paint(surface, [&](ID2D1DeviceContext* context) {
-                DrawCentered(context, text, labelFormat.get(), vi::kLabelSize, {size.x / 2, size.y / 2},
-                    vi::kLabelWidth, Color(appearance.foreground));
+                DrawCentered(context, text, labelStyle, {size.x / 2, size.y / 2}, vi::kLabelWidth, Color(appearance.foreground));
             });
             Opacity(labels[next], 1, ms, animate);
             activeLabel = next;
@@ -1452,6 +1471,8 @@ void OrbitRenderer::Resize(UINT dpi) {
     if (!impl_->ready || impl_->dpi == dpi || !dpi) return;
     impl_->Run([&] {
         impl_->dpi = dpi;
+        // Text sizes and optical masters follow the device pixels.
+        impl_->CreateTextFormats();
         impl_->ResizeRoot();
         impl_->contentDirty = true;
         if (impl_->visible && !impl_->closing) impl_->RebuildAll();
@@ -1473,7 +1494,7 @@ void OrbitRenderer::SetAppearance(const Appearance& appearance) {
     });
 }
 void OrbitRenderer::SetLanguage(Language language) {
-    if (impl_->labelFormat && impl_->language == language) return;
+    if (impl_->labelStyle.format && impl_->language == language) return;
     impl_->language = language;
     if (impl_->ready) impl_->Run([&] { impl_->CreateTextFormats(); });
 }

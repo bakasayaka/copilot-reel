@@ -4,8 +4,10 @@
 
 #include <dwrite_3.h>
 #include <winrt/base.h>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <numbers>
 #include <string>
 
 namespace {
@@ -147,5 +149,30 @@ int main() {
     winrt::check_hresult(CreateCjkFallback(factory.get(), ExecutableFolder() / L"missing", without.put()));
     Check(Map(without.get(), system.get(), L"漢", L"ja-JP").family == yuGothic &&
         Map(without.get(), system.get(), L"汉", L"zh-CN").family == yaHei, "without the bundled faces Japanese text uses Yu Gothic UI");
+
+    // The reel's text and the update dot scale with the reel and its size step down to a device-pixel floor.
+    for (const float monitor : {96.f, 120.f, 144.f, 168.f, 192.f})
+        for (const float step : vi::kReelSizeSteps) {
+            const float dpi = std::round(monitor * vi::kReelScale * step), px = dpi / 96;
+            const float label = FloorDip(vi::kLabelSize, vi::kLabelMinimumPx, dpi);
+            Check(label >= vi::kLabelSize && label * px >= vi::kLabelMinimumPx - 1e-3f, "the center name never draws below its floor");
+            Check(label == vi::kLabelSize || label * px <= vi::kLabelMinimumPx + 1e-3f, "a raised name stops at its floor");
+            for (const float size : {vi::kMonogramSize, vi::kSizeMonogramSize})
+                Check(FloorDip(size, vi::kMonogramMinimumPx, dpi) * px >= vi::kMonogramMinimumPx - 1e-3f, "monograms never draw below their floor");
+            const float dot = FloorDip(vi::kBadgeDotRadius, vi::kBadgeDotMinimumPx, dpi, vi::kBadgeRadius / vi::kBadgeDotRadius);
+            Check(dot * px >= vi::kBadgeDotMinimumPx - 1e-3f && dot <= vi::kBadgeRadius, "the update dot keeps its floor under the check's disc");
+        }
+    Check(FloorDip(vi::kLabelSize, vi::kLabelMinimumPx, 10.f) == vi::kLabelSize * vi::kTextFloorMaxGrowth,
+        "a raised size grows at most kTextFloorMaxGrowth times");
+    Check(std::wstring(TextFamilyForPx(11.2f)) == vi::kTextSmallFamily && std::wstring(TextFamilyForPx(16.8f)) == vi::kTextFamily,
+        "caption sizes use Segoe UI Variable's Small master");
+    // The name line clears every seat that reaches the name's band, with the band at its largest.
+    for (unsigned n = 1; n <= 9; ++n)
+        for (unsigned k = 0; k != n; ++k) {
+            const double angle = 2 * std::numbers::pi * k / n;
+            const double x = vi::kOrbitRadius * std::sin(angle), y = -vi::kOrbitRadius * std::cos(angle);
+            if (std::abs(y) < vi::kSeat / 2 + vi::kLabelHeight * vi::kTextFloorMaxGrowth / 2)
+                Check(std::abs(x) - vi::kSeat / 2 >= vi::kLabelWidth / 2, "the name line clears the seats beside it");
+        }
     std::cout << "Typography tests passed: " << checks << " checks; Japanese fall-through at U+" << std::hex << outside << ".\n";
 }

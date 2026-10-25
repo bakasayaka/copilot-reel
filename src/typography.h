@@ -3,6 +3,7 @@
 #include "vi_tokens.h"
 
 #include <dwrite_2.h>
+#include <algorithm>
 #include <filesystem>
 #include <string_view>
 
@@ -20,6 +21,20 @@ bool HasKana(std::wstring_view text) noexcept;
 // forms in every interface language; otherwise the interface's own.
 inline const wchar_t* TextLocale(std::wstring_view text, Language language) noexcept {
     return HasKana(text) ? vi::kJapaneseLocale : LocaleName(language);
+}
+
+// A size in DIP that draws at least `minimumPx` device pixels at `dpi` (typography.minimumPx):
+// text shrinks with the reel and its size step only down to that floor, and a raised size is at
+// most `maxGrowth` times `dip`.
+inline float FloorDip(float dip, float minimumPx, float dpi, float maxGrowth = vi::kTextFloorMaxGrowth) noexcept {
+    if (!(dpi > 0)) return dip;
+    return (std::max)(dip, (std::min)(minimumPx * 96.f / dpi, dip * maxGrowth));
+}
+
+// Segoe UI Variable's optical master for text drawn at `px` device pixels: Small for caption
+// sizes, Text from vi::kTextSmallBelowPx.
+inline const wchar_t* TextFamilyForPx(float px) noexcept {
+    return px < vi::kTextSmallBelowPx ? vi::kTextSmallFamily : vi::kTextFamily;
 }
 
 // The folder of the running executable; vi::kJapaneseFontFiles are relative to it.

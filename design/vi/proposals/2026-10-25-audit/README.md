@@ -119,7 +119,7 @@ Severity is high, medium (M) or low (L). Nothing in the reel itself is high.
 
 ## Proposals for VI v1.0
 
-Every proposal stays inside the project's settled design decisions. Only P1 touches one of them (the size steps), and only to bound text, so it needed the user's approval before any code changes.
+Every proposal stays inside the project's settled design decisions. Only P1 touches one of them (the size steps), and only to bound text, so it needed the user's approval before any code changes. The user approved P1 on 2026-10-25; the others are not implemented.
 
 ### P1. A legibility floor for text
 
@@ -131,6 +131,13 @@ Geometry keeps scaling with `geometry.scale` and the size steps; text stops shri
 - the dot radius never below 3 px.
 
 The center line widens from 132 to 160 DIP, which still clears the side seats: the nearest inner seat edge is 82.7 DIP from the center for any slot that reaches the name's 20 DIP band. A face below about 13 px uses Segoe UI Variable Small, with `capRatio` taken from the face actually chosen. A last step of 14 → 13 DIP before trimming would also fit "IntelliJ IDEA Ultimate". Files: `tokens.json` (new `typography.minimumPx`, `geometry.labelWidth`), `src/renderer.cpp`.
+
+**Implemented after approval, not yet built on Windows**
+
+- **Tokens:** `typography.minimumPx` (label 11, monogram 9, maxGrowth 1.5), `typography.small` (Segoe UI Variable Small below 13 px), `geometry.badge.dotMinimumPx` 3, and `typography.applicationLabel.width` 160, generated into `src/vi_tokens.h`.
+- **Code:** `FloorDip` and `TextFamilyForPx` in `src/typography.h`. In `src/renderer.cpp`, one text style per role with its own face and cap height, rebuilt on DPI change. The update dot never grows past the check's disc.
+- **Not needed:** the badge check already never drops below 1 px, because its stroke is rounded to whole device pixels. The 14 → 13 DIP step is dropped, since the 160 DIP line already fits both names that 132 trimmed.
+- **Still to do on Windows:** see `docs/validation.md`.
 
 ![Center name per size step, current and with an 11 px floor](type-floor.png)
 

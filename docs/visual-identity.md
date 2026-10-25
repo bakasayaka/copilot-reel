@@ -47,12 +47,12 @@ The generator never writes `tokens.json`. Scenes use the token accent fallbacks;
 | Glyph-class artwork | long ink side on the 28 DIP keyline x per-brand `opticalScale` |
 | Plated artwork | cropped to its plate, covers 40, clipped to r 10, tile hairline on top |
 | Preferred badge | accent disc r 6 at (+17, -17); plate-colored ring r 7.5 (1.5 cutout); path check 1.5 in `textOnAccent` |
-| Update dot | the badge without its check, smaller: accent disc r 4, plate-colored ring r 5.5, same position; on the hub's About tile and About's update tile while an update waits |
+| Update dot | the badge without its check, smaller: accent disc r 4 (never below 3 device pixels, never above the check's r 6), plate-colored ring 1.5 wider, same position; on the hub's About tile and About's update tile while an update waits |
 | Switch | in the command glyph's em: off is ToggleLeft (F19E); on is ToggleFilled (EC11) with the knob (center +0.25, r 0.125) cut out, so the tile or the seat shows through; `foreground`, never accent |
 | Adjust chevrons | ChevronLeft/Right (E76B/E76C) at em 14, centers (+-40, -112), hit 40 x 40, flanking slot 0, the EN/ZH/JA tile on the + hub; `secondary`, `foreground` while slot 0 is selected |
 | Back chevron | E76B at em 14, `secondary`, idle submenus only |
 | Drag trash | Manage apps, only while a tile is lifted: Remove (E74D) at em 20 in `critical` inside a `critical` ring of 1.5 at the center-zone edge (r 44); armed (pointer inside r 44): a `criticalFill` disc r 30 with the glyph in `textOnCritical`, over the shrunken tile; disabled at 0.36 while one app remains |
-| Center name | 14 DIP / 600, one line, 132 x 20 box on the plate center |
+| Center name | 14 DIP / 600 (never below 11 device pixels), one line, 160 x 20 box on the plate center (the box grows with a raised size) |
 | Shadow | blur 16 (std dev 8), offset y 8; knocked out under the plate |
 | Pixel grid | centers, tiles and seats snap to device pixels; hairlines at least 1 px; hit testing keeps exact geometry |
 
@@ -86,7 +86,7 @@ The reel speaks English, Simplified Chinese and Japanese with one voice: a quiet
 
 | Script | Face | Why |
 | --- | --- | --- |
-| Latin | Segoe UI Variable Text (WWS), 600; fallback Segoe UI | The Windows 11 system face: hinted, optical sizes, and the face every neighbouring window uses. SF Pro may not ship on Windows. |
+| Latin | Segoe UI Variable (WWS), 600: the Small master below 13 device pixels, Text from 13; fallback Segoe UI | The Windows 11 system face: hinted, optical sizes, and the face every neighbouring window uses. SF Pro may not ship on Windows. |
 | Chinese (Han, CJK punctuation) | Microsoft YaHei UI (zh-CN), 600 resolves to Bold | Founder Lanting Hei: hinted, mainland forms, open counters like PingFang SC, and on every Windows. |
 | Japanese (kana, and Han in Japanese text) | Reel Sans JP 400 / 600, then Yu Gothic UI | See below. |
 
@@ -103,9 +103,11 @@ Mapping. One custom DirectWrite fallback serves every D2D text format (`src/typo
 
 The formats carry the interface locale (en-US, zh-CN, ja-JP), and a name that contains kana is laid out as ja-JP in every interface, so "メモ帳" in the English reel takes Japanese kanji forms, not Chinese ones. A Chinese name keeps mainland forms in the Japanese reel only where it shares no kana; Han alone cannot tell the two languages apart. The native controls (GDI) use Segoe UI with the system's font linking, or Yu Gothic UI in Japanese; they never see the bundled faces.
 
-- Center name: 14 DIP, one line in 132 x 20, character-ellipsis trimming. Baseline = center + capHeight x size / 2, using the Latin face's cap height (0.70 em), also for Chinese and Japanese. At the default reel size that is 11.2 px at 100% scaling.
-- Measured at 14 DIP: Visual Studio Code 119.7 (fits), Windows Settings 114.1 (fits), IntelliJ IDEA Ultimate 134.2 and DeepSeek Harness (DSH) 158.6 (trimmed). Every Japanese interface name fits; the widest, インストール 0.3.9, is under 120.
-- EN / ZH / JA monogram: 16 DIP / 600, centered on the cap height, foreground.
+- Center name: 14 DIP, one line in 160 x 20, character-ellipsis trimming. Baseline = center + capHeight x size / 2, using the cap height of the Latin face actually chosen (0.70 em), also for Chinese and Japanese. At the default reel size that is 11.2 px at 100% scaling.
+- Legibility floor (`typography.minimumPx`, approved 2026-10-25): the reel's geometry keeps scaling with `geometry.scale` and the size step, but the center name never draws below 11 device pixels and the monograms below 9; a raised size is at most 1.5 times its DIP size. At 100% scaling the floor holds the name at 11 px at the 70% and 85% steps, where it would be 7.9 and 9.5 px. Text drawn below 13 px uses Segoe UI Variable Small, the master Windows uses for captions.
+- The 160 DIP line (132 before 2026-10-25) clears every seat that reaches the name's band, even with the band grown 1.5 times (`tests/typography_tests.cpp`).
+- Measured at 14 DIP in the Text master: Visual Studio Code 119.7, Windows Settings 114.1, IntelliJ IDEA Ultimate 134.2 and DeepSeek Harness (DSH) 158.6, all within 160 (the last two were trimmed at 132). The Small master sets a little wider, so the longest can still trim at caption sizes, as can long names at the 70% step, where the floor raises the size in DIP. Every Japanese interface name fits; the widest, インストール 0.3.9, is under 120.
+- EN / ZH / JA monogram: 16 DIP / 600 (never below 9 device pixels), centered on the cap height, foreground.
 - Japanese wording follows Microsoft's Japanese Windows terms and prefers kanji where a natural kanji word exists (簡易メニュー, 既定, 最新版, 大きさ, 個人用設定); system nouns Windows writes in katakana stay katakana (アプリ, インストール, テーマ, ダーク モード), with Microsoft's half-width space between katakana words.
 - Never drawn: page titles, captions, helper copy, A/D hints, "Move here", a second label line.
 
@@ -134,7 +136,7 @@ Idle (neutral tiles, faint ring); selected (the seat replaces the tile fill, one
 
 The pointer is the plate center whenever the 384 DIP canvas fits (offset 0). At an edge or corner the whole canvas moves inward by the minimum needed; order, angles, radius and icon size are unchanged. Only if that leaves the pointer outside the plate (168 DIP) does selection wait for center entry (gated ring and dot; early release cancels); on the plate it selects by direction as soon as the pointer moves. No cursor warp, no line from the pointer.
 
-Reel size (`geometry.sizeSteps` 0.7, 0.85, 1, 1.15; default 1) multiplies `geometry.scale` into the same whole effective DPI, so the canvas, the clamp and the work-area shrink above apply unchanged at every step. The hub's Reel size tile shows its step as a 12 DIP monogram (70%, 85%, 100%, 115%); a confirm moves to the next step and the open reel is placed again around the point it opened at.
+Reel size (`geometry.sizeSteps` 0.7, 0.85, 1, 1.15; default 1) multiplies `geometry.scale` into the same whole effective DPI, so the canvas, the clamp and the work-area shrink above apply unchanged at every step. The hub's Reel size tile shows its step as a 12 DIP monogram, never below 9 device pixels (70%, 85%, 100%, 115%); a confirm moves to the next step and the open reel is placed again around the point it opened at.
 
 ## Motion (Full tier, Windows.UI.Composition)
 
