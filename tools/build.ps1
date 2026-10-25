@@ -73,7 +73,7 @@ try {
     $flags=@('/nologo','/std:c++20','/utf-8','/EHsc','/MT','/W4','/DUNICODE','/D_UNICODE','/DNOMINMAX','/DWIN32_LEAN_AND_MEAN','/D_WIN32_WINNT=0x0A00',"/I$projectRoot\src")
     # Release objects and the app's image are reproducible: /Brepro replaces the compile and link
     # timestamps with a hash of the content, so one source tree always yields one SHA-256 and the
-    # installed-package check (AGENTS.md, tools/test.ps1 -Tier installed) survives a rebuild.
+    # installed-package check (tools/test.ps1 -Tier installed) survives a rebuild.
     $reproducible = @()
     if($Configuration -eq 'Debug') { $flags+=@('/Od','/Zi') } else { $flags+=@('/O2','/DNDEBUG','/Brepro'); $reproducible += '/Brepro' }
     $sources=@('main.cpp','appearance.cpp','renderer.cpp','settings.cpp','localization.cpp','iconography.cpp','osd.cpp','behavior.cpp','presets.cpp','official_icons.cpp','local_launch.cpp','installed_apps.cpp','list_viewport.cpp','updates.cpp','artwork.cpp','acrylic.cpp','test_input.cpp','tray_menu.cpp','typography.cpp') | ForEach-Object {Join-Path $projectRoot "src\$_"}
