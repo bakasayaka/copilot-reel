@@ -42,6 +42,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <iomanip>
 #include <sstream>
 #include <thread>
 #include <variant>
@@ -1305,7 +1306,11 @@ public:
             badges+=(badges.empty()?L"":L"|")+std::wstring(entry.badge==TileBadge::Check?L"check":entry.badge==TileBadge::Dot?L"dot":L"-");
         const auto updates=CurrentUpdatePreferences();
         text<<L"\r\nmenuBadges="<<badges<<L"\r\nautoCheck="<<updates.autoCheck<<L"\r\nautoInstall="<<updates.autoInstall
-            <<L"\r\nlastUpdateCheck="<<updates.lastCheck<<L"\r\n"<<updater_->Diagnostics();
+            <<L"\r\nlastUpdateCheck="<<updates.lastCheck
+            // The icon the notification area shows: its style, size and the monochrome mark's COLORREF.
+            <<L"\r\ntrayIcon="<<(trayIconStyle_.monochrome?L"monochrome":L"color")<<L"\r\ntrayIconSize="<<trayIconStyle_.size
+            <<L"\r\ntrayIconColor="<<std::hex<<std::setw(6)<<std::setfill(L'0')<<trayIconStyle_.color<<std::dec<<std::setfill(L' ')
+            <<L"\r\n"<<updater_->Diagnostics();
         if(CurrentTestInput().active)
             text<<L"\r\ntestInput=on\r\ntestRun="<<CurrentTestInput().runId<<L"\r\nrealInputIgnored="<<realInputIgnored_
                 <<L"\r\nactivationRequested="<<activationRequested_;

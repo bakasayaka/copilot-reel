@@ -39,7 +39,7 @@ Open **Main reel > +** and choose **Reel size** to step the reel through 70%, 85
 
 ## Tray icon
 
-Right-click the tray icon and check **Monochrome icon** to replace the color icon with the Soft Orbit mark alone, drawn like the system's own notification-area icons: white on a dark taskbar, black on a light one (it follows the Windows mode, not the app mode) and in the contrast theme's text color in high contrast. It redraws when the taskbar mode changes. Uncheck it for the color icon. The choice is stored as `TrayIcon=monochrome` or `TrayIcon=color` in `preferences.ini`; anything else keeps the color icon.
+Right-click the tray icon and check **Monochrome icon** to replace the color icon with the Soft Orbit mark alone, drawn like the system's own notification-area icons: white on a dark taskbar, black on a light one (it follows the Windows mode, not the app mode) and in the contrast theme's text color in high contrast. It redraws when the taskbar mode changes. Uncheck it for the color icon. The choice is stored as `TrayIcon=monochrome` or `TrayIcon=color` in `preferences.ini`; anything else keeps the color icon. Diagnostics expose `trayIcon`, `trayIconSize` and `trayIconColor` (a COLORREF). A test instance has no tray icon.
 
 ## About and updates
 

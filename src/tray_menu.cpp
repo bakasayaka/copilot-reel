@@ -252,7 +252,9 @@ HICON CreateTrayIcon(const TrayIconStyle& style) {
     info.bmiHeader = {sizeof(BITMAPINFOHEADER), style.size, -style.size, 1, 32, BI_RGB};
     void* bits = nullptr;
     HBITMAP color = CreateDIBSection(nullptr, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
-    HBITMAP mask = CreateBitmap(style.size, style.size, 1, 1, nullptr);
+    // A bitmap created without bits is undefined; an all-zero AND mask leaves the alpha in charge.
+    const std::vector<BYTE> zeros(static_cast<size_t>((style.size + 15) / 16 * 2) * style.size, 0);
+    HBITMAP mask = CreateBitmap(style.size, style.size, 1, 1, zeros.data());
     HICON icon = nullptr;
     if (color && mask) {
         std::copy(pixels.begin(), pixels.end(), static_cast<DWORD*>(bits));

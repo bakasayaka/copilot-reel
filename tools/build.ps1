@@ -120,6 +120,10 @@ try {
         & $compiler @flags "$projectRoot\tests\typography_tests.cpp" "$projectRoot\src\typography.cpp" /Fe:typography_tests.exe /link @machineLink dwrite.lib windowsapp.lib ole32.lib user32.lib
         if($LASTEXITCODE -ne 0) {throw 'Typography tests compilation failed.'}
         Invoke-CompiledTest 'typography_tests.exe'
+        # The package resources give the color icon its ICO and the common-controls 6 manifest.
+        & $compiler @flags "$projectRoot\tests\tray_icon_tests.cpp" "$projectRoot\src\tray_menu.cpp" app.res /Fe:tray_icon_tests.exe /link /MANIFEST:NO @machineLink d2d1.lib shcore.lib comctl32.lib uxtheme.lib user32.lib gdi32.lib advapi32.lib
+        if($LASTEXITCODE -ne 0) {throw 'Tray icon tests compilation failed.'}
+        Invoke-CompiledTest 'tray_icon_tests.exe'
         & $compiler @flags "$projectRoot\tests\launch_probe.cpp" /Fe:launch_probe.exe /link /SUBSYSTEM:WINDOWS @machineLink user32.lib
         if($LASTEXITCODE -ne 0) {throw 'Launch probe compilation failed.'}
         Assert-PeMachine (Join-Path $buildRoot 'launch_probe.exe')
