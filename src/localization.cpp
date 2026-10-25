@@ -15,6 +15,7 @@ namespace reel {
 namespace {
 std::atomic<Language> currentLanguage{Language::English};
 std::atomic<unsigned> currentReelSize{vi::kReelSizeDefault};
+std::atomic<bool> currentTrayMonochrome{false};
 std::mutex updatesLock;
 UpdatePreferences currentUpdates;
 
@@ -107,7 +108,7 @@ UpdatePreferences LoadUpdatePreferences() noexcept {
 
 namespace {
 // Rewrites preferences.ini whole through a temporary file and an atomic replacement.
-bool WritePreferences(Language language, unsigned reelSize, const UpdatePreferences& updates) noexcept {
+bool WritePreferences(Language language, unsigned reelSize, bool trayMonochrome, const UpdatePreferences& updates) noexcept {
     std::wstring temporary;
     HANDLE file=INVALID_HANDLE_VALUE;
     bool owned=false;
@@ -119,6 +120,7 @@ bool WritePreferences(Language language, unsigned reelSize, const UpdatePreferen
         const wchar_t* value = LocaleName(language);
         const std::wstring content=std::wstring(L"\xfeff[General]\r\nLanguage=")+value+
             L"\r\nReelSize="+std::to_wstring(ReelSizePercent(reelSize))+
+            L"\r\nTrayIcon="+(trayMonochrome?L"monochrome":L"color")+
             L"\r\n[Updates]\r\nAutoCheck="+(updates.autoCheck?L"1":L"0")+L"\r\nAutoInstall="+(updates.autoInstall?L"1":L"0")+
             L"\r\nLastCheck="+std::to_wstring(updates.lastCheck)+L"\r\n";
         temporary=path+L"."+std::to_wstring(GetCurrentProcessId())+L"."+std::to_wstring(GetTickCount64())+L".tmp";
@@ -145,10 +147,35 @@ bool WritePreferences(Language language, unsigned reelSize, const UpdatePreferen
 }
 }
 
-bool SaveLanguage(Language language) noexcept { return WritePreferences(language, CurrentReelSize(), CurrentUpdatePreferences()); }
-bool SaveReelSize(unsigned step) noexcept { return WritePreferences(CurrentLanguage(), step, CurrentUpdatePreferences()); }
+bool CurrentTrayMonochrome() noexcept { return currentTrayMonochrome.load(std::memory_order_relaxed); }
+void SetTrayMonochrome(bool monochrome) noexcept { currentTrayMonochrome.store(monochrome, std::memory_order_relaxed); }
+
+bool LoadTrayMonochrome() noexcept {
+    bool monochrome = false;
+    try {
+        const auto path = PreferencesPath();
+        if (!path.empty()) {
+            std::array<wchar_t, 32> value{};
+            GetPrivateProfileStringW(L"General", L"TrayIcon", L"color", value.data(),
+                static_cast<DWORD>(value.size()), path.c_str());
+            monochrome = std::wstring_view(value.data()) == L"monochrome";
+        }
+    } catch (...) { }
+    SetTrayMonochrome(monochrome);
+    return monochrome;
+}
+
+bool SaveLanguage(Language language) noexcept {
+    return WritePreferences(language, CurrentReelSize(), CurrentTrayMonochrome(), CurrentUpdatePreferences());
+}
+bool SaveReelSize(unsigned step) noexcept {
+    return WritePreferences(CurrentLanguage(), step, CurrentTrayMonochrome(), CurrentUpdatePreferences());
+}
+bool SaveTrayMonochrome(bool monochrome) noexcept {
+    return WritePreferences(CurrentLanguage(), CurrentReelSize(), monochrome, CurrentUpdatePreferences());
+}
 bool SaveUpdatePreferences(const UpdatePreferences& preferences) noexcept {
-    if (!WritePreferences(CurrentLanguage(), CurrentReelSize(), preferences)) return false;
+    if (!WritePreferences(CurrentLanguage(), CurrentReelSize(), CurrentTrayMonochrome(), preferences)) return false;
     std::lock_guard guard(updatesLock);
     currentUpdates = preferences;
     return true;

@@ -22,6 +22,7 @@ Language preference is stored independently in `%LOCALAPPDATA%\CopilotReel\prefe
 [General]
 Language=en-US
 ReelSize=100
+TrayIcon=color
 [Updates]
 AutoCheck=1
 AutoInstall=0
@@ -35,6 +36,10 @@ The supported persisted values are `en-US`, `zh-CN` and `ja-JP`. Missing or inva
 ## Reel size
 
 Open **Main reel > +** and choose **Reel size** to step the reel through 70%, 85%, 100% and 115%; after 115% it returns to 70%. The tile shows the current step itself. 100% is the 0.8 scale the reel always used. The open reel resizes in place around the point it opened at: at a screen edge it moves inward only as far as the new size needs, and on a small work area the whole canvas shrinks to fit, exactly as when it opens, so no part of it leaves the work area. The step is stored as `ReelSize` beside the language in `preferences.ini` (`ReelSize=85`); a missing or unknown value selects 100%, and saving either preference keeps the other. Diagnostics expose `reelSize`. The native editor window keeps its size.
+
+## Tray icon
+
+Right-click the tray icon and check **Monochrome icon** to replace the color icon with the Soft Orbit mark alone, drawn like the system's own notification-area icons: white on a dark taskbar, black on a light one (it follows the Windows mode, not the app mode) and in the contrast theme's text color in high contrast. It redraws when the taskbar mode changes. Uncheck it for the color icon. The choice is stored as `TrayIcon=monochrome` or `TrayIcon=color` in `preferences.ini`; anything else keeps the color icon.
 
 ## About and updates
 

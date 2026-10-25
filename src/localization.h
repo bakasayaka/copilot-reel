@@ -32,11 +32,18 @@ bool SaveReelSize(unsigned step) noexcept;
 // The step's percentage, as stored and as the Reel size tile shows it.
 unsigned ReelSizePercent(unsigned step) noexcept;
 
+// And the notification-area icon: TrayIcon=monochrome draws the mark alone in the taskbar's
+// foreground; anything else keeps the color icon. Loading also sets it.
+bool CurrentTrayMonochrome() noexcept;
+void SetTrayMonochrome(bool monochrome) noexcept;
+bool LoadTrayMonochrome() noexcept;
+bool SaveTrayMonochrome(bool monochrome) noexcept;
+
 // preferences.ini's [Updates]: checking is on and installing off unless saved otherwise.
 // lastCheck is when a check last completed, in Unix seconds, or 0.
 struct UpdatePreferences { bool autoCheck = true, autoInstall = false; long long lastCheck = 0; };
 UpdatePreferences CurrentUpdatePreferences() noexcept;
 UpdatePreferences LoadUpdatePreferences() noexcept;
-// Keeps the language and the reel size as they are now; sets the current preferences when saved.
+// Keeps the other preferences as they are now; sets the current preferences when saved.
 bool SaveUpdatePreferences(const UpdatePreferences& preferences) noexcept;
 }
