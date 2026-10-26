@@ -31,6 +31,5 @@ __pycache__/
 .env
 .env.*
 
-# Agent instructions and handoff notes stay on each machine
-/AGENTS.md
-/CLAUDE.md
+# The agents' handoff log stays on each machine; AGENTS.md holds the rules
+/AGENTS.local.md
