@@ -15,6 +15,18 @@ Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed applica
 | Locked session | On the lock screen Windows stops composing the desktop: captures froze mid-animation and 88 stills failed alike for the 0.3.8 and the P1 build. Visual checks need an unlocked session with the display on. |
 | Known flake | High-contrast stills differed in one comparison run of three and not in the other two (the two-state flicker recorded under v0.3.7). |
 
+## Tray icon kept across updates (fork contribution, 2026-10-25)
+
+Recorded on the same ARM64 PC, on top of the monochrome tray icon above. Windows keeps a tray icon's "show on the taskbar" choice in `HKCU\Control Panel\NotifyIconSettings`, one key per icon with its `ExecutablePath`, optional `IconGuid` and `IsPromoted`. A packaged reel runs from a folder named by its version, so every update was a new icon to Windows and went to the hidden overflow.
+
+| Area | Evidence and scope |
+| --- | --- |
+| Cause | Each step updated the installed reel in place with `Add-AppxPackage -ForceApplicationShutdown`, the updater's own `AddPackageAsync` path, and listed the reel's keys. Identified by `hWnd` and `uID`, every version got a new key without `IsPromoted`: 0.3.8.0 to 0.3.8.1 with the plain executable, and 0.3.8.2 to 0.3.8.3 with `CopilotReel.exe` itself Authenticode-signed with the development certificate. A full uninstall and install behaves the same. |
+| Fix | The icon is identified by a fixed GUID (`kTrayGuid`, `NIF_GUID` in every `Shell_NotifyIcon` call through `TrayData`). From 0.3.8.4 to 0.3.8.5 (signed executables), 0.3.8.5 to 0.3.8.6 (signed to unsigned) and 0.3.8.6 to 0.3.8.7 (both unsigned), Windows kept the one key and only moved its `ExecutablePath`, so the Authenticode exception in the `NOTIFYICONDATA` documentation is not needed for a package update here. The user then showed the icon at 0.3.8.7 (`IsPromoted=1`); after an uninstall and install of 0.3.8.0 the same key read `IsPromoted=1` and the icon was on the taskbar. |
+| Fallback | Should Windows refuse the GUID (the documentation's case of an unsigned binary moved after registering it), `AddTray` removes a stale icon, tries once more, and then adds the icon by `hWnd` and `uID` as before, logging it, so the icon always shows. Diagnostics report `trayIconGuid`. This path was not reached on this machine. |
+
+The keys of the earlier versions stay in the registry as Windows leaves them for every app; they no longer match any installed executable. Not verified: x64, and an update through the in-app updater itself (it uses the same package-manager call).
+
 ## Monochrome tray icon (fork contribution, 2026-10-25)
 
 Recorded on the contributor's ARM64 Windows 11 PC (200% scaling, dark taskbar), on top of `main` at 0.3.8 (`2d67147`), installed as `0.3.8.0` ARM64 signed with that machine's own development certificate.
@@ -24,7 +36,7 @@ Recorded on the contributor's ARM64 Windows 11 PC (200% scaling, dark taskbar), 
 | Icon | The tray menu's **Monochrome icon** check item switches the notification-area icon to the package icon's Soft Orbit mark without its plate. `CreateTrayIcon` (`src/tray_menu.cpp`) draws it with Direct2D at `SM_CXSMICON` into a straight-alpha icon with an all-zero AND mask, white on a dark taskbar and black on a light one (`SystemUsesLightTheme`), and it is redrawn on appearance changes only when that style changes. The color icon loads at the small size from the ICO's own frames (`LoadIconWithScaleDown`) instead of a 32 px frame scaled by the Shell. |
 | Unit tests | `tray_icon_tests` (178 checks) draws both styles at 16, 20, 24, 32, 40, 48 and 64 px in memory: one color in straight alpha, a clear margin and AND mask, both rings running and open at their gaps, the dot, a clear center, and the color icon from the linked package resources. Behavior tests round-trip `TrayIcon` with the language, the reel size and `[Updates]`. All twelve unit-test executables ran natively and passed. |
 | Installed | The installed reel was switched to color and back to monochrome through its own menu command; `run.log` records both, `preferences.ini` keeps `TrayIcon` beside `[Updates]`, and diagnostics report `trayIcon=monochrome`, `trayIconSize=32`, `trayIconColor=ffffff`. On an earlier build of this change the icon was captured on the real taskbar in both styles, beside the system's and other apps' monochrome icons. |
-| Finding | Windows keeps a tray icon's visibility per executable path (`HKCU\Control Panel\NotifyIconSettings`, `IsPromoted`). A packaged reel's path names its version, so after the reinstall from 0.3.6.1 to 0.3.8.0 the icon was new to Windows and moved to the hidden overflow; every in-app update will do the same until the user shows it again. Not addressed here. |
+| Finding | Windows keeps a tray icon's visibility per executable path, and a packaged reel's path names its version: after the reinstall from 0.3.6.1 to 0.3.8.0 the icon moved to the hidden overflow. Addressed in the next section above. |
 
 Not verified: a light taskbar and high contrast on the real desktop, and the x64 build.
 

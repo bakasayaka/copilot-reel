@@ -1200,7 +1200,7 @@ public:
         if(!error.empty()) {
             Log(L"Configuration validation failed; original file preserved, fallback targets loaded.");
             // Never block initialization in a modal message loop. Settings shows the full error.
-            NOTIFYICONDATAW notice{sizeof(notice)};notice.hWnd=window;notice.uID=1;notice.uFlags=NIF_INFO;
+            auto notice=TrayData(NIF_INFO);
             wcscpy_s(notice.szInfoTitle,Tr(L"Copilot Reel configuration needs attention",L"Copilot Reel 配置需要检查",L"Copilot Reel の構成を確認してください"));
             wcscpy_s(notice.szInfo,Tr(L"The original file is preserved. Default targets are temporarily loaded. Open App settings to review the error.",L"原配置已保留，暂时使用默认入口。请从托盘打开应用设置查看错误。",L"元のファイルは保持されています。一時的に既定の項目を読み込みました。アプリ設定を開いて問題を確認してください。"));
             notice.dwInfoFlags=NIIF_WARNING;Shell_NotifyIconW(NIM_MODIFY,&notice);
@@ -1225,12 +1225,34 @@ public:
     }
     // The tray tooltip is the app's name alone, the same in every language.
     // NOTIFYICON_VERSION_4 suppresses the standard tooltip unless NIF_SHOWTIP is set.
+    // Windows keeps a tray icon's "show on the taskbar" choice per executable path, and every
+    // package version runs from its own folder. A GUID-identified icon keeps that choice across
+    // paths when the executables are Authenticode-signed by the same publisher. Windows refuses
+    // the GUID otherwise (an unsigned build, or the GUID registered at an unsigned path); the icon
+    // then goes by the window and uID, so it always shows.
+    static constexpr GUID kTrayGuid{0x55f5d570,0x3345,0x477e,{0x89,0xfc,0xbc,0x7a,0x2e,0x77,0x31,0x33}};
+    NOTIFYICONDATAW TrayData(UINT flags) const {
+        NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;data.uFlags=flags;
+        if(trayGuid_) {data.uFlags|=NIF_GUID;data.guidItem=kTrayGuid;}
+        return data;
+    }
     void AddTray() {
-        NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;
-        data.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP|NIF_SHOWTIP;data.uCallbackMessage=kTrayMessage;
-        data.hIcon=TrayIcon();
-        wcscpy_s(data.szTip,kAppName);
-        Shell_NotifyIconW(NIM_ADD,&data);data.uVersion=NOTIFYICON_VERSION_4;Shell_NotifyIconW(NIM_SETVERSION,&data);
+        auto add=[&] {
+            auto data=TrayData(NIF_MESSAGE|NIF_ICON|NIF_TIP|NIF_SHOWTIP);data.uCallbackMessage=kTrayMessage;
+            data.hIcon=TrayIcon();
+            wcscpy_s(data.szTip,kAppName);
+            if(!Shell_NotifyIconW(NIM_ADD,&data))return false;
+            data.uVersion=NOTIFYICON_VERSION_4;Shell_NotifyIconW(NIM_SETVERSION,&data);
+            return true;
+        };
+        trayGuid_=true;
+        if(add())return;
+        // An icon this window added before (a lost TaskbarCreated race) blocks a second add.
+        auto stale=TrayData(0);Shell_NotifyIconW(NIM_DELETE,&stale);
+        if(add())return;
+        trayGuid_=false;
+        Log(L"Tray icon GUID refused; the icon goes by its window and uID");
+        if(!add())Log(L"Tray icon could not be added");
     }
     // The icon for the current style, created again only when the style changes.
     HICON TrayIcon() {
@@ -1250,7 +1272,7 @@ public:
         const auto previousStyle=trayIconStyle_;
         const HICON icon=TrayIcon();
         if(icon==previous && trayIconStyle_==previousStyle)return;
-        NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;data.uFlags=NIF_ICON;data.hIcon=icon;
+        auto data=TrayData(NIF_ICON);data.hIcon=icon;
         Shell_NotifyIconW(NIM_MODIFY,&data);
     }
     void ToggleTrayIcon() {
@@ -1260,7 +1282,7 @@ public:
         Log(monochrome?L"Tray icon: monochrome":L"Tray icon: color");
     }
     void RemoveTray() {
-        NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;Shell_NotifyIconW(NIM_DELETE,&data);
+        auto data=TrayData(0);Shell_NotifyIconW(NIM_DELETE,&data);
         if(trayIcon_) {DestroyIcon(trayIcon_);trayIcon_=nullptr;}
     }
     // `anchor` is the icon's anchor point, so a menu opened from the keyboard sits beside it too.
@@ -1308,7 +1330,7 @@ public:
         text<<L"\r\nmenuBadges="<<badges<<L"\r\nautoCheck="<<updates.autoCheck<<L"\r\nautoInstall="<<updates.autoInstall
             <<L"\r\nlastUpdateCheck="<<updates.lastCheck
             // The icon the notification area shows: its style, size and the monochrome mark's COLORREF.
-            <<L"\r\ntrayIcon="<<(trayIconStyle_.monochrome?L"monochrome":L"color")<<L"\r\ntrayIconSize="<<trayIconStyle_.size
+            <<L"\r\ntrayIcon="<<(trayIconStyle_.monochrome?L"monochrome":L"color")<<L"\r\ntrayIconGuid="<<trayGuid_<<L"\r\ntrayIconSize="<<trayIconStyle_.size
             <<L"\r\ntrayIconColor="<<std::hex<<std::setw(6)<<std::setfill(L'0')<<trayIconStyle_.color<<std::dec<<std::setfill(L' ')
             <<L"\r\n"<<updater_->Diagnostics();
         if(CurrentTestInput().active)
@@ -1436,6 +1458,7 @@ private:
     double centerX_=0,centerY_=0;
     UINT dpi_=96;
     HICON trayIcon_=nullptr;
+    bool trayGuid_=false;  // the tray icon goes by kTrayGuid
     TrayIconStyle trayIconStyle_{};
     bool hotkey_=false,ready_=false;
     int smokeStep_=0;
