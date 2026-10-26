@@ -1,6 +1,17 @@
 # Validation status
 
-Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.9**. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.10**. This records demonstrated behavior and its limits, not full release acceptance.
+
+## Verified in v0.3.10
+
+0.3.10 merges the fork's monochrome tray icon (#2) and its fixed tray GUID (#3), and draws the generic glyph for an executable without an icon of its own.
+
+| Area | Evidence and scope |
+| --- | --- |
+| Custom app icon | Windows gives an executable that carries no icon (`ExtractIconExW` count 0) its stock application icon, which the artwork analysis took for plated art: the probe apps, and any such custom app, filled their tile with it. `PrepareShell` now records such a target, and a shortcut whose icon location or destination is one, as having no artwork, so it draws GenericApp E737. `iconography_tests` (193 checks) adds the test executable itself, a shortcut to it and `cmd.exe`, and checks that the first two draw exactly the generic glyph. |
+| Tray icon on x64 | The fork's `tray_icon_tests` (178 checks) ran on x64 for the first time and passed, with the other unit tests. Changed in the merge: the monochrome mark's render target is fixed at 96 DPI, the icon's size follows the primary monitor's current DPI and is redrawn on display and DPI changes, and the GUID comment matches the experiment below. |
+| Interaction | `tests/run-reel-seam.py` passed all 13 groups. |
+| Rendering against 0.3.9 | `output/runtime/v0.3.10`: in the solid, high-contrast, 100% and 150% variants the six states that show a probe app change only inside that tile (984 to 3912 pixels), which now holds the generic glyph; all 28 frosted stills change across the plate because the acrylic shows what lies behind the window, which had changed (the 0.3.9 build gave the same 28 differences against v0.3.9); the other 40 are within tolerance. |
 
 ## Verified in v0.3.9
 
@@ -14,6 +25,7 @@ Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed applica
 | Size steps | Captured at 70% and 85% on a 100% display in English, Chinese and Japanese, before and after P1. The name rose from 7.9 and 9.5 px to the floor and Chinese and Japanese names became legible. At the proposed 11 px floor, Visual Studio Code was trimmed at 70% (about 94 px of text in a 90 px line), so the floor is 10 px, where it fits in all three languages. |
 | Locked session | On the lock screen Windows stops composing the desktop: captures froze mid-animation and 88 stills failed alike for the 0.3.8 and the P1 build. Visual checks need an unlocked session with the display on. |
 | Known flake | High-contrast stills differed in one comparison run of three and not in the other two (the two-state flicker recorded under v0.3.7). |
+| Update, end to end | The first update between two releases with the updater. The installed 0.3.8.0 found the published 0.3.9 with `--update-check` in 0.3 s; `--update-install` downloaded it and checked its digest, signature and identity, handed it to Windows after 1.1 s, and 0.3.9.0 ran in the background 4 s after the install started. `apps.ini`, `behavior.ini` and `parked.ini` were byte-identical to a backup taken before, a new check reported up to date, and `tools/test.ps1 -Tier installed` passed. |
 
 ## Tray icon kept across updates (fork contribution, 2026-10-25)
 

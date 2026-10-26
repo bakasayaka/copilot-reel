@@ -1226,10 +1226,9 @@ public:
     // The tray tooltip is the app's name alone, the same in every language.
     // NOTIFYICON_VERSION_4 suppresses the standard tooltip unless NIF_SHOWTIP is set.
     // Windows keeps a tray icon's "show on the taskbar" choice per executable path, and every
-    // package version runs from its own folder. A GUID-identified icon keeps that choice across
-    // paths when the executables are Authenticode-signed by the same publisher. Windows refuses
-    // the GUID otherwise (an unsigned build, or the GUID registered at an unsigned path); the icon
-    // then goes by the window and uID, so it always shows.
+    // package version runs from its own folder. A GUID-identified icon keeps one key and only
+    // moves its path on an update, signed executable or not (docs/validation.md). Should Windows
+    // refuse the GUID, the icon goes by the window and uID, so it always shows.
     static constexpr GUID kTrayGuid{0x55f5d570,0x3345,0x477e,{0x89,0xfc,0xbc,0x7a,0x2e,0x77,0x31,0x33}};
     NOTIFYICONDATAW TrayData(UINT flags) const {
         NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;data.uFlags=flags;
@@ -1309,7 +1308,7 @@ public:
         const wchar_t* adjustName=!adjust.control?L"none":adjust.earlier && adjust.later?L"both":adjust.earlier?L"earlier":adjust.later?L"later":L"blocked";
         std::wstring parkedNames;
         for(const auto& app:parked_)parkedNames+=(parkedNames.empty()?L"":L"|")+AppDisplayName(app);
-        text<<L"Copilot Reel 0.3.9\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
+        text<<L"Copilot Reel 0.3.10\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
             <<L"\r\nanimations="<<currentAppearance_.animations<<L"\r\nhighContrast="<<currentAppearance_.highContrast<<L"\r\ntargetCount="<<items_.size()
             <<L"\r\nmenuPage="<<static_cast<int>(page_)<<L"\r\nmenuEntries="<<menu_.size()<<L"\r\npresetOffset="<<presetOffset_
             <<L"\r\npreferredIndex="<<PreferredTargetIndex(items_)<<L"\r\ngestureActive="<<gesture_.Active()
@@ -1553,9 +1552,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd,UINT message,WPARAM wParam,LPARAM lPa
             else if(wParam==kKeyPollTimer)self->PollCopilotKey();
             else if(wParam==kUpdateTimer)self->UpdateTick();
             return 0;
-        case WM_DPICHANGED:self->DpiChanged(HIWORD(wParam));return 0;
+        case WM_DPICHANGED:self->DpiChanged(HIWORD(wParam));self->UpdateTrayIcon();return 0;
         case WM_WTSSESSION_CHANGE:if(wParam==WTS_SESSION_LOCK || wParam==WTS_CONSOLE_DISCONNECT || wParam==WTS_REMOTE_DISCONNECT)self->Cancel();return 0;
-        case WM_DISPLAYCHANGE:case WM_POWERBROADCAST:self->Cancel();return 0;
+        case WM_DISPLAYCHANGE:self->Cancel();self->UpdateTrayIcon();return 0;
+        case WM_POWERBROADCAST:self->Cancel();return 0;
         case WM_ERASEBKGND:return 1;
         case WM_PAINT:{PAINTSTRUCT ps{};BeginPaint(hwnd,&ps);EndPaint(hwnd,&ps);return 0;}
         case WM_CLOSE:self->Cancel();return 0;

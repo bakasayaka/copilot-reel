@@ -326,7 +326,7 @@ void Paint(State& state) {
         } else if (state.page == Page::About) {
             DrawText(state,target,L"Copilot Reel",D2D1::RectF(24,86,width-24,127),state.appearance.foreground,28,true);
             DrawText(state,target,Tr(L"Soft Orbit / native Windows launcher",L"柔光轨道 / Windows 原生启动器",L"柔らかな軌道 / Windows 標準のアプリ起動ツール"),D2D1::RectF(24,136,width-24,164),state.appearance.secondary,14);
-            DrawText(state,target,Tr(L"Version 0.3.9",L"版本 0.3.9",L"バージョン 0.3.9"),D2D1::RectF(24,166,width-24,189),state.appearance.secondary,12);
+            DrawText(state,target,Tr(L"Version 0.3.10",L"版本 0.3.10",L"バージョン 0.3.10"),D2D1::RectF(24,166,width-24,189),state.appearance.secondary,12);
             DrawText(state,target,Tr(L"Hold the Copilot key, choose an app, then release.",L"按住 Copilot 键，选择应用，然后松开。",L"Copilot キーを押したままアプリを選び、離します。"),D2D1::RectF(24,194,width-24,220),state.appearance.foreground,14);
             DrawText(state,target,Tr(L"Windows controls the theme, transparency and motion.",L"主题、透明效果和动画均遵循 Windows 设置。",L"テーマ、透明効果、アニメーション効果は Windows の設定に従います。"),D2D1::RectF(24,233,width-24,259),state.appearance.secondary,13);
         } else if (state.page == Page::Picker) {

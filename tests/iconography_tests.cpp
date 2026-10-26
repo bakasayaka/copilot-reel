@@ -7,6 +7,8 @@
 #include <d2d1_1helper.h>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <shlobj.h>
+#include <shobjidl.h>
 #include <winrt/base.h>
 #include <algorithm>
 #include <cmath>
@@ -132,6 +134,26 @@ int main() {
         "artwork with its own plate is plated");
     Check(ClassifyArtwork(gemini)==ArtworkClass::Glyph,"open marks sit on the neutral tile");
     Check(ClassifyArtwork(unknown)==ArtworkClass::Generic,"unknown targets fall back to the generic glyph");
+    // This test executable carries no icon, so Windows would show its stock application icon:
+    // a custom app without an icon, and a shortcut to one, keep the generic glyph instead.
+    std::wstring self(MAX_PATH,L'\0');
+    self.resize(GetModuleFileNameW(nullptr,self.data(),static_cast<DWORD>(self.size())));
+    std::wstring shortcut(MAX_PATH,L'\0');
+    shortcut.resize(GetTempPathW(static_cast<DWORD>(shortcut.size()),shortcut.data()));
+    shortcut+=L"copilot-reel-no-icon-"+std::to_wstring(GetCurrentProcessId())+L".lnk";
+    {
+        winrt::com_ptr<IShellLinkW> link;
+        Check(SUCCEEDED(CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(link.put()))) &&
+              SUCCEEDED(link->SetPath(self.c_str())) && SUCCEEDED(link.as<IPersistFile>()->Save(shortcut.c_str(),TRUE)),
+            "the fixture writes a shortcut to the test executable");
+    }
+    const auto noIcon=Target(self.c_str()),noIconLink=Target(shortcut.c_str()),withIcon=Target(L"C:\\Windows\\System32\\cmd.exe");
+    PrepareArtwork({noIcon,noIconLink,withIcon},96);
+    Check(ClassifyArtwork(noIcon)==ArtworkClass::Generic && ArtworkIdentity(noIcon,false)==L"generic",
+        "an executable without an icon of its own takes the generic glyph, not Windows' stock icon");
+    Check(ClassifyArtwork(noIconLink)==ArtworkClass::Generic,"a shortcut to an executable without an icon takes the generic glyph");
+    Check(ClassifyArtwork(withIcon)!=ArtworkClass::Generic,"an executable with its own icon keeps its Shell icon");
+    DeleteFileW(shortcut.c_str());
 
     Canvas canvas;
     for(const float dpi:{96.f,192.f}) {
@@ -144,6 +166,8 @@ int main() {
         Check(plated.hash!=open.hash && open.hash!=other.hash,"vendor marks remain distinct");
         const auto system=canvas.Draw(settings,dpi),note=canvas.Draw(notepad,dpi),generic=canvas.Draw(unknown,dpi);
         Check(generic.visible>40 && generic.outsideTile==0,"generic glyph renders inside the tile");
+        PrepareArtwork({noIcon},dpi);
+        Check(canvas.Draw(noIcon,dpi).hash==generic.hash,"an executable without an icon draws exactly the generic glyph");
         Check(system.hash!=generic.hash && note.hash!=generic.hash && system.hash!=note.hash,
             "Windows Settings and Notepad use their own Shell icons");
         for(const auto* command:{L"reel:add",L"reel:manage",L"reel:preferred",L"reel:appearance",L"reel:edit",

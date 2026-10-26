@@ -587,6 +587,28 @@ std::wstring ResolvePath(const std::wstring& target) {
     return attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) ? std::wstring() : path;
 }
 
+// Windows gives an executable that carries no icon its stock application icon, which would pass
+// for plated art. Such a target, and a shortcut whose icon comes from one, keeps the generic
+// glyph instead (VI: a custom app without an icon). Other files keep their type's Shell icon.
+bool HasOwnIcon(const std::wstring& path, bool followLink = true) {
+    const auto dot = path.find_last_of(L'.'), slash = path.find_last_of(L"\\/");
+    const auto extension = dot == std::wstring::npos || (slash != std::wstring::npos && dot < slash) ? std::wstring() : Lower(path.substr(dot));
+    if (extension == L".lnk") {
+        com_ptr<IShellLinkW> link;
+        std::array<wchar_t, 32768> location{}, destination{};
+        int index = 0;
+        if (!followLink || FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(link.put()))) ||
+            FAILED(link.as<IPersistFile>()->Load(path.c_str(), STGM_READ))) return true;
+        if (SUCCEEDED(link->GetIconLocation(location.data(), static_cast<int>(location.size()), &index)) && location[0])
+            if (const auto icon = ResolvePath(location.data()); !icon.empty()) return HasOwnIcon(icon, false);
+        if (link->GetPath(destination.data(), static_cast<int>(destination.size()), nullptr, 0) == S_OK && destination[0])
+            if (const auto target = ResolvePath(destination.data()); !target.empty()) return HasOwnIcon(target, false);
+        return true;
+    }
+    if (extension != L".exe" && extension != L".dll" && extension != L".com" && extension != L".scr" && extension != L".cpl") return true;
+    return ExtractIconExW(path.c_str(), -1, nullptr, nullptr, 0) > 0;
+}
+
 // Shell parsing name and the identity used for vi::kBrands overrides ("shell:<aumid or path>").
 std::pair<std::wstring, std::wstring> ShellName(const AppTarget& item) {
     constexpr wchar_t settings[] = L"windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel";
@@ -648,13 +670,16 @@ bool OnNetwork(const AppTarget& item) {
     return item.kind == TargetKind::Shell && IsNetworkPath(Unquote(item.target));
 }
 
-// Only successes are cached: a target whose drive, package or file is not available
-// yet (logon, an app installed later) is looked up again on the next preparation.
+// Only successes are cached, and executables known to carry no icon: a target whose drive,
+// package or file is not available yet (logon, an app installed later) is looked up again on
+// the next preparation.
 void PrepareShell(const AppTarget& item) {
     const auto key = TargetKey(item);
     if (shellTargets.contains(key) || OnNetwork(item)) return;
     const auto [parsing, identity] = ShellName(item);
     if (parsing.empty()) return;
+    // A known answer: no artwork of its own, so SourceKey is empty and the generic glyph draws.
+    if (!HasOwnIcon(parsing)) { shellTargets.emplace(key, std::wstring()); return; }
     if (!sources.contains(identity)) {
         Source source;
         if (!ShellImage(parsing, source.pixels, source.width, source.height)) return;

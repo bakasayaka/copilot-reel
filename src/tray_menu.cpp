@@ -167,8 +167,9 @@ std::vector<DWORD> MarkCoverage(int size) {
     if (!bitmap) return pixels;
     HDC dc = CreateCompatibleDC(nullptr);
     const auto previous = SelectObject(dc, bitmap);
+    // 96 DPI: one DIP is one pixel of the bitmap, whatever Direct2D's default DPI is.
     const auto properties = D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_SOFTWARE,
-        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), 96.f, 96.f);
     ComPtr<ID2D1DCRenderTarget> target;
     RECT bounds{0, 0, size, size};
     if (SUCCEEDED(factory->CreateDCRenderTarget(&properties, target.GetAddressOf())) &&
@@ -221,7 +222,12 @@ bool TaskbarUsesLightTheme() {
 TrayIconStyle CurrentTrayIconStyle(bool monochrome) {
     TrayIconStyle style;
     style.monochrome = monochrome;
-    style.size = GetSystemMetricsForDpi(SM_CXSMICON, GetDpiForSystem());
+    // The notification area is on the primary monitor: its current DPI, which can differ from the
+    // system DPI fixed at sign-in.
+    UINT dpi = 0, dpiY = 0;
+    if (FAILED(GetDpiForMonitor(MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY), MDT_EFFECTIVE_DPI, &dpi, &dpiY)) || !dpi)
+        dpi = GetDpiForSystem();
+    style.size = GetSystemMetricsForDpi(SM_CXSMICON, dpi);
     if (monochrome) {
         HIGHCONTRASTW contrast{sizeof(contrast)};
         const bool highContrast = SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0) &&

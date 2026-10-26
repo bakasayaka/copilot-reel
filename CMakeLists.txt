@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(CopilotReel VERSION 0.3.9 LANGUAGES CXX RC)
+project(CopilotReel VERSION 0.3.10 LANGUAGES CXX RC)
 if(NOT WIN32)
   message(FATAL_ERROR "Copilot Reel requires Windows 11 and a Windows SDK.")
 endif()
