@@ -1,6 +1,6 @@
 # Validation status
 
-Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.12**, a development install of `main`; the latest release is 0.3.11. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.12**, the package published as `v0.3.12`. This records demonstrated behavior and its limits, not full release acceptance.
 
 ## Verified in v0.3.12
 
