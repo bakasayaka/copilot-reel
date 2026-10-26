@@ -20,7 +20,7 @@ inline constexpr float kArtworkKeyline = 28.f;       // glyph-class vendor/syste
 inline constexpr float kBadgeRadius = 6.f, kBadgeOffset = 17.f, kBadgeRing = 1.5f, kBadgeRingRadius = 7.5f, kBadgeCheckStroke = 1.5f, kBadgeDotRadius = 4.f, kBadgeDotRingRadius = 5.5f, kBadgeDotMinimumPx = 3.f;
 inline constexpr float kLabelSize = 14.f, kLabelWidth = 160.f, kLabelHeight = 20.f, kMonogramSize = 16.f, kSizeMonogramSize = 12.f;
 // Device-pixel floors: text keeps scaling with the reel down to these sizes, raised at most kTextFloorMaxGrowth times.
-inline constexpr float kLabelMinimumPx = 11.f, kMonogramMinimumPx = 9.f, kTextFloorMaxGrowth = 1.5f;
+inline constexpr float kLabelMinimumPx = 10.f, kMonogramMinimumPx = 9.f, kTextFloorMaxGrowth = 1.5f;
 inline constexpr float kChevronOffset = 40.f, kChevronEm = 14.f, kChevronHit = 40.f, kBackChevronEm = 14.f;
 inline constexpr float kRingStroke = 1.f, kRingGatedStroke = 1.5f, kGateDotRadius = 2.f;
 inline constexpr float kPlateStroke = 1.f, kPlateStrokeHighContrast = 2.f;

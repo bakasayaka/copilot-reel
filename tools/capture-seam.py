@@ -10,8 +10,8 @@ exists in the reference folder is compared pixel by pixel, in every channel; a c
 --tolerance levels (default 2, because at rest some anti-aliased edges render up to two levels away), and
 every changed pixel is counted either way.
 0.3.6 draws the reel at 0.8 of its DIP geometry, so 0.3.4 and 0.3.5 stills are no longer comparable, and
-0.3.7 adds Reel size and 0.3.8 About to the hub: the reference set is output/runtime/v0.3.8, published with
---no-reference.
+0.3.7 adds Reel size and 0.3.8 About to the hub, and 0.3.9 sets text below 13 px in Segoe UI Variable Small
+and widens the name line: the reference set is output/runtime/v0.3.9, published with --no-reference.
 
 Last, each variant opens Add from the hub once agent discovery has completed and captures every Add page
 with the pointer on the plate center, so nothing is selected. Add lists what is installed on this machine,
@@ -26,7 +26,7 @@ tolerance or has another size, when a reference state has no reference image, wh
 their identities, or when a variant cannot be captured. --no-reference records every still without a
 comparison, to publish a new reference set after a deliberate visual change.
 
-    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.8]
+    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.9]
         [--output output/runtime/vX.Y.Z] [--variants dark-solid,light-solid,...] [--tolerance 2] [--no-reference]
 
 Without --output the stills go to the run's evidence directory under artifacts/qa.
@@ -321,7 +321,7 @@ def describe(comparison):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--reference', default='output/runtime/v0.3.8')
+    parser.add_argument('--reference', default='output/runtime/v0.3.9')
     parser.add_argument('--no-reference', action='store_true',
                         help='Record every still without comparing it, to publish a new reference set.')
     # Routine runs write to the evidence directory; publishing a version's stills to

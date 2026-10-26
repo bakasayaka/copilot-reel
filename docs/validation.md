@@ -1,19 +1,19 @@
 # Validation status
 
-Snapshot: 2026-10-25, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.8**. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.9**. This records demonstrated behavior and its limits, not full release acceptance.
 
-## Not yet verified: legibility floor (P1, 2026-10-25)
+## Verified in v0.3.9
 
-The user approved P1 of the design audit (`design/vi/proposals/2026-10-25-audit/`): the center name never draws below 11 device pixels, the monograms below 9 and the update dot below a 3 px radius; text below 13 px uses Segoe UI Variable Small; the name line is 160 DIP. It was written in a Linux container without the Windows toolchain, so nothing below has been built or run on Windows.
+0.3.9 ships the Japanese interface with the bundled Reel Sans JP, the three-language README, reproducible Release builds and P1 of the design audit (`design/vi/proposals/2026-10-25-audit/`): the center name never draws below 10 device pixels, the monograms below 9 and the update dot below a 3 px radius; text below 13 px uses Segoe UI Variable Small; the name line is 160 DIP. P1 was written in a Linux container and first built here.
 
-| Area | State |
+| Area | Evidence and scope |
 | --- | --- |
-| Tokens | `tools/gen-vi-tokens.ps1` (run with PowerShell 7.4 on Linux) regenerated `src/vi_tokens.h`, and `-Check` reports it up to date. |
-| Unit tests | The new checks in `tests/typography_tests.cpp` (the floors at 20 DPI and size-step combinations, the 1.5 times cap, the optical-size switch, the 160 DIP line against every seat for 1-9 items) compiled and passed with g++ `-Wall -Wextra -Wshadow` on a copy of the pure functions. The full test, with DirectWrite, still has to run through `tools/test.ps1`. |
-| Renderer | `src/renderer.cpp` has not been compiled. |
-| Rendering | Expected changes: at 100% display scaling the name and the monograms draw in the Small master, so the 100% variants' stills with text change; at the 70% and 85% steps the text and the update dot stop at their floors. Nothing changes at 150% and 200% except names that 132 DIP trimmed. `output/runtime/v0.3.8` has to be recaptured with `tools/capture-seam.py` and reviewed before this ships. |
-
-To do on Windows: `tools/test.ps1`; recapture and review the references; one look at the 70% and 85% steps on a 100% display in all three languages.
+| Native build | x64 without warnings; `tools/test.ps1 -Tier unit` passed every unit test, `typography_tests` with 131 checks (the floors at 20 DPI and size-step combinations, the 1.5 times cap, the optical-size switch, the 160 DIP line against every seat for 1-9 items, and the CJK fallback against DirectWrite). ARM64 cross-compiled and not run. |
+| Interaction | `tests/run-reel-seam.py` passed all 13 groups. |
+| Rendering against 0.3.8 | Ten stills change, the same in every run: seven at 100% display scaling (`dark-100`), where the name and the EN and Reel size monograms switch to the Small master (text and size unchanged, nothing newly trimmed), and three at 150% (`dark-150`), where the wider name line moves the glyphs by a fraction of a pixel. A build with the line set back to 132 DIP left the 150% stills unchanged, which pins those three on the line width. 200%, light, frosted and high contrast are unchanged. `output/runtime/v0.3.9` was published with these ten and 88 stills within tolerance of v0.3.8. |
+| Size steps | Captured at 70% and 85% on a 100% display in English, Chinese and Japanese, before and after P1. The name rose from 7.9 and 9.5 px to the floor and Chinese and Japanese names became legible. At the proposed 11 px floor, Visual Studio Code was trimmed at 70% (about 94 px of text in a 90 px line), so the floor is 10 px, where it fits in all three languages. |
+| Locked session | On the lock screen Windows stops composing the desktop: captures froze mid-animation and 88 stills failed alike for the 0.3.8 and the P1 build. Visual checks need an unlocked session with the display on. |
+| Known flake | High-contrast stills differed in one comparison run of three and not in the other two (the two-state flicker recorded under v0.3.7). |
 
 ## Verified in v0.3.8
 
