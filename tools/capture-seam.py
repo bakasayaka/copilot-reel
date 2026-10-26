@@ -247,8 +247,8 @@ def capture_variant(variant, override, preferences, output, data):
         shots.append(still(reel, output, variant, 'entry-app', 'Claude'))
         reel.send_command(seam.CANCEL)
         wait_visible(reel, False)
-        # 0.3.8: About from the hub, its first tile (the reel's mark, named by the version and the
-        # author) and the auto-check switch, which is on.
+        # 0.3.8: About from the hub, its first tile (the reel's mark, named by the version) and the
+        # auto-check switch, which is on.
         reel.pointer(anchor)
         reel.send_command(seam.SETTINGS, anchor)
         wait_visible(reel, True)

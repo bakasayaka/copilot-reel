@@ -1267,12 +1267,12 @@ def group_about(g):
         assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
         assert reel.diagnostics()['menuBadges'].split('|')[HUB.index(ABOUT)] == '-', 'About carries no dot before a check.'
         reel.choose(ABOUT)
-        names = ['0.3.6 · baka_sayaka', 'GitHub', 'Auto-check', 'Auto-install', 'Check for updates']
+        names = ['0.3.6', 'baka_sayaka', 'Auto-check', 'Auto-install', 'Check for updates']
         state = assert_page(g, seam.PAGE_ABOUT, 'About', names)
         github = 'source|github-dark' if state['dark'] == '1' else 'source|github-light'
         assert state.art[:4] == ['source|copilot-reel', github, 'command|reel:auto-check:on', 'command|reel:auto-install:off'], state.art
         assert state['menuBadges'] == '-|-|-|-|-', 'A switch shows its state in its icon, not with a badge.'
-        g.passed('About lists the reel mark named by version and author, GitHub, two switches and Check for updates')
+        g.passed('About lists the reel mark named by its version, GitHub named by the author, two switches and Check for updates')
 
         reel.choose('Auto-install')
         seam.wait(lambda: reel.diagnostics()['autoInstall'] == '1', 'automatic installs on')

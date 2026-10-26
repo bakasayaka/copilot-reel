@@ -18,6 +18,7 @@ from this archive directory. Do not add this directory to automated test discove
 - `run-edges.py`: former screen-edge and corner release checks.
 - `run-localization.py`: former dashboard language-control checks.
 
-Use [`../run-radial.py`](../run-radial.py) for the current native GUI integration
-flow. The current C++ tests remain in the parent `tests` directory and cover
+The current native GUI integration flow is `tools/test.ps1` with
+[`../run-reel-seam.py`](../run-reel-seam.py); [`../run-radial.py`](../run-radial.py)
+is 0.3.4 evidence. The current C++ tests remain in the parent `tests` directory and cover
 geometry, gesture ordering, menu action indices, persistence, and configuration.

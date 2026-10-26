@@ -36,7 +36,7 @@ struct PageModel {
     std::vector<PageItem> items;
     std::wstring title;          // diagnostics only; never drawn
     bool isSubmenu = false;      // idle center shows the back chevron
-    bool adjustControl = false; // slot 0 has flanking chevrons: the EN/ZH tile on the hub
+    bool adjustControl = false; // slot 0 has flanking chevrons: the EN/ZH/JA tile on the hub
     bool adjustEarlier = true, adjustLater = true; // a side that cannot move draws at the disabled opacity and never shows the active color
     int preferredIndex = -1;
     int selection = -1;

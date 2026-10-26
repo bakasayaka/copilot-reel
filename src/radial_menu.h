@@ -180,16 +180,16 @@ inline std::vector<MenuEntry> BuildMenu(MenuPage page,const std::vector<AppTarge
         action(Tr(L"Add app",L"添加应用",L"アプリを追加"),L"reel:add",MenuAction::Presets,-1,canAdd);
         action(Tr(L"About",L"关于",L"バージョン情報"),L"reel:about",MenuAction::About,-1,true,UpdateWaiting(about)?TileBadge::Dot:TileBadge::None);break;
     case MenuPage::About: {
-        // The reel's own mark comes first, named by the version and the author, then GitHub's mark,
-        // two switches that show their state in the icon and the update tile, which checks or
+        // The reel's own mark comes first, named by the version, then GitHub's mark, named by the
+        // author, two switches that show their state in the icon and the update tile, which checks or
         // installs the update it found. Every name fits the center's one line at every size step
         // (tests/typography_tests.cpp), so the switches say Auto-check and Auto-install, a failure
         // names only what failed (choosing it tries again, as Up to date checks again), and the
         // Japanese update tile says 更新, as it does while installing and after a failure.
         const bool updatable=about.stage!=UpdateStage::Unavailable;
         const auto state=[](const wchar_t* target,bool on){return std::wstring(target)+(on?L":on":L":off");};
-        result.push_back({{about.version+L" · "+kAuthor,TargetKind::Shell,L"reel:author",L"",L""},MenuAction::AboutInfo});
-        result.push_back({{L"GitHub",TargetKind::Shell,L"reel:github",L"",L""},MenuAction::GitHub});
+        result.push_back({{about.version,TargetKind::Shell,L"reel:author",L"",L""},MenuAction::AboutInfo});
+        result.push_back({{kAuthor,TargetKind::Shell,L"reel:github",L"",L""},MenuAction::GitHub});
         result.push_back({{Tr(L"Auto-check",L"自动检查更新",L"更新を自動確認"),TargetKind::Shell,state(L"reel:auto-check",about.autoCheck),L"",L""},
             MenuAction::AutoCheck,-1,updatable});
         result.push_back({{Tr(L"Auto-install",L"自动安装更新",L"更新を自動適用"),TargetKind::Shell,state(L"reel:auto-install",about.autoInstall),L"",L""},

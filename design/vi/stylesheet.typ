@@ -55,6 +55,7 @@ Frosted tile alpha: light #n(pal.light.frostedTileAlpha), dark #n(pal.dark.frost
 #table(columns: (auto, 1fr),
   [Latin], [#t.typography.preferred (#t.typography.familyModel), weight #t.typography.weight\; fallback #t.typography.fallback],
   [Chinese], [#t.typography.cjk.family, #t.typography.cjk.locale\; ranges #t.typography.cjk.ranges.join(", ")\; then #t.typography.cjk.then],
+  [Japanese], [#t.typography.japanese.family 400 / 600 (#t.typography.japanese.locale), then #t.typography.japanese.systemFamily\; kana #t.typography.japanese.ranges.join(", ")\; #t.typography.japanese.rule],
   [Label], [#n(t.typography.applicationLabel.size) / #t.typography.applicationLabel.weight, #t.typography.applicationLabel.lines line, #n(t.typography.applicationLabel.width) × #n(t.typography.applicationLabel.height), #t.typography.applicationLabel.trimming\; #t.typography.applicationLabel.verticalCenter],
   [Monogram], [#t.typography.iconMonogram.states.join(" / "), #n(t.typography.iconMonogram.size) / #t.typography.iconMonogram.weight, #t.typography.iconMonogram.verticalCenter],
   [Never drawn], [#t.osd.neverDrawn.join(", ")],

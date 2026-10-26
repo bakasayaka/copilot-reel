@@ -10,12 +10,12 @@ Reviewed on 2026-10-20 against application commit `47a63e9` and VI commit `2bc35
 
 | Existing component | What is covered | Remaining gap |
 | --- | --- | --- |
-| `tools/capture-v034.py` | Seven variants covering light/dark solid and frosted requests, the high-contrast branch, and 96/144/192 DPI; native stills and motion strips | Mostly checks labels and absence of renderer errors. It does not assert every expected material/fallback or measure frame pacing. |
+| `tools/capture-v034.py` (0.3.4 evidence; `tools/capture-seam.py` replaced it from 0.3.5) | Seven variants covering light/dark solid and frosted requests, the high-contrast branch, and 96/144/192 DPI; native stills and motion strips | Mostly checks labels and absence of renderer errors. It does not assert every expected material/fallback or measure frame pacing. |
 | `COPILOT_REEL_VISUAL_OVERRIDE` | Process-local theme, material, contrast, motion and DPI overrides; no persisted system changes | Accent colors, high-contrast palette, energy saver, device capabilities and creation failures are not injectable. The override is parsed once per process. |
 | `AppearanceSource::Read` | Reads live Windows preferences and resolves visual roles | Collection and policy are combined. `contrast=on` still uses the current `GetSysColor` values. A forced frosted override is applied after the energy-saver decision and can re-enable transparency. |
 | `OrbitRenderer::ApplyMaterial` | Real capability checks, DWM host-backdrop setup and solid fallback | Results still depend on the host GPU, DWM and actual creation outcomes. A successful request is not proof of visible background blur. |
 | `CreateAcrylicBrush` | Production luminosity, tint and deterministic noise graph | It creates its own host-backdrop brush. The shell supplies the blurred background; the graph does not perform an additional blur. |
-| Interaction and identity tests | Launch deduplication, placement, nested menus, local targets, language persistence and pixel invariance | Menu-open Copilot confirmation and comprehensive appearance transitions are not covered by the current behavior contract. |
+| Interaction and identity tests | Launch deduplication, placement, nested menus, local targets, language persistence and pixel invariance | Menu-open Copilot confirmation (covered through the test seam since 0.3.5) and comprehensive appearance transitions were not covered by the 0.3.4 behavior contract. |
 
 The existing frosted HWND captures exclude the desktop host backdrop. The existing forced-contrast captures use the ordinary system palette. Preserve these as branch/capture evidence, not complete acrylic or real high-contrast acceptance.
 

@@ -215,7 +215,7 @@ int main() {
         "settings metadata cannot be mistaken for an app-launch action");
     Check(settings[6].badge==TileBadge::None,"About carries no dot while no update waits");
 
-    // About: the reel's mark named by the version and author, GitHub, the two switches with their
+    // About: the reel's mark named by the version, GitHub named by the author, the two switches with their
     // state in the icon, and one tile that checks for an update or installs the one found.
     {
         AboutState about{L"0.3.8",true,false,UpdateStage::Idle,L""};
@@ -223,8 +223,9 @@ int main() {
         Check(page.size()==5 && page[0].action==MenuAction::AboutInfo && page[1].action==MenuAction::GitHub &&
             page[2].action==MenuAction::AutoCheck && page[3].action==MenuAction::AutoInstall && page[4].action==MenuAction::CheckUpdate,
             "About lists the version, GitHub, both switches and the update tile in order");
-        Check(page[0].visual.name==L"0.3.8 · baka_sayaka" && page[0].visual.target==L"reel:author" && page[1].visual.target==L"reel:github",
-            "the first tile is named by the version and the author");
+        Check(page[0].visual.name==L"0.3.8" && page[0].visual.target==L"reel:author" &&
+            page[1].visual.name==L"baka_sayaka" && page[1].visual.target==L"reel:github",
+            "the reel's mark is named by the version and GitHub's by the author");
         Check(page[2].visual.target==L"reel:auto-check:on" && page[3].visual.target==L"reel:auto-install:off" &&
             page[2].badge==TileBadge::None && page[3].badge==TileBadge::None,"a switch shows its state in its icon, without a badge");
         for(const auto& entry:page)Check(entry.enabled && entry.visual.target.starts_with(L"reel:"),"every About tile is internal");

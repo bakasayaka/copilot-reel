@@ -168,7 +168,7 @@ About (0.3.8) shows two marks that do not identify a launchable application:
   (`GitHub_Logos.zip`, retrieved 2026-10-25). GitHub permits the Invertocat as a
   button that links to a project on GitHub; About uses it only for the tile that
   opens this repository, after the reel's own mark, in black or white as the
-  plate requires. It is not used to identify any application in the reel.
+  plate requires. That tile is named by the author, `baka_sayaka`. It is not used to identify any application in the reel.
 
 ## Native rendering and resource lifetime
 
@@ -222,6 +222,7 @@ Reel is an independent launcher and does not imply sponsorship or endorsement.
 - ZCode artwork belongs to Z.ai and comes from the installed official Windows application resource.
 - DeepSeek Harness is a DeepSeek trademark. Its source repository is MIT licensed; the [license](../assets/brands/deepseek-LICENSE.txt) is retained. Its [brand guidelines](https://github.com/deepseek-ai/deepseek-harness/blob/master/BRAND_GUIDELINES.md) prohibit misleading claims of affiliation.
 - Visual Studio Code artwork belongs to Microsoft. Its [brand guidelines](https://code.visualstudio.com/brand) prohibit redrawing or restyling the icon, so its internal artwork remains unchanged.
+- GitHub and the Invertocat belong to GitHub, Inc. The `github-light` and `github-dark` marks are unmodified from GitHub's [logo package](https://brand.github.com/foundations/logo) and appear only on About's tile that opens this repository, as GitHub permits for a link to a project on GitHub.
 - Copyright © 2026 JetBrains s.r.o. JetBrains, Junie, IntelliJ IDEA, PyCharm, WebStorm, Rider, CLion, GoLand, PhpStorm, RubyMine, RustRover, Air, Toolbox, and their logos are trademarks of JetBrains s.r.o. See [JetBrains](https://www.jetbrains.com/), its [brand guidelines](https://www.jetbrains.com/company/brand/), and the retained [asset license](../assets/brands/jetbrains-LICENSE.txt). Product icons identify products; the company icon identifies the generic JetBrains IDE picker entry.
 
 The repository's source-code license does not replace these vendor trademark

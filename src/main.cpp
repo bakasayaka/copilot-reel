@@ -1017,7 +1017,7 @@ public:
         case MenuAction::Custom:OpenEditor(-1);break;
         case MenuAction::Done:Navigate(MenuPage::Manage);break;
         case MenuAction::About:Navigate(MenuPage::About,selected);break;
-        // The version and the author are its name; choosing it changes nothing.
+        // The version is its name; choosing it changes nothing.
         case MenuAction::AboutInfo:Log(L"About: "+entry.visual.name);break;
         case MenuAction::GitHub:
             gesture_.Cancel();Hide(false,HideStyle::Commit);LaunchTarget({L"GitHub",TargetKind::Shell,kRepositoryUrl,L"",L""});break;

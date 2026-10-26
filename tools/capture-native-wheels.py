@@ -1,5 +1,8 @@
 """Capture only the application's own HWND using Windows Graphics Capture.
 
+Evidence from before 0.3.4: it assumes the five-item hub with Preferred agent and the 384 DIP
+window and drives the real pointer. tools/capture-seam.py takes the current stills.
+
 Run exclusively, with no resident Copilot Reel instance. The fixture mirrors the
 six default launch profiles but never clicks or launches them. It moves the
 pointer, changes only the isolated UI language, and restores pointer/focus.

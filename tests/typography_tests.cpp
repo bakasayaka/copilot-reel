@@ -143,10 +143,10 @@ float Width(IDWriteFactory5* factory, IDWriteFontCollection* system, IDWriteFont
 }
 
 // Every name the reel itself gives a tile, in the current language: each page, the Add page
-// with Previous and Next, App actions with Remove, and About at every update stage. App and
-// catalog names are the user's or the product's and are not included; About's first tile is
-// returned separately in `author`.
-std::vector<std::wstring> ReelNames(std::wstring& author) {
+// with Previous and Next, App actions with Remove, and About at every update stage, its first
+// tile named by a version as wide as 0.3.12. App and catalog names are the user's or the
+// product's and are not included.
+std::vector<std::wstring> ReelNames() {
     using namespace reel;
     const std::vector<AppTarget> apps{{L"Notepad", TargetKind::Shell, L"C:\\Windows\\notepad.exe"},
         {L"Paint", TargetKind::Shell, L"C:\\Windows\\System32\\mspaint.exe"}};
@@ -162,8 +162,7 @@ std::vector<std::wstring> ReelNames(std::wstring& author) {
     for (const auto& menu : menus)
         for (const auto& entry : menu) {
             const auto& visual = entry.visual;
-            if (visual.target == L"reel:author") author = visual.name;
-            else if (visual.target.starts_with(L"reel:") && std::find(names.begin(), names.end(), visual.name) == names.end())
+            if (visual.target.starts_with(L"reel:") && std::find(names.begin(), names.end(), visual.name) == names.end())
                 names.push_back(visual.name);
         }
     return names;
@@ -249,15 +248,14 @@ int main() {
     // Every name the reel gives a tile fits the 160 DIP line in every language, at every size step
     // and display scaling: the floor raises the name in DIP at the small steps, so the 70% step at
     // 100% scaling, where the name draws at 10 px and 17.8 DIP, is the tightest. The monograms fit
-    // their tile. Catalog names and the About tile's `<version> · baka_sayaka` are reported where
-    // they trim, without failing: the reel cannot shorten a product's name or its own version.
+    // their tile. Catalog names are reported where they trim, without failing: the reel cannot
+    // shorten a product's name.
     std::map<std::wstring, std::string> trimmed;
     unsigned names = 0;
     for (const auto language : {Language::English, Language::SimplifiedChinese, Language::Japanese}) {
         SetLanguage(language);
-        std::wstring author;
-        const auto reelNames = ReelNames(author);
-        Check(reelNames.size() > 20 && !author.empty(), "the reel's own names are collected from every page");
+        const auto reelNames = ReelNames();
+        Check(reelNames.size() > 20, "the reel's own names are collected from every page");
         names += static_cast<unsigned>(reelNames.size());
         for (const float monitor : {96.f, 120.f, 144.f, 168.f, 192.f})
             for (unsigned step = 0; step != std::size(vi::kReelSizeSteps); ++step) {
@@ -278,7 +276,7 @@ int main() {
                 const float sizeMonogram = FloorDip(vi::kSizeMonogramSize, vi::kMonogramMinimumPx, dpi);
                 Check(Width(factory.get(), system.get(), fallback.get(), std::to_wstring(ReelSizePercent(step)) + L"%", language,
                     sizeMonogram, dpi) <= vi::kTile, "the size step monogram fits its tile");
-                std::vector<std::wstring> reported{author};
+                std::vector<std::wstring> reported;
                 for (const auto& entry : catalog::kEntries) reported.emplace_back(entry.name);
                 for (const auto& rule : catalog::kRules) reported.emplace_back(catalog::RowName(rule));
                 for (const auto& name : reported)

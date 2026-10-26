@@ -1,5 +1,9 @@
 """Exercise the radial UI, Copilot events, preference persistence and placement.
 
+0.3.4 evidence: it assumes the five-item hub with Preferred agent, the center-entry gate and the
+384 DIP window, drives the real pointer, and fails against 0.3.5 and later. Current checks run
+through tools/test.ps1 and tests/run-reel-seam.py.
+
 Run only after a completed build and with no other Copilot Reel instance running.
 Every launch target is the harmless probe, all data lives in a fresh QA directory,
 and the original cursor position is restored. Do not interact with the desktop

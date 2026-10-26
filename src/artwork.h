@@ -31,7 +31,9 @@ enum class Glyph { Add, Manage, Preferred, Sun, Moon, Edit, Remove, Previous, Ne
 // device loss, or at a DPI that was not prepared). Failed lookups are retried next time.
 void PrepareArtwork(const std::vector<AppTarget>& items, float dpi);
 
-// Cheap; any reel:* target is Command. Uses the analysis cached by PrepareArtwork.
+// Cheap; a reel:* target is Command, except the reel's own mark (About's first tile and the color
+// Tray icon tile), which is Plated, and GitHub's (About's second), which is Glyph. Uses the
+// analysis cached by PrepareArtwork.
 ArtworkClass ClassifyArtwork(const AppTarget& item);
 
 // What DrawArtwork paints for the item: its command, vendor or Shell artwork source, or
@@ -43,7 +45,7 @@ std::wstring ArtworkIdentity(const AppTarget& item, bool dark);
 // `tile` is the item's 40 x 40 DIP rectangle (corner radius vi::kTileRadius).
 // Plated artwork fills and is clipped to the tile shape; other classes draw centered
 // at their optical size, and the caller draws the neutral tile beneath them.
-// reel:language is not drawn here (the renderer draws the EN/ZH monogram).
+// reel:language is not drawn here (the renderer draws the EN/ZH/JA monogram).
 bool DrawArtwork(ID2D1DeviceContext* context, const AppTarget& item,
                  const D2D1_RECT_F& tile, const ArtworkStyle& style);
 
