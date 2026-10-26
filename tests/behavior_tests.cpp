@@ -206,6 +206,21 @@ void TestPreferences() {
     Require(WritePrivateProfileStringW(L"Updates", L"LastCheck", L"-5", path.c_str()) != 0, "fixture should write a negative time");
     Require(reel::LoadUpdatePreferences().lastCheck == 0, "a negative check time reads as never");
     Require(reel::SaveUpdatePreferences({}), "the update preferences should reset");
+    Require(!reel::LoadTrayMonochrome(), "the tray icon starts in color");
+    Require(reel::SaveTrayMonochrome(true), "the monochrome tray icon should save");
+    reel::SetTrayMonochrome(true);
+    Require(reel::SaveReelSize(1), "the reel size should save");
+    reel::SetReelSize(1);
+    Require(reel::SaveLanguage(reel::Language::English), "the language should save");
+    reel::SetTrayMonochrome(false);
+    Require(reel::LoadTrayMonochrome() && reel::LoadReelSize() == 1, "saving the others keeps the tray icon, and it keeps them");
+    Require(WritePrivateProfileStringW(L"General", L"TrayIcon", L"grey", path.c_str()) != 0, "fixture should write a stray value");
+    Require(!reel::LoadTrayMonochrome(), "an unknown tray icon value keeps the color icon");
+    Require(reel::SaveTrayMonochrome(true), "the monochrome tray icon should save again");
+    reel::SetTrayMonochrome(true);
+    Require(reel::SaveUpdatePreferences({false, false, 0}) && reel::LoadTrayMonochrome(), "saving the update preferences keeps the tray icon");
+    Require(reel::SaveUpdatePreferences({}), "the update preferences should reset");
+    reel::SetTrayMonochrome(false);
     reel::SetLanguage(reel::Language::English);
     data.Use(L"profile-a");
 }

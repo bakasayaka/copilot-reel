@@ -42,6 +42,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <iomanip>
 #include <sstream>
 #include <thread>
 #include <variant>
@@ -50,7 +51,7 @@ namespace reel {
 namespace {
 constexpr UINT kSmokeTimer=101, kIdleTimer=102, kCloseTimer=103, kKeyPollTimer=104, kUpdateTimer=105;
 constexpr UINT kLaunchFailedMessage=WM_APP+21, kPresetsReadyMessage=WM_APP+22, kIdleArtworkMessage=WM_APP+23, kUpdateMessage=WM_APP+24;
-constexpr UINT kCommandPreview=201,kCommandSettings=202,kCommandDiagnostics=203,kCommandExit=204;
+constexpr UINT kCommandPreview=201,kCommandSettings=202,kCommandDiagnostics=203,kCommandExit=204,kCommandTrayIcon=205;
 constexpr ULONG_PTR kIpcMagic=0x5245454c;
 constexpr PROPERTYKEY kFastPathKey={{0x38652bca,0x4329,0x4e74,{0x86,0xf9,0x39,0xcf,0x29,0x34,0x5e,0xea}},2};
 
@@ -1162,7 +1163,7 @@ public:
         EndDrag(DragEnd::Cancel);
         currentAppearance_=appearance_->Read();
         renderer_->SetAppearance(currentAppearance_);
-        ApplyMenuTheme(currentAppearance_);
+        ApplyMenuTheme(currentAppearance_);UpdateTrayIcon();
         RefreshOsdAppearance();
         Log(L"Appearance: "+std::wstring(currentAppearance_.dark?L"dark":L"light")+L", transparency="+(currentAppearance_.transparency?L"on":L"off"));
     }
@@ -1227,18 +1228,49 @@ public:
     void AddTray() {
         NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;
         data.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP|NIF_SHOWTIP;data.uCallbackMessage=kTrayMessage;
-        data.hIcon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(1));
-        if(!data.hIcon) data.hIcon=LoadIconW(nullptr,IDI_APPLICATION);
+        data.hIcon=TrayIcon();
         wcscpy_s(data.szTip,kAppName);
         Shell_NotifyIconW(NIM_ADD,&data);data.uVersion=NOTIFYICON_VERSION_4;Shell_NotifyIconW(NIM_SETVERSION,&data);
     }
-    void RemoveTray() {NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;Shell_NotifyIconW(NIM_DELETE,&data);}
+    // The icon for the current style, created again only when the style changes.
+    HICON TrayIcon() {
+        const auto style=CurrentTrayIconStyle(CurrentTrayMonochrome());
+        if(!trayIcon_ || !(style==trayIconStyle_)) {
+            if(HICON icon=CreateTrayIcon(style)) {
+                if(trayIcon_)DestroyIcon(trayIcon_);
+                trayIcon_=icon;trayIconStyle_=style;
+            }
+        }
+        return trayIcon_?trayIcon_:LoadIconW(nullptr,IDI_APPLICATION);
+    }
+    // Follows the taskbar's light or dark mode and the user's choice; unchanged icons stay as they are.
+    void UpdateTrayIcon() {
+        if(CurrentTestInput().active)return;
+        const HICON previous=trayIcon_;
+        const auto previousStyle=trayIconStyle_;
+        const HICON icon=TrayIcon();
+        if(icon==previous && trayIconStyle_==previousStyle)return;
+        NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;data.uFlags=NIF_ICON;data.hIcon=icon;
+        Shell_NotifyIconW(NIM_MODIFY,&data);
+    }
+    void ToggleTrayIcon() {
+        const bool monochrome=!CurrentTrayMonochrome();
+        if(!SaveTrayMonochrome(monochrome)) {Log(L"Tray icon preference save failed");return;}
+        SetTrayMonochrome(monochrome);UpdateTrayIcon();
+        Log(monochrome?L"Tray icon: monochrome":L"Tray icon: color");
+    }
+    void RemoveTray() {
+        NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;Shell_NotifyIconW(NIM_DELETE,&data);
+        if(trayIcon_) {DestroyIcon(trayIcon_);trayIcon_=nullptr;}
+    }
     // `anchor` is the icon's anchor point, so a menu opened from the keyboard sits beside it too.
     void TrayMenu(POINT anchor) {
         const UINT choice=ShowTrayMenu(window,anchor,currentAppearance_,{
             {kCommandPreview,Tr(L"Preview reel (click to open)",L"预览轮盘（点击打开）",L"リールを表示 (クリックで開く)"),vi::kGlyphTrayPreview,true},
             {kCommandSettings,Tr(L"Quick menu...",L"快捷菜单…",L"簡易メニュー…"),vi::kGlyphTraySettings},
             {kCommandDiagnostics,Tr(L"Write diagnostics",L"写出诊断信息",L"診断情報を書き出す"),vi::kGlyphTrayDiagnostics},
+            {},
+            {kCommandTrayIcon,Tr(L"Monochrome icon",L"黑白图标",L"モノクロアイコン"),0,false,CurrentTrayMonochrome()},
             {},
             {kCommandExit,Tr(L"Exit",L"退出",L"終了"),vi::kGlyphTrayExit}});
         if(choice) PostMessageW(window,WM_COMMAND,choice,0);
@@ -1274,7 +1306,11 @@ public:
             badges+=(badges.empty()?L"":L"|")+std::wstring(entry.badge==TileBadge::Check?L"check":entry.badge==TileBadge::Dot?L"dot":L"-");
         const auto updates=CurrentUpdatePreferences();
         text<<L"\r\nmenuBadges="<<badges<<L"\r\nautoCheck="<<updates.autoCheck<<L"\r\nautoInstall="<<updates.autoInstall
-            <<L"\r\nlastUpdateCheck="<<updates.lastCheck<<L"\r\n"<<updater_->Diagnostics();
+            <<L"\r\nlastUpdateCheck="<<updates.lastCheck
+            // The icon the notification area shows: its style, size and the monochrome mark's COLORREF.
+            <<L"\r\ntrayIcon="<<(trayIconStyle_.monochrome?L"monochrome":L"color")<<L"\r\ntrayIconSize="<<trayIconStyle_.size
+            <<L"\r\ntrayIconColor="<<std::hex<<std::setw(6)<<std::setfill(L'0')<<trayIconStyle_.color<<std::dec<<std::setfill(L' ')
+            <<L"\r\n"<<updater_->Diagnostics();
         if(CurrentTestInput().active)
             text<<L"\r\ntestInput=on\r\ntestRun="<<CurrentTestInput().runId<<L"\r\nrealInputIgnored="<<realInputIgnored_
                 <<L"\r\nactivationRequested="<<activationRequested_;
@@ -1399,6 +1435,8 @@ private:
     unsigned pressGeneration_=~0u;
     double centerX_=0,centerY_=0;
     UINT dpi_=96;
+    HICON trayIcon_=nullptr;
+    TrayIconStyle trayIconStyle_{};
     bool hotkey_=false,ready_=false;
     int smokeStep_=0;
     std::unique_ptr<Updater> updater_;
@@ -1483,6 +1521,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd,UINT message,WPARAM wParam,LPARAM lPa
             case kCommandSettings:self->CommandReceived(Command::Settings);break;
             case kCommandDiagnostics:self->CommandReceived(Command::Diagnostics);break;
             case kCommandExit:self->CommandReceived(Command::Quit);break;
+            case kCommandTrayIcon:self->ToggleTrayIcon();break;
             }return 0;
         case WM_TIMER:
             if(wParam==kSmokeTimer)self->SmokeStep();
@@ -1533,7 +1572,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int) {
         const HWND foreground=bare?GetForegroundWindow():nullptr;
         CommandPacket initialEvent=CaptureCommand(command,true);
         winrt::init_apartment(winrt::apartment_type::single_threaded);
-        LoadLanguage();LoadReelSize();LoadUpdatePreferences();
+        LoadLanguage();LoadReelSize();LoadTrayMonochrome();LoadUpdatePreferences();
         INITCOMMONCONTROLSEX controls{sizeof(controls),ICC_STANDARD_CLASSES};InitCommonControlsEx(&controls);
         if(command==Command::Invalid) {MessageBoxW(nullptr,Tr(L"Usage: CopilotReel.exe [--settings | --preview | --background | --diagnostics | --update-check | --update-install | --quit]",L"用法：CopilotReel.exe [--settings | --preview | --background | --diagnostics | --update-check | --update-install | --quit]",L"使い方: CopilotReel.exe [--settings | --preview | --background | --diagnostics | --update-check | --update-install | --quit]"),kAppName,MB_OK|MB_ICONINFORMATION);return 2;}
         const bool smoke=command==Command::SmokeTest;
