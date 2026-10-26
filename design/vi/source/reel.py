@@ -1,8 +1,9 @@
 """The Soft Orbit reel as vector scenes: a line-by-line mirror of src/renderer.cpp.
 
-Layer order (back to front, renderer Initialize): shadow, backdrop (frosted), plate fill, rim,
-idle ring, back chevron, page (seat, items, language chevrons), handoff
-clone, center label. Every size comes from tokens.json via tokens.py.
+Layer order (back to front, renderer Initialize and BuildPage): backdrop (frosted only); the base
+surface (the baked shadow, the plate fill when solid, the rim); idle ring; page (seat, items,
+language chevrons); handoff clone; back chevron; drag trash (idle, then armed; not drawn here);
+the two center labels. Every size comes from tokens.json via tokens.py.
 """
 from __future__ import annotations
 
@@ -54,9 +55,9 @@ MAIN = APPS + [PLUS]
 HUB = [LANGUAGE, cmd('appearance', 'Appearance'), SIZE, app('copilot-reel', 'Tray icon'), cmd('manage', 'Manage apps'),
        cmd('add', 'Add app'), cmd('about', 'About')]
 MANAGE = APPS + [cmd('add', 'Add app')]
-# About at its defaults: the reel's own mark named by the version and the author, GitHub, Auto-check on,
-# Auto-install off and the update tile before a check.
-ABOUT = [app('copilot-reel', f'{APP_VERSION} · {AUTHOR}'), app('github', 'GitHub'), cmd('auto-check:on', 'Auto-check'),
+# About at its defaults: the reel's own mark named by the version, GitHub's mark named by the author (it
+# opens the repository), Auto-check on, Auto-install off and the update tile before a check.
+ABOUT = [app('copilot-reel', APP_VERSION), app('github', AUTHOR), cmd('auto-check:on', 'Auto-check'),
          cmd('auto-install:off', 'Auto-install'), cmd('check-update', 'Check for updates')]
 PRESETS = [app('chatgpt', 'ChatGPT / Codex'), app('claude', 'Claude Desktop'), app('claude', 'Claude Science'),
            app('antigravity', 'Antigravity'), app('zcode', 'ZCode'), cmd('add', 'Custom app'), cmd('next', 'Next')]
@@ -243,16 +244,17 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
     covering part of it."""
     n = len(st.items)
     with s.group(C * (1 - st.root_scale), C * (1 - st.root_scale), st.root_scale, st.root_alpha):
-        # Plate: shadow, fill (or backdrop), rim.
+        # Backdrop (frosted), then the base surface: shadow, fill (solid only), rim.
         with s.group(alpha=st.plate_alpha):
-            if th.shadowOpacity > 0 and st.shadow:
-                img, left, top, size = art.shadow(PLATE_R, SHADOW_BLUR, SHADOW_DY, th.shadowOpacity, PLATE_R - 1)
-                s.image(img, C + left, C + top, size, size)
-            if th.frosted and backdrop is not None:
+            frosted = th.frosted and backdrop is not None
+            if frosted:
                 img, box = backdrop if isinstance(backdrop, tuple) else (backdrop, (0, 0, CANVAS, CANVAS))
                 with s.clip_circle(C, C, PLATE_R):
                     s.image(img, *box)
-            else:
+            if th.shadowOpacity > 0 and st.shadow:
+                img, left, top, size = art.shadow(PLATE_R, SHADOW_BLUR, SHADOW_DY, th.shadowOpacity, PLATE_R - 1)
+                s.image(img, C + left, C + top, size, size)
+            if not frosted:
                 s.circle(C, C, PLATE_R, fill=th.plate)
             rim = th.plateStrokeWidth
             s.circle(C, C, PLATE_R - rim / 2, stroke=th.plateStroke, sw=rim)
@@ -264,9 +266,6 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
         ca = st.center_alpha
         if not named:
             s.circle(C, C, CENTER_R, stroke=th.ringIdle, sw=RING, alpha=ca)
-        back = st.back_alpha if st.back_alpha is not None else (1.0 if st.submenu and not named else 0.0)
-        if back > 0:
-            glyph(s, glyph_code('BackChevron'), C, C, CHEVRON['backEm'], th.secondary, back * ca)
 
         # Page: seat, items, chevrons.
         with s.group(C * (1 - st.page_scale), C * (1 - st.page_scale), st.page_scale, st.page_alpha):
@@ -304,6 +303,11 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
                 if not is_plated(it, th):
                     draw_tile(s, th, x, y)
                 draw_art(s, th, it, x, y, lang=st.lang)
+
+        # Back chevron over the handoff clone it replaces.
+        back = st.back_alpha if st.back_alpha is not None else (1.0 if st.submenu and not named else 0.0)
+        if back > 0:
+            glyph(s, glyph_code('BackChevron'), C, C, CHEVRON['backEm'], th.secondary, back * ca)
 
         if named:
             centered_text(s, label_text(text), C, C, LABEL['size'], th.foreground, 'label', st.label_alpha)

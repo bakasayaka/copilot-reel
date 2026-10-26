@@ -507,9 +507,9 @@ def p05():
     p = Page(5, 'Iconography', 'Four kinds of mark, one tile.',
              f'Command glyphs from {ICON["commandFont"]}, open marks on a keyline, plated marks at full bleed, and one generic window.')
     s = p.s
-    cw, chh = (CW - 3 * 24) / 4, 316
+    cw, chh = (CW - 3 * 24) / 4, 274
     y0 = TOP + 8
-    k = 4.0
+    k = 3.0
     classes = [
         ('Command', R.cmd('add', 'Add'), f'{ICON["commandFont"]} at em {f(GLYPH_EM)}, centered on the glyph\'s ink bounds, '
          f'in foreground. Vector fallback strokes {f(G["glyph"]["fallbackStroke"])} DIP (high contrast {f(G["glyph"]["fallbackStrokeHighContrast"])}), round caps and joins.'),
@@ -524,7 +524,7 @@ def p05():
         x = ML + i * (cw + 24)
         s.rect(x, y0, cw, chh, stroke=RULE, r=12)
         heading(s, x + 18, y0 + 28, name, 14)
-        cx, cy = x + cw / 2, y0 + 148
+        cx, cy = x + cw / 2, y0 + 122
         with s.group(cx - R.C * k, cy - R.C * k, k):
             R.draw_item(s, LIGHT, it, R.C, R.C)
         t = TILE * k
@@ -545,21 +545,21 @@ def p05():
             em = GLYPH_EM * k
             s.rect(cx - em / 2, cy - em / 2, em, em, stroke=RED, sw=0.6, dash=[3, 3])
             caption(s, cx, cy - t / 2 - 12, f'U+{ICON["commandGlyphs"]["GenericApp"]} at em {f(GLYPH_EM)}', RED, 'center', 11, 'small-sb')
-        para(s, x + 18, y0 + 252, body, cw - 36, 12, 17)
+        para(s, x + 18, y0 + 206, body, cw - 36, 12, 17)
 
-    # Command glyph map
-    y = y0 + chh + 34
+    # Command glyph map: four rows of seven at a 72 pitch; the last row's tiles end above BOTTOM.
+    y = y0 + chh + 38
     heading(s, ML, y, 'Command glyph map', 14)
     caption(s, ML + 160, y, f'{ICON["commandFont"]} code points from tokens iconography.commandGlyphs; fallback {ICON["commandFontFallback"]}, '
             'then vector paths. The badge check is always a path.', INK2, size=12)
     glyphs = list(ICON['commandGlyphs'].items())
     per_row = 7
     gw = CW / per_row
-    kk = 1.5
+    kk = 1.4
     small = {'ChevronLeftSmall', 'ChevronRightSmall', 'BackChevron'}
     for i, (name, code) in enumerate(glyphs):
         x = ML + (i % per_row) * gw
-        yy = y + 22 + (i // per_row) * 100
+        yy = y + 18 + (i // per_row) * 72
         cx, cy = x + 36, yy + 36
         em = CHEVRON['backEm'] if name == 'BackChevron' else CHEVRON['em'] if name in small else GLYPH_EM
         with s.group(cx - R.C * kk, cy - R.C * kk, kk):
@@ -571,8 +571,11 @@ def p05():
         s.text(x + 74, yy + 28, name, 12, INK, face='small-sb')
         s.text(x + 74, yy + 44, f'U+{code}', 11.5, INK2, face='mono')
         note = ICON['commandGlyphNotes'].get(name, '').split(' (')[0].split(' at ')[0].split(';')[0]
+        # The Segoe Fluent name, from the notes that cover several glyphs at once (Tray, Switch, Update).
         note = {'ChevronLeftSmall': 'ChevronLeft', 'ChevronRightSmall': 'ChevronRight', 'GenericApp': 'window',
-                'Previous': 'ChevronLeft', 'Next': 'ChevronRight'}.get(name, note or name)
+                'Previous': 'ChevronLeft', 'Next': 'ChevronRight', 'TrayPreview': 'View', 'TraySettings': 'Settings',
+                'TrayDiagnostics': 'Diagnostic', 'TrayExit': 'PowerButton', 'SwitchOn': 'ToggleFilled',
+                'SwitchOff': 'ToggleLeft', 'CheckUpdate': 'Refresh', 'CheckFailed': 'SyncError'}.get(name, note or name)
         s.text(x + 74, yy + 59, f'{note}  ·  em {f(em)}', 10.5, INK3, face='small')
     return p
 
@@ -800,7 +803,7 @@ def p09():
         'main': (xs[0], mid, 'Main', 'apps and +', R.State(R.MAIN, preferred=0)),
         'hub': (xs[1], mid, '+ hub', 'language, appearance, reel size, tray icon, manage, add, about', R.State(R.HUB, language=True, submenu=True)),
         'manage': (xs[2], top, 'Manage apps', 'apps and Add app', R.State(R.MANAGE, preferred=0, submenu=True)),
-        'about': (xs[2], bot, 'About', 'the reel, GitHub, two switches, updates', R.State(R.ABOUT, submenu=True)),
+        'about': (xs[2], bot, 'About', 'the version, the author on GitHub, two switches, updates', R.State(R.ABOUT, submenu=True)),
         'presets': (xs[3], top, 'Presets', 'five per page, Custom, paging', R.State(R.PRESETS, submenu=True)),
         'entry': (xs[3], bot, 'App actions', 'the app, edit, set as preferred, remove', R.State(R.ENTRY, preferred=0, submenu=True)),
     }
@@ -1194,7 +1197,7 @@ def p13():
     caption(s, x2, y + 24 + 5 * 16 + 6, 'or capabilities change.', INK3, size=11)
     yl = y + 150
     heading(s, ML, yl, 'Layers, back to front', 13.5)
-    layers = ['shadow', 'backdrop', 'plate + rim', 'ring', 'seat', 'page items', 'handoff', 'labels ×2']
+    layers = ['backdrop', 'shadow + plate + rim', 'ring', 'seat', 'page items', 'handoff', 'back + trash', 'labels ×2']
     lw = (CW - 7 * 8 - 170) / 8
     for i, name in enumerate(layers):
         x = ML + 170 + i * (lw + 8)
