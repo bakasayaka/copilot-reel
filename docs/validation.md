@@ -1,6 +1,17 @@
 # Validation status
 
-Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.11**. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.12**, a development install of `main`; the latest release is 0.3.11. This records demonstrated behavior and its limits, not full release acceptance.
+
+## Verified in v0.3.12
+
+0.3.12 paints every composition surface in a bitmap of its own and copies it into the atlas (`PaintLocal`, `src/surface_paint.h`), so the stills no longer move when surfaces are added or removed.
+
+| Area | Evidence and scope |
+| --- | --- |
+| Cause | `Paint` drew each surface in place in the composition atlas, with the atlas offset as a single-precision DIP translation (offset × 96 / DPI). Pixel snapping (`Snap` in `src/artwork.cpp`) and DirectWrite's glyph positions saw that translation's rounding error, so a mark or name exactly half a device pixel off the grid could round either way, and the result changed with the atlas layout: between 0.3.10 and 0.3.11 the removed gate surfaces moved several tiles and names by one pixel. Now `draw` sees its own surface at the origin with no transform, and the finished bitmap is copied pixel for pixel. |
+| Atlas independence | `iconography_tests` (227 checks) draws GitHub's mark, the generic glyph and a name, stepped in eighths of a device pixel, at 154 and 77 DPI (a 0.8 reel at 200% and 100%) and at eight atlas offsets up to 4093 px: through `PaintLocal` every offset gives the pixels of the origin; drawn in place as before, 14 of the 16 differ. |
+| Interaction | `tests/run-reel-seam.py` passed all 13 groups. |
+| Rendering against 0.3.11 | `output/runtime/v0.3.12`: 94 of 105 stills differ from v0.3.11, all at half-pixel ties that now resolve one way. Marks of odd size in even tiles move by one pixel inside an unchanged tile (for example Gemini at 100% and 150%); names and the EN and 100% monograms keep their baseline and change only the anti-aliasing of their top row. Names and marks stay within half a pixel of their centers, as before. The stills of a build before the version bump matched the published set pixel for pixel, and a regression run passed against it, frosted stills included. |
 
 ## Verified in v0.3.11
 

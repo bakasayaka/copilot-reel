@@ -2,10 +2,12 @@
 #include "artwork.h"
 #include "iconography.h"
 #include "official_icons.h"
+#include "surface_paint.h"
 #include "vi_tokens.h"
 #include <d2d1_1.h>
 #include <d2d1_1helper.h>
 #include <d3d11.h>
+#include <dwrite.h>
 #include <dxgi.h>
 #include <shlobj.h>
 #include <shobjidl.h>
@@ -73,6 +75,39 @@ public:
         }
         winrt::check_hresult(readable->Unmap());
         if(result.visible){result.centerX=static_cast<float>(sumX/result.visible/scale);result.centerY=static_cast<float>(sumY/result.visible/scale);}
+        return result;
+    }
+    // Paints `draw` as the renderer paints a composition surface of `width` x `height` pixels kept
+    // at `offset` in an atlas, and returns that region's pixels. `local` is reel::PaintLocal; without
+    // it the content is drawn in place, its offset a DIP translation, as the renderer did through 0.3.11.
+    template<class Draw>
+    std::vector<BYTE> Surface(POINT offset,UINT width,UINT height,float dpi,bool local,Draw&& draw) {
+        winrt::com_ptr<ID2D1DeviceContext> context;
+        winrt::check_hresult(device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,context.put()));
+        const auto format=D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,D2D1_ALPHA_MODE_PREMULTIPLIED);
+        const auto atlasSize=D2D1::SizeU(offset.x+width+3,offset.y+height+3);
+        winrt::com_ptr<ID2D1Bitmap1> atlas,readable;
+        winrt::check_hresult(context->CreateBitmap(atlasSize,nullptr,0,
+            D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET|D2D1_BITMAP_OPTIONS_CANNOT_DRAW,format),atlas.put()));
+        winrt::check_hresult(context->CreateBitmap(D2D1::SizeU(width,height),nullptr,0,
+            D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_CPU_READ|D2D1_BITMAP_OPTIONS_CANNOT_DRAW,format),readable.put()));
+        context->SetTarget(atlas.get());
+        context->BeginDraw();
+        context->Clear(D2D1::ColorF(0,0.f));
+        if(local)reel::PaintLocal(context.get(),offset,width,height,dpi,draw);
+        else {
+            context->SetDpi(dpi,dpi);
+            context->SetTransform(D2D1::Matrix3x2F::Translation(offset.x*96.f/dpi,offset.y*96.f/dpi));
+            draw(context.get());
+        }
+        winrt::check_hresult(context->EndDraw());
+        const D2D1_POINT_2U origin{0,0};
+        const D2D1_RECT_U region{static_cast<UINT32>(offset.x),static_cast<UINT32>(offset.y),offset.x+width,offset.y+height};
+        winrt::check_hresult(readable->CopyFromBitmap(&origin,atlas.get(),&region));
+        D2D1_MAPPED_RECT pixels{};winrt::check_hresult(readable->Map(D2D1_MAP_OPTIONS_READ,&pixels));
+        std::vector<BYTE> result;
+        for(UINT y=0;y<height;++y)result.insert(result.end(),pixels.bits+y*pixels.pitch,pixels.bits+y*pixels.pitch+width*4);
+        winrt::check_hresult(readable->Unmap());
         return result;
     }
 private:
@@ -215,6 +250,42 @@ int main() {
         "a network target keeps its vendor mark or the generic glyph");
     Glyph glyph{};
     Check(!CommandGlyph(Target(L"reel:language"),true,glyph),"the language monogram is drawn by the renderer");
+
+    // A surface's pixels never depend on where the atlas keeps it. The content steps a raster mark,
+    // a font glyph and a name through sixteen positions an eighth of a device pixel apart, so some
+    // land exactly half a pixel off the grid, at the 154 and 77 DPI of a 0.8 reel on 200% and 100%.
+    winrt::com_ptr<IDWriteFactory> write;
+    winrt::check_hresult(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),reinterpret_cast<IUnknown**>(write.put())));
+    winrt::com_ptr<IDWriteTextFormat> format;
+    winrt::check_hresult(write->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,13,L"en-us",format.put()));
+    const auto github=Target(L"reel:github"),generic=Target(L"C:\\Tools\\no-icon-tool.exe");
+    PrepareArtwork({github,generic},154);PrepareArtwork({github,generic},77);
+    unsigned placed=0,shifted=0;
+    for(const float dpi:{154.f,77.f}) {
+        const float pixel=96/dpi;
+        const UINT width=static_cast<UINT>(std::ceil(16*48*dpi/96)),height=static_cast<UINT>(std::ceil(96*dpi/96));
+        const auto content=[&](ID2D1DeviceContext* context) {
+            context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+            winrt::com_ptr<ID2D1SolidColorBrush> brush;
+            winrt::check_hresult(context->CreateSolidColorBrush(D2D1::ColorF(1,1,1,1),brush.put()));
+            for(int i=0;i<16;++i) {
+                const float x=4+i*48+i*pixel/8;
+                DrawArtwork(context,github,D2D1::RectF(x,4,x+40,44),ArtworkStyle{dpi,true,false,D2D1::ColorF(1,1,1,1)});
+                DrawArtwork(context,generic,D2D1::RectF(x+.5f*pixel,48,x+40+.5f*pixel,88),ArtworkStyle{dpi,true,false,D2D1::ColorF(1,1,1,1)});
+                context->DrawText(L"Claude",6,format.get(),D2D1::RectF(x,88-pixel*i/8,x+48,104),brush.get());
+            }
+        };
+        const auto reference=canvas.Surface({0,0},width,height,dpi,true,content);
+        const auto inPlace=canvas.Surface({0,0},width,height,dpi,false,content);
+        Check(reference==inPlace,"at the atlas origin both ways draw the same pixels");
+        for(const POINT offset:{POINT{1,0},POINT{0,1},POINT{3,5},POINT{517,33},POINT{1999,7},POINT{2731,101},POINT{3001,2},POINT{4093,17}}) {
+            Check(canvas.Surface(offset,width,height,dpi,true,content)==reference,"a surface's pixels do not depend on its place in the atlas");
+            ++placed;
+            if(canvas.Surface(offset,width,height,dpi,false,content)!=reference)++shifted;
+        }
+    }
     ReleaseArtwork(nullptr);
-    std::cout<<"Iconography tests passed: "<<checks<<" checks; target identity, artwork classes, tile clipping and command glyphs.\n";
+    std::cout<<"Iconography tests passed: "<<checks<<" checks; target identity, artwork classes, tile clipping and command glyphs; "
+             <<"surfaces identical at "<<placed<<" atlas offsets (drawn in place, "<<shifted<<" of them would differ).\n";
 }

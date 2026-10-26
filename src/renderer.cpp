@@ -2,6 +2,7 @@
 #include "acrylic.h"
 #include "artwork.h"
 #include "display_names.h"
+#include "surface_paint.h"
 #include "typography.h"
 #include "vi_tokens.h"
 
@@ -491,12 +492,14 @@ struct OrbitRenderer::Impl {
         // EndDraw is required after every successful BeginDraw, including errors.
         HRESULT drawResult = S_OK;
         try {
-            context->SetDpi(static_cast<float>(dpi), static_cast<float>(dpi));
-            const float toDip = 96.0f / static_cast<float>(dpi);
-            context->SetTransform(D2D1::Matrix3x2F::Translation(offset.x * toDip, offset.y * toDip));
+            // Cleared first, so a failed draw leaves nothing behind.
             context->Clear(D2D1::ColorF(0, 0.0f));
-            context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
-            draw(context.get());
+            const auto size = surface.Size();
+            PaintLocal(context.get(), offset, static_cast<UINT>(size.Width), static_cast<UINT>(size.Height), static_cast<float>(dpi),
+                [&](ID2D1DeviceContext* local) {
+                    local->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+                    draw(local);
+                });
         } catch (...) { drawResult = winrt::to_hresult(); }
         const HRESULT endResult = interop->EndDraw();
         winrt::check_hresult(drawResult);

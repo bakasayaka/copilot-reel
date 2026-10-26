@@ -1309,7 +1309,7 @@ public:
         const wchar_t* adjustName=!adjust.control?L"none":adjust.earlier && adjust.later?L"both":adjust.earlier?L"earlier":adjust.later?L"later":L"blocked";
         std::wstring parkedNames;
         for(const auto& app:parked_)parkedNames+=(parkedNames.empty()?L"":L"|")+AppDisplayName(app);
-        text<<L"Copilot Reel 0.3.11\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
+        text<<L"Copilot Reel 0.3.12\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
             <<L"\r\nanimations="<<currentAppearance_.animations<<L"\r\nhighContrast="<<currentAppearance_.highContrast<<L"\r\ntargetCount="<<items_.size()
             <<L"\r\nmenuPage="<<static_cast<int>(page_)<<L"\r\nmenuEntries="<<menu_.size()<<L"\r\npresetOffset="<<presetOffset_
             <<L"\r\npreferredIndex="<<PreferredTargetIndex(items_)<<L"\r\ngestureActive="<<gesture_.Active()

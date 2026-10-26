@@ -112,7 +112,7 @@ The renderer keeps one composition tree per window, back to front:
 5. Handoff layer for the tile that travels to the center on drill-in.
 6. Back chevron, the drag trash (idle and armed sprites) and two center-label sprites for crossfades.
 
-Every surface has an even device-pixel size and a snapped offset, so items, tiles and hairlines land on the pixel grid at 100-250% scale; hit testing keeps exact geometry. Item artwork is rasterized once per identity, theme and DPI; selection and hover never redraw it. The idle reel produces no surface draws and no running expressions: the seat's expression stops when its travel settles, when the seat hides mid-travel, and on every reset. Updates that arrive during the exit animation are deferred until the next opening. Device loss replaces the rendering device in place and redraws everything once.
+Every surface has an even device-pixel size and a snapped offset, so items, tiles and hairlines land on the pixel grid at 100-250% scale; hit testing keeps exact geometry. Each surface is painted in a bitmap of its own and copied into the composition atlas (`PaintLocal`, `src/surface_paint.h`), so its pixels never depend on where the atlas keeps it. Item artwork is rasterized once per identity, theme and DPI; selection and hover never redraw it. The idle reel produces no surface draws and no running expressions: the seat's expression stops when its travel settles, when the seat hides mid-travel, and on every reset. Updates that arrive during the exit animation are deferred until the next opening. Device loss replaces the rendering device in place and redraws everything once.
 
 ## Motion
 

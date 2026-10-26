@@ -14,7 +14,8 @@ every changed pixel is counted either way.
 0.3.6 draws the reel at 0.8 of its DIP geometry, so 0.3.4 and 0.3.5 stills are no longer comparable, and
 0.3.7 adds Reel size and 0.3.8 About to the hub, 0.3.9 sets text below 13 px in Segoe UI Variable Small
 and widens the name line, 0.3.10 draws the probe apps, which carry no icon, as the generic glyph, and 0.3.11
-adds Tray icon to the hub and drops the center gate: the reference set is output/runtime/v0.3.11, published
+adds Tray icon to the hub and drops the center gate, and 0.3.12 paints every surface in its own bitmap, so
+half-pixel ties no longer depend on the composition atlas: the reference set is output/runtime/v0.3.12, published
 with --no-reference. Frosted stills show what lies behind the window, so they match only while that stays
 the same.
 
@@ -31,7 +32,7 @@ tolerance or has another size, when a reference state has no reference image, wh
 their identities, or when a variant cannot be captured. --no-reference records every still without a
 comparison, to publish a new reference set after a deliberate visual change.
 
-    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.11]
+    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.12]
         [--output output/runtime/vX.Y.Z] [--variants dark-solid,light-solid,...] [--tolerance 2] [--no-reference]
 
 Without --output the stills go to the run's evidence directory under artifacts/qa.
@@ -342,7 +343,7 @@ def describe(comparison):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--reference', default='output/runtime/v0.3.11')
+    parser.add_argument('--reference', default='output/runtime/v0.3.12')
     parser.add_argument('--no-reference', action='store_true',
                         help='Record every still without comparing it, to publish a new reference set.')
     # Routine runs write to the evidence directory; publishing a version's stills to
