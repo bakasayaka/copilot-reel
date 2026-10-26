@@ -247,7 +247,7 @@ The same session scanned every blob, commit and tag in the history for personal 
 | Where | What | Now |
 | --- | --- | --- |
 | Author of the merge commit of pull request #1 | the maintainer's personal email address (GitHub used the account's primary email for the web merge) | the GitHub noreply address `60833924+bakasayaka@users.noreply.github.com`, as in every other commit |
-| `AGENTS.md` and `CLAUDE.md` | the agents' rules together with a private handoff log: session IDs and transcript paths (one held the contributor's Windows user name), the maintainer's apps and configuration, the local signing and release procedure | removed from every commit and ignored (`.gitignore`); they stay on each machine |
+| `AGENTS.md` and `CLAUDE.md` | the agents' rules together with a private handoff log: session IDs and transcript paths (one held the contributor's Windows user name), the maintainer's apps and configuration, the local signing and release procedure | every old version removed from the history; `AGENTS.md` is committed again with the rules and settled decisions only, and the handoff log stays on each machine in `AGENTS.local.md`, which `.gitignore` excludes |
 | `docs/validation.md` | the contributor's PC model | "an ARM64 Windows 11 PC" |
 | `docs/testing-plan.md`, `docs/toolchain.md`, `docs/validation.md` | the absolute path of another local workspace | "a separate checkout outside this repository" / `trace-code-bridge` |
 
@@ -280,6 +280,6 @@ All binary metadata was clean: the PDFs name the author "anonymous", and the cap
    - The read-only ref `refs/pull/1/head` keeps the contributor's commits, which still carry `AGENTS.md` with their path.
 
    Only GitHub Support can remove cached views and run garbage collection on these.
-4. **Email setting.** Until "Keep my email addresses private" is on in GitHub's email settings, a merge made on the GitHub website records the account's primary address again.
+4. **Email setting.** The owner keeps the address public on the GitHub profile, which the "Keep my email addresses private" setting would hide too. A merge made on the GitHub website therefore records that address again, and the owner accepts this. The rewritten merge commit stays as it is.
 5. **The fork.** `CreeperUX/copilot-reel` has its own copy of the history from before the merge. Only its owner can rewrite it.
-6. **Old clones.** A clone made before the rewrite shares no commits with the new history. Copy `AGENTS.md` and `CLAUDE.md` aside before `git fetch` and `git reset --hard origin/main`: the reset deletes them, because the old commit tracks them.
+6. **Old clones.** A clone made before the rewrite shares no commits with the new history. Copy the old `AGENTS.md` aside before `git fetch` and `git reset --hard origin/main`: the reset replaces it with the rules-only version. Its handoff log goes into `AGENTS.local.md`.
