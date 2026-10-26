@@ -52,7 +52,7 @@ The generator never writes `tokens.json`. Scenes use the token accent fallbacks;
 | Adjust chevrons | ChevronLeft/Right (E76B/E76C) at em 14, centers (+-40, -112), hit 40 x 40, flanking slot 0, the EN/ZH/JA tile on the + hub; `secondary`, `foreground` while slot 0 is selected |
 | Back chevron | E76B at em 14, `secondary`, idle submenus only |
 | Drag trash | Manage apps, only while a tile is lifted: Remove (E74D) at em 20 in `critical` inside a `critical` ring of 1.5 at the center-zone edge (r 44); armed (pointer inside r 44): a `criticalFill` disc r 30 with the glyph in `textOnCritical`, over the shrunken tile; disabled at 0.36 while one app remains |
-| Center name | 14 DIP / 600 (never below 11 device pixels), one line, 160 x 20 box on the plate center (the box grows with a raised size) |
+| Center name | 14 DIP / 600 (never below 10 device pixels), one line, 160 x 20 box on the plate center (the box grows with a raised size) |
 | Shadow | blur 16 (std dev 8), offset y 8; knocked out under the plate |
 | Pixel grid | centers, tiles and seats snap to device pixels; hairlines at least 1 px; hit testing keeps exact geometry |
 

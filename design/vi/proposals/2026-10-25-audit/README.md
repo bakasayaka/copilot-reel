@@ -119,7 +119,7 @@ Severity is high, medium (M) or low (L). Nothing in the reel itself is high.
 
 ## Proposals for VI v1.0
 
-Every proposal stays inside the project's settled design decisions. Only P1 touches one of them (the size steps), and only to bound text, so it needed the user's approval before any code changes. The user approved P1 on 2026-10-25; the others are not implemented.
+Every proposal stays inside the project's settled design decisions. Only P1 touches one of them (the size steps), and only to bound text, so it needed the user's approval before any code changes. The user approved P1 on 2026-10-25. By 0.3.12, P1 and the A1 part of P8 have shipped and the tray icon covers part of P3; the second audit (`../2026-10-26-reaudit/README.md`) tracks the rest.
 
 ### P1. A legibility floor for text
 
@@ -136,10 +136,10 @@ The center line widens from 132 to 160 DIP, which still clears the side seats: t
 
 - **Tokens:** `typography.minimumPx` (label 10, monogram 9, maxGrowth 1.5; the label floor was lowered from the proposed 11 px after the Windows check, because 11 px trimmed Visual Studio Code at the 70% step), `typography.small` (Segoe UI Variable Small below 13 px), `geometry.badge.dotMinimumPx` 3, and `typography.applicationLabel.width` 160, generated into `src/vi_tokens.h`.
 - **Code:** `FloorDip` and `TextFamilyForPx` in `src/typography.h`. In `src/renderer.cpp`, one text style per role with its own face and cap height, rebuilt on DPI change. The update dot never grows past the check's disc.
-- **Not needed:** the badge check already never drops below 1 px, because its stroke is rounded to whole device pixels. The 14 → 13 DIP step is dropped, since the 160 DIP line already fits both names that 132 trimmed.
+- **Not needed:** the badge check already never drops below 1 px, because its stroke is rounded to whole device pixels. The 14 → 13 DIP step is dropped: at 14 DIP the 160 DIP line fits both names that 132 trimmed. That holds only where the floor does not raise the size; at the 70% step on a 100% display long names still trim (see the second audit).
 - **Windows check:** see `docs/validation.md`, v0.3.9.
 
-![Center name per size step, current and with an 11 px floor](type-floor.png)
+![Center name per size step, current and with an 11 px floor (the mockup predates the shipped 10 px floor)](type-floor.png)
 
 ### P2. One cutout rule for every badge
 
@@ -223,7 +223,7 @@ Files: `tools/record-demos.py`, `tools/readme-art.py`, `README*.md`.
 ### P11. Regenerate the VI as v1.0, with a guard against drift
 
 - **Content:**
-  - Regenerate the scenes for 0.3.8: the six-item hub, About with switches, update dot and Invertocat, Reel size, drag and the armed trash, the JA monogram, and critical roles on page 3.
+  - Regenerate the scenes for 0.3.8 and later: the hub (seven items since 0.3.11, with Tray icon), About with switches, update dot and Invertocat, Reel size, drag and the armed trash, the JA monogram, and critical roles on page 3.
   - Drop the Preferred page and masters.
   - Fix the page 5 grid and the Appearance wording.
 - **Contrast:** quote fallback and live-ramp ratios side by side, and add light-100 and light-150 captures to `tools/capture-seam.py`, with WCAG ratios in its `summary.json`.
