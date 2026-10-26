@@ -2,6 +2,25 @@
 
 Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.12**, the package published as `v0.3.12`. This records demonstrated behavior and its limits, not full release acceptance.
 
+## Second-audit fixes, not yet verified on Windows
+
+The fixes for findings N1 to N15 of the second design audit (`design/vi/proposals/2026-10-26-reaudit/README.md`) were written in a Linux container: every changed C++ file passed a syntax check against the Windows SDK headers, the token header regenerates unchanged, `tools/check-versions.ps1` passed and failed as it should, and the orbit mark's new geometry was rasterized in Python at every tray size and reel DPI below. Nothing was built or run on Windows, so each row says what still has to be shown there.
+
+| Fix | What to show on Windows |
+| --- | --- |
+| N1: state tiles turn over in place (`SameStructure` compares slots, not states; `UpdateInPlace` crossfades the art and brings the neutral tile in or out) | Seam group `hub` and the About group report `transition=in-place` after Tray icon and Auto-install are chosen; by hand, the seat neither fades in again nor scales. |
+| N2: About's switches are Auto-check and Auto-install, a failed update names only what failed, and the Japanese update tile reads 更新 <version> | `typography_tests` lays out every name the reel gives a tile in all three languages at every size step and 100-200% scaling and fails on any wider than 160 DIP; its output also lists, without failing, catalog names and About's `<version> · baka_sayaka` where they trim (expected: the author tile and DeepSeek Harness (DSH) at the 70% step on a 100% display). |
+| N3, N5, N10: the monochrome mark on whole pixels (`MeasureOrbitMark` in `src/orbit_mark.h`) | `tray_icon_tests` at 16, 20, 24, 28, 32, 36, 40, 48, 56 and 64 px: the outer ring solid (alpha 230 or more) at top, bottom and sides with clear pixels on either side, the inner ring only from a 2 px stroke. The simulation gives a minimum ring alpha of 0.98 and a clear neighbour of at most 6/255. |
+| N6: the hub's monochrome mark as wide as the color mark (28.75 DIP) | `iconography_tests`: ink within one device pixel of 28.75 DIP at 54, 96 and 192 DPI. A new `hub-tray` reference still in every variant. |
+| N4: the tray icon is added before `Reload` | By hand: a broken `apps.ini` at start shows the "needs attention" balloon. |
+| N7: 单色图标 | The tray menu in Chinese. |
+| N8: the tray menu follows the Windows mode | By hand, with dark Windows and light apps: the tray menu opens dark with light glyphs, and the quick menu's own menus stay light. Windows' own notification-area menus were taken to follow the Windows mode; confirm it beside the volume or network icon's menu. |
+| N9: a smoke instance's tray icon carries no GUID | By hand: `CopilotReel.exe --smoke-test` beside the installed reel leaves the installed icon in place; its diagnostics report `trayIconGuid=0`. |
+| N13: one version | `tools/test.ps1` runs `tools/check-versions.ps1` first; About, the quick menu's About and diagnostics show 0.3.12 from the executable's resources. |
+| N14: a local shortcut to a share is not looked up | `iconography_tests`: two local shortcuts, one to `\\copilot-reel-no-such-host\share\tool.exe` and one with its icon there, prepare in under a second and keep the generic glyph. |
+| N11, N12: recordings and reference stills | `tools/record-demos.py` records About at the version in `AppxManifest.xml` and offers the next one; `tools/capture-seam.py` pins 0.0.0 and adds light-100, light-150, dark-100-70, dark-100-zh and dark-100-ja with each name's WCAG contrast. The reference set must be published again (`--no-reference --output output/runtime/v<version>`) and the README GIFs recorded again, since the hub-tray, About and switch stills change. |
+| N15: the orbit mark's token, the clearance test with the badge ring and snapping, `PaintLocal`'s reused bitmap | `typography_tests`, `iconography_tests` (the scratch bitmap draws the same pixels and is kept for a surface of the same size) and `tools/generate-assets.py`, which reads `iconography.orbitMark` and wrote byte-identical assets before and after the change. |
+
 ## Verified in v0.3.12
 
 0.3.12 paints every composition surface in a bitmap of its own and copies it into the atlas (`PaintLocal`, `src/surface_paint.h`), so the stills no longer move when surfaces are added or removed.

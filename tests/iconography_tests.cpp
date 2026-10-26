@@ -29,7 +29,7 @@ reel::AppTarget Target(const wchar_t* target,const wchar_t* name=L"Renamed entry
     return {name,kind,target,L"",L""};
 }
 
-struct Raster { uint64_t hash=0; unsigned visible=0,outsideTile=0,inCorners=0; float centerX=0,centerY=0; };
+struct Raster { uint64_t hash=0; unsigned visible=0,outsideTile=0,inCorners=0; float centerX=0,centerY=0,inkWidth=0,inkHeight=0; };
 
 // Headless WARP device context, so the production DrawArtwork path (per-DPI prescale,
 // tile clip, Segoe Fluent Icons) is exercised without a window.
@@ -62,11 +62,13 @@ public:
         Raster result;result.hash=14695981039346656037ull;
         const float scale=dpi/96,tileLeft=12*scale,tileRight=52*scale,radius=reel::vi::kTileRadius*scale;
         double sumX=0,sumY=0;
+        UINT left=edge,top=edge,right=0,bottom=0;
         for(UINT y=0;y<edge;++y)for(UINT x=0;x<edge;++x) {
             const BYTE* pixel=pixels.bits+y*pixels.pitch+x*4;
             for(unsigned channel=0;channel<4;++channel){result.hash^=pixel[channel];result.hash*=1099511628211ull;}
             if(pixel[3]<8)continue;
             ++result.visible;sumX+=x+.5;sumY+=y+.5;
+            left=std::min(left,x);right=std::max(right,x);top=std::min(top,y);bottom=std::max(bottom,y);
             const float px=x+.5f,py=y+.5f;
             if(px<tileLeft || px>tileRight || py<tileLeft || py>tileRight)++result.outsideTile;
             // Beyond the r10 corner arc of the tile shape.
@@ -74,14 +76,15 @@ public:
             if((px-cx)*(px-cx)+(py-cy)*(py-cy)>(radius+1)*(radius+1))++result.inCorners;
         }
         winrt::check_hresult(readable->Unmap());
-        if(result.visible){result.centerX=static_cast<float>(sumX/result.visible/scale);result.centerY=static_cast<float>(sumY/result.visible/scale);}
+        if(result.visible){result.centerX=static_cast<float>(sumX/result.visible/scale);result.centerY=static_cast<float>(sumY/result.visible/scale);
+            result.inkWidth=(right-left+1)/scale;result.inkHeight=(bottom-top+1)/scale;}
         return result;
     }
     // Paints `draw` as the renderer paints a composition surface of `width` x `height` pixels kept
     // at `offset` in an atlas, and returns that region's pixels. `local` is reel::PaintLocal; without
     // it the content is drawn in place, its offset a DIP translation, as the renderer did through 0.3.11.
     template<class Draw>
-    std::vector<BYTE> Surface(POINT offset,UINT width,UINT height,float dpi,bool local,Draw&& draw) {
+    std::vector<BYTE> Surface(POINT offset,UINT width,UINT height,float dpi,bool local,Draw&& draw,reel::PaintScratch* scratch=nullptr) {
         winrt::com_ptr<ID2D1DeviceContext> context;
         winrt::check_hresult(device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,context.put()));
         const auto format=D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,D2D1_ALPHA_MODE_PREMULTIPLIED);
@@ -94,7 +97,7 @@ public:
         context->SetTarget(atlas.get());
         context->BeginDraw();
         context->Clear(D2D1::ColorF(0,0.f));
-        if(local)reel::PaintLocal(context.get(),offset,width,height,dpi,draw);
+        if(local)reel::PaintLocal(context.get(),offset,width,height,dpi,draw,scratch);
         else {
             context->SetDpi(dpi,dpi);
             context->SetTransform(D2D1::Matrix3x2F::Translation(offset.x*96.f/dpi,offset.y*96.f/dpi));
@@ -214,7 +217,7 @@ int main() {
         Check(canvas.Draw(Target(L"reel:appearance"),dpi,false).hash!=canvas.Draw(Target(L"reel:appearance"),dpi,true).hash,
             "appearance shows the sun in light and the moon in dark");
         // The hub's Tray icon shows the tray icon it chose: the reel's plated color mark, or the mark
-        // alone, centered at the size of a command glyph.
+        // alone, centered and as wide as the color mark's rings, so only the color changes.
         const auto trayColor=Target(L"reel:tray-icon:color"),trayMono=Target(L"reel:tray-icon:monochrome");
         PrepareArtwork({trayColor,trayMono},dpi);
         const auto color=canvas.Draw(trayColor,dpi),mono=canvas.Draw(trayMono,dpi);
@@ -223,8 +226,15 @@ int main() {
         Check(color.hash==canvas.Draw(Target(L"reel:author"),dpi).hash,"it is the mark About shows");
         Check(ClassifyArtwork(trayMono)==ArtworkClass::Command && mono.visible>20 && mono.outsideTile==0 &&
             std::abs(mono.centerX-32)<2.5f && std::abs(mono.centerY-32)<2.5f,"a monochrome tray icon is the mark alone, centered");
+        const float markExtent=vi::kTile*vi::kOrbitMarkExtent/vi::kOrbitMarkCanvas;
+        Check(std::abs(mono.inkWidth-markExtent)<=96/dpi && std::abs(mono.inkHeight-markExtent)<=96/dpi,
+            "the mark alone is as wide as the color mark's rings");
         Check(mono.hash!=color.hash && mono.hash!=canvas.Draw(Target(L"reel:about"),dpi).hash,"the two tray icons and About stay distinct");
     }
+    // At the 70% step on a 100% display (54 DPI) the mark keeps its width, with a one-pixel stroke.
+    const auto smallest=canvas.Draw(Target(L"reel:tray-icon:monochrome"),54);
+    Check(std::abs(smallest.inkWidth-vi::kTile*vi::kOrbitMarkExtent/vi::kOrbitMarkCanvas)<=96/54.f && smallest.outsideTile==0,
+        "the mark alone keeps its width at the smallest step");
     // Catalog entries that still need a target all have an empty one; their catalog name picks the
     // mark, so they must never share artwork (0.3.5 drew Antigravity's for JetBrains IDE and Junie).
     const std::vector<AppTarget> pending{Target(L"",L"Antigravity"),Target(L"",L"JetBrains IDE"),Target(L"",L"Junie"),
@@ -248,6 +258,29 @@ int main() {
     Check(GetTickCount64()-before<1000,"preparing network targets does not wait on the share");
     Check(ArtworkIdentity(networkTool,false)==L"generic" && ArtworkIdentity(networkCode,false)==L"source|vscode",
         "a network target keeps its vendor mark or the generic glyph");
+    // A local shortcut to a share, or with its icon on one, is left alone the same way.
+    std::wstring networkLink(MAX_PATH,L'\0'),iconLink;
+    networkLink.resize(GetTempPathW(static_cast<DWORD>(networkLink.size()),networkLink.data()));
+    iconLink=networkLink+L"copilot-reel-network-icon-"+std::to_wstring(GetCurrentProcessId())+L".lnk";
+    networkLink+=L"copilot-reel-network-"+std::to_wstring(GetCurrentProcessId())+L".lnk";
+    {
+        winrt::com_ptr<IShellLinkW> link,icon;
+        Check(SUCCEEDED(CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(link.put()))) &&
+              SUCCEEDED(link->SetPath(L"\\\\copilot-reel-no-such-host\\share\\tool.exe")) &&
+              SUCCEEDED(link.as<IPersistFile>()->Save(networkLink.c_str(),TRUE)) &&
+              SUCCEEDED(CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(icon.put()))) &&
+              SUCCEEDED(icon->SetPath(L"C:\\Windows\\System32\\cmd.exe")) &&
+              SUCCEEDED(icon->SetIconLocation(L"\\\\copilot-reel-no-such-host\\share\\tool.ico",0)) &&
+              SUCCEEDED(icon.as<IPersistFile>()->Save(iconLink.c_str(),TRUE)),
+            "the fixture writes local shortcuts to a share");
+    }
+    const auto viaLink=Target(networkLink.c_str()),viaIcon=Target(iconLink.c_str());
+    const auto linked=GetTickCount64();
+    PrepareArtwork({viaLink,viaIcon},96);
+    Check(GetTickCount64()-linked<1000,"preparing a local shortcut to a share does not wait on the share");
+    Check(ArtworkIdentity(viaLink,false)==L"generic" && ArtworkIdentity(viaIcon,false)==L"generic",
+        "a local shortcut to a share keeps the generic glyph");
+    DeleteFileW(networkLink.c_str());DeleteFileW(iconLink.c_str());
     Glyph glyph{};
     Check(!CommandGlyph(Target(L"reel:language"),true,glyph),"the language monogram is drawn by the renderer");
 
@@ -284,6 +317,12 @@ int main() {
             ++placed;
             if(canvas.Surface(offset,width,height,dpi,false,content)!=reference)++shifted;
         }
+        // The renderer keeps the bitmap it drew into while sizes repeat; reused, it draws the same pixels.
+        reel::PaintScratch scratch;
+        Check(canvas.Surface({0,0},width,height,dpi,true,content,&scratch)==reference && scratch.bitmap,"a scratch bitmap draws the same pixels");
+        const auto* kept=scratch.bitmap.get();
+        Check(canvas.Surface({517,33},width,height,dpi,true,content,&scratch)==reference && scratch.bitmap.get()==kept,
+            "the scratch bitmap is reused for a surface of the same size");
     }
     ReleaseArtwork(nullptr);
     std::cout<<"Iconography tests passed: "<<checks<<" checks; target identity, artwork classes, tile clipping and command glyphs; "

@@ -117,7 +117,7 @@ try {
         & $compiler @flags "$projectRoot\tests\test_input_tests.cpp" "$projectRoot\src\test_input.cpp" /Fe:test_input_tests.exe /link @machineLink user32.lib
         if($LASTEXITCODE -ne 0) {throw 'Test input seam tests compilation failed.'}
         Invoke-CompiledTest 'test_input_tests.exe'
-        & $compiler @flags "$projectRoot\tests\typography_tests.cpp" "$projectRoot\src\typography.cpp" /Fe:typography_tests.exe /link @machineLink dwrite.lib windowsapp.lib ole32.lib user32.lib
+        & $compiler @flags "$projectRoot\tests\typography_tests.cpp" "$projectRoot\src\typography.cpp" "$projectRoot\src\localization.cpp" "$projectRoot\src\settings.cpp" /Fe:typography_tests.exe /link @machineLink dwrite.lib windowsapp.lib user32.lib gdi32.lib comdlg32.lib shell32.lib ole32.lib uuid.lib
         if($LASTEXITCODE -ne 0) {throw 'Typography tests compilation failed.'}
         Invoke-CompiledTest 'typography_tests.exe'
         # The package resources give the color icon its ICO and the common-controls 6 manifest.

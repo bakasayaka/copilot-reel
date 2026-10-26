@@ -137,6 +137,7 @@ if ($brandCount -eq 0) { $brandLines.Add('    {nullptr, false, 1.f, 0.f, 0.f, 1.
 $g = 'geometry'
 $m = 'motion.events'
 $f = 'systemAppearance.frosted'
+$o = 'iconography.orbitMark'
 $label = 'typography.applicationLabel'
 $lines = @(
     '// Generated from design/vi/tokens.json by tools/gen-vi-tokens.ps1. Do not edit.'
@@ -198,6 +199,12 @@ $lines = @(
     "inline constexpr wchar_t kGlyphTrayPreview = $(Glyph TrayPreview), kGlyphTraySettings = $(Glyph TraySettings), kGlyphTrayDiagnostics = $(Glyph TrayDiagnostics), kGlyphTrayExit = $(Glyph TrayExit);"
     "inline constexpr wchar_t kGlyphAbout = $(Glyph About), kGlyphSwitchOn = $(Glyph SwitchOn), kGlyphSwitchOff = $(Glyph SwitchOff), kGlyphCheckUpdate = $(Glyph CheckUpdate), kGlyphCheckFailed = $(Glyph CheckFailed), kGlyphDownload = $(Glyph Download);"
     "inline constexpr float kSwitchKnobX = $(Float "$g.switch.knobX"), kSwitchKnobRadius = $(Float "$g.switch.knobRadius");  // em of the command glyph"
+    '// The Soft Orbit mark (iconography.orbitMark) in its icon canvas; angles in degrees clockwise from 3 o''clock.'
+    "inline constexpr float kOrbitMarkCanvas = $(Float "$o.canvas"), kOrbitMarkCenter = $(Float "$o.center"), kOrbitMarkExtent = $(Float "$o.extent"), kOrbitMarkStroke = $(Float "$o.stroke");"
+    "inline constexpr float kOrbitMarkOuterRadius = $(Float "$o.outerRadius"), kOrbitMarkOuterFrom = $(Float "$o.outerFrom"), kOrbitMarkOuterTo = $(Float "$o.outerTo");"
+    "inline constexpr float kOrbitMarkInnerRadius = $(Float "$o.innerRadius"), kOrbitMarkInnerFrom = $(Float "$o.innerFrom"), kOrbitMarkInnerTo = $(Float "$o.innerTo");"
+    "inline constexpr float kOrbitMarkDotAngle = $(Float "$o.dotAngle"), kOrbitMarkDotRadius = $(Float "$o.dotRadius"), kOrbitMarkPlateRadius = $(Float "$o.plateRadius");  inline constexpr Color kOrbitMarkPlate$(Color "$o.plate");"
+    "inline constexpr float kOrbitMarkMinimumDotPx = $(Float "$o.minimumDotPx"), kOrbitMarkInnerRingFromStrokePx = $(Float "$o.innerRingFromStrokePx");"
     '// Motion (ms / unitless)'
     "inline constexpr unsigned kOpenFadeMs = $(UInt "$m.open.fadeMs"), kOpenScaleMs = $(UInt "$m.open.scaleMs");  inline constexpr float kOpenScaleFrom = $(Float "$m.open.scaleFrom");"
     "inline constexpr unsigned kCloseFadeMs = $(UInt "$m.close.fadeMs"), kCloseScaleMs = $(UInt "$m.close.scaleMs");  inline constexpr float kCloseScaleTo = $(Float "$m.close.scaleTo");"

@@ -1,14 +1,20 @@
 // The CJK font fallback as DirectWrite resolves it: which family each character maps to, by
-// locale, with and without the bundled Reel Sans JP faces next to the executable.
+// locale, with and without the bundled Reel Sans JP faces next to the executable. Then the
+// reel's text sizes, and whether every name the reel gives a tile fits the center's one line.
 #include "typography.h"
+#include "agent_catalog.h"
+#include "radial_menu.h"
 
 #include <dwrite_3.h>
 #include <winrt/base.h>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include <numbers>
 #include <string>
+#include <vector>
 
 namespace {
 using winrt::com_ptr;
@@ -101,6 +107,67 @@ bool Has(IDWriteFontCollection* collection, const wchar_t* familyName, UINT32 ch
     font->HasCharacter(character, &has);
     return has;
 }
+
+std::string Utf8(const std::wstring& text) {
+    const int size = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+    std::string result(size, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), result.data(), size, nullptr, nullptr);
+    return result;
+}
+
+// The width of `text` in DIP as the renderer lays it out at `dip` on a reel drawn at `dpi`
+// (renderer.cpp, MakeTextStyle and DrawCentered): the optical master for the drawn pixels, the
+// interface locale, the CJK fallback, and ja-JP for a name with kana. DirectWrite trims a
+// line wider than its box.
+float Width(IDWriteFactory5* factory, IDWriteFontCollection* system, IDWriteFontFallback* fallback,
+            const std::wstring& text, reel::Language language, float dip, float dpi) {
+    using namespace reel;
+    const wchar_t* family = vi::kTextFallbackFamily;
+    for (const wchar_t* name : {TextFamilyForPx(dip * dpi / 96), vi::kTextFamily, vi::kTextFallbackFamily}) {
+        UINT32 index = 0;
+        BOOL exists = FALSE;
+        if (SUCCEEDED(system->FindFamilyName(name, &index, &exists)) && exists) { family = name; break; }
+    }
+    com_ptr<IDWriteTextFormat> format;
+    winrt::check_hresult(factory->CreateTextFormat(family, nullptr, static_cast<DWRITE_FONT_WEIGHT>(vi::kTextWeight),
+        DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, dip, LocaleName(language), format.put()));
+    winrt::check_hresult(format->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP));
+    winrt::check_hresult(format.as<IDWriteTextFormat1>()->SetFontFallback(fallback));
+    com_ptr<IDWriteTextLayout> layout;
+    winrt::check_hresult(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format.get(),
+        10000, dip * 4, layout.put()));
+    if (HasKana(text)) winrt::check_hresult(layout->SetLocaleName(vi::kJapaneseLocale, {0, static_cast<UINT32>(text.size())}));
+    DWRITE_TEXT_METRICS metrics{};
+    winrt::check_hresult(layout->GetMetrics(&metrics));
+    return metrics.widthIncludingTrailingWhitespace;
+}
+
+// Every name the reel itself gives a tile, in the current language: each page, the Add page
+// with Previous and Next, App actions with Remove, and About at every update stage. App and
+// catalog names are the user's or the product's and are not included; About's first tile is
+// returned separately in `author`.
+std::vector<std::wstring> ReelNames(std::wstring& author) {
+    using namespace reel;
+    const std::vector<AppTarget> apps{{L"Notepad", TargetKind::Shell, L"C:\\Windows\\notepad.exe"},
+        {L"Paint", TargetKind::Shell, L"C:\\Windows\\System32\\mspaint.exe"}};
+    const std::vector<AppTarget> presets(12, AppTarget{L"Preset", TargetKind::Shell, L"C:\\preset.exe"});
+    std::vector<std::vector<MenuEntry>> menus{BuildMenu(MenuPage::Main, apps, presets), BuildMenu(MenuPage::Manage, apps, presets),
+        BuildMenu(MenuPage::Presets, apps, presets, 5), BuildMenu(MenuPage::Settings, apps, presets),
+        BuildMenu(MenuPage::Entry, apps, presets, 0, 0)};
+    for (const auto stage : {UpdateStage::Idle, UpdateStage::Checking, UpdateStage::Current, UpdateStage::Available,
+                             UpdateStage::Installing, UpdateStage::Failed, UpdateStage::Unavailable})
+        for (const wchar_t* offered : {L"", L"0.3.12"})
+            menus.push_back(BuildMenu(MenuPage::About, apps, presets, 0, -1, 0, AboutState{L"0.3.12", true, false, stage, offered}));
+    std::vector<std::wstring> names;
+    for (const auto& menu : menus)
+        for (const auto& entry : menu) {
+            const auto& visual = entry.visual;
+            if (visual.target == L"reel:author") author = visual.name;
+            else if (visual.target.starts_with(L"reel:") && std::find(names.begin(), names.end(), visual.name) == names.end())
+                names.push_back(visual.name);
+        }
+    return names;
+}
 }
 
 int main() {
@@ -166,13 +233,62 @@ int main() {
         "a raised size grows at most kTextFloorMaxGrowth times");
     Check(std::wstring(TextFamilyForPx(11.2f)) == vi::kTextSmallFamily && std::wstring(TextFamilyForPx(16.8f)) == vi::kTextFamily,
         "caption sizes use Segoe UI Variable's Small master");
-    // The name line clears every seat that reaches the name's band, with the band at its largest.
+    // The name line clears every seat that reaches the name's band, with the band at its largest. A
+    // seat's footprint takes in the badge ring beside its tile, and the seat and the name each snap to
+    // whole device pixels, so together they may close up by one pixel at the smallest reel DPI.
+    const float smallest = std::round(96 * vi::kReelScale * *std::min_element(std::begin(vi::kReelSizeSteps), std::end(vi::kReelSizeSteps)));
+    const double reach = (std::max)(vi::kSeat / 2, vi::kBadgeOffset + vi::kBadgeRingRadius), snap = 96 / smallest;
     for (unsigned n = 1; n <= 9; ++n)
         for (unsigned k = 0; k != n; ++k) {
             const double angle = 2 * std::numbers::pi * k / n;
             const double x = vi::kOrbitRadius * std::sin(angle), y = -vi::kOrbitRadius * std::cos(angle);
-            if (std::abs(y) < vi::kSeat / 2 + vi::kLabelHeight * vi::kTextFloorMaxGrowth / 2)
-                Check(std::abs(x) - vi::kSeat / 2 >= vi::kLabelWidth / 2, "the name line clears the seats beside it");
+            if (std::abs(y) < reach + vi::kLabelHeight * vi::kTextFloorMaxGrowth / 2 + snap)
+                Check(std::abs(x) - reach - snap >= vi::kLabelWidth / 2, "the name line clears the seats and badges beside it");
         }
-    std::cout << "Typography tests passed: " << checks << " checks; Japanese fall-through at U+" << std::hex << outside << ".\n";
+
+    // Every name the reel gives a tile fits the 160 DIP line in every language, at every size step
+    // and display scaling: the floor raises the name in DIP at the small steps, so the 70% step at
+    // 100% scaling, where the name draws at 10 px and 17.8 DIP, is the tightest. The monograms fit
+    // their tile. Catalog names and the About tile's `<version> · baka_sayaka` are reported where
+    // they trim, without failing: the reel cannot shorten a product's name or its own version.
+    std::map<std::wstring, std::string> trimmed;
+    unsigned names = 0;
+    for (const auto language : {Language::English, Language::SimplifiedChinese, Language::Japanese}) {
+        SetLanguage(language);
+        std::wstring author;
+        const auto reelNames = ReelNames(author);
+        Check(reelNames.size() > 20 && !author.empty(), "the reel's own names are collected from every page");
+        names += static_cast<unsigned>(reelNames.size());
+        for (const float monitor : {96.f, 120.f, 144.f, 168.f, 192.f})
+            for (unsigned step = 0; step != std::size(vi::kReelSizeSteps); ++step) {
+                const float dpi = std::round(monitor * vi::kReelScale * vi::kReelSizeSteps[step]);
+                const float label = FloorDip(vi::kLabelSize, vi::kLabelMinimumPx, dpi);
+                const auto at = " at " + std::to_string(ReelSizePercent(step)) + "% on " + std::to_string(static_cast<int>(monitor)) + " DPI";
+                for (const auto& name : reelNames) {
+                    const float width = Width(factory.get(), system.get(), fallback.get(), name, language, label, dpi);
+                    if (width > vi::kLabelWidth)
+                        std::cerr << Utf8(name) << ": " << width << " of " << vi::kLabelWidth << " DIP" << at << '\n';
+                    Check(width <= vi::kLabelWidth, "every name the reel gives a tile fits the center line");
+                }
+                const float monogram = FloorDip(vi::kMonogramSize, vi::kMonogramMinimumPx, dpi);
+                for (const auto* text : {L"EN", L"ZH", L"JA"})
+                    Check(Width(factory.get(), system.get(), fallback.get(), text, language, monogram, dpi) <= vi::kTile,
+                        "the language monograms fit their tile");
+                // The Reel size tile shows the step the reel is drawn at.
+                const float sizeMonogram = FloorDip(vi::kSizeMonogramSize, vi::kMonogramMinimumPx, dpi);
+                Check(Width(factory.get(), system.get(), fallback.get(), std::to_wstring(ReelSizePercent(step)) + L"%", language,
+                    sizeMonogram, dpi) <= vi::kTile, "the size step monogram fits its tile");
+                std::vector<std::wstring> reported{author};
+                for (const auto& entry : catalog::kEntries) reported.emplace_back(entry.name);
+                for (const auto& rule : catalog::kRules) reported.emplace_back(catalog::RowName(rule));
+                for (const auto& name : reported)
+                    if (const float width = Width(factory.get(), system.get(), fallback.get(), name, language, label, dpi);
+                        width > vi::kLabelWidth && !trimmed.contains(name))
+                        trimmed[name] = std::to_string(static_cast<int>(std::ceil(width))) + " DIP" + at;
+            }
+    }
+    SetLanguage(Language::English);
+    for (const auto& [name, where] : trimmed) std::cout << "Trims (reported, not failed): " << Utf8(name) << ", " << where << ".\n";
+    std::cout << "Typography tests passed: " << checks << " checks; " << names << " reel names fit; Japanese fall-through at U+"
+              << std::hex << outside << ".\n";
 }

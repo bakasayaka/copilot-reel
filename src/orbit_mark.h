@@ -1,46 +1,62 @@
 #pragma once
+#include "vi_tokens.h"
 #include <d2d1.h>
 #include <wrl/client.h>
 #include <algorithm>
 #include <cmath>
-#include <tuple>
+#include <cstddef>
 
 namespace reel {
-// The Soft Orbit mark of the package icon (tools/generate-assets.py), in its 256-unit canvas:
-// an outer ring of radius 92 and an inner one of 56, both 12 wide inside their radius, each
-// with its own gap, and a dot on the outer ring. Without the plate the mark fills `bounds`,
-// which the outer ring's edge touches, in `brush`; its stroke is never under `minimumStroke`.
-// The monochrome tray icon and the hub's Tray icon tile draw it.
-inline void DrawOrbitMark(ID2D1RenderTarget* target, const D2D1_RECT_F& bounds, float minimumStroke, ID2D1Brush* brush) {
-    constexpr float kMarkCenter = 128, kOuterRadius = 92, kInnerRadius = 56, kMarkStroke = 12;
-    constexpr float kOuterFrom = -30, kOuterTo = 280, kInnerFrom = 150, kInnerTo = 440;
-    constexpr float kDotAngle = -50, kDotRadius = 16;
-    constexpr float kMarkLeft = 36, kMarkExtent = 184;  // the outer ring's edge bounds the mark
+// The Soft Orbit mark of the package icon without its plate (iconography.orbitMark), measured in
+// device pixels for a mark about `extentPx` wide. `outer` is the outer ring's edge from the center,
+// a whole or half pixel, so that a center placed with the mark's edge on the pixel grid puts every
+// ring edge there; `stroke` is whole pixels and never under `minimumStrokePx`; `inner` is the inner
+// ring's edge on the same grid. A one-pixel stroke leaves no room for two rings, so that mark is the
+// outer orbit and the dot (`innerRing` false), and the dot keeps a radius of kOrbitMarkMinimumDotPx.
+struct OrbitMarkPixels { float outer = 0, stroke = 1, inner = 0, dot = 0; bool innerRing = false; };
+
+inline OrbitMarkPixels MeasureOrbitMark(float extentPx, float minimumStrokePx) {
+    OrbitMarkPixels mark;
+    const float edge = vi::kOrbitMarkOuterRadius;
+    mark.outer = std::max(2.f, std::round(extentPx)) / 2;
+    mark.stroke = std::max(1.f, std::floor(std::max(extentPx * vi::kOrbitMarkStroke / vi::kOrbitMarkExtent, minimumStrokePx) + .5f));
+    mark.inner = mark.outer - std::floor(mark.outer * (edge - vi::kOrbitMarkInnerRadius) / edge + .5f);
+    mark.innerRing = mark.stroke >= vi::kOrbitMarkInnerRingFromStrokePx;
+    mark.dot = std::max(mark.outer * vi::kOrbitMarkDotRadius / edge, vi::kOrbitMarkMinimumDotPx);
+    return mark;
+}
+
+// Draws `mark` around `center` in `brush` on a target whose device pixels are `pixel` DIP wide.
+// The caller places the center `mark.outer` pixels from a pixel boundary. The monochrome tray
+// icon and the hub's Tray icon tile draw it.
+inline void DrawOrbitMark(ID2D1RenderTarget* target, D2D1_POINT_2F center, const OrbitMarkPixels& mark, float pixel,
+                          ID2D1Brush* brush) {
     Microsoft::WRL::ComPtr<ID2D1Factory> factory;
     if (!target || !brush) return;
     target->GetFactory(factory.GetAddressOf());
     if (!factory) return;
-    const float scale = (bounds.right - bounds.left) / kMarkExtent;
-    const float stroke = std::max(kMarkStroke * scale, minimumStroke);
     auto point = [&](float radius, float degrees) {
         const float angle = degrees * 3.14159265f / 180;
-        return D2D1::Point2F(bounds.left + (kMarkCenter - kMarkLeft + radius * std::cos(angle)) * scale,
-                             bounds.top + (kMarkCenter - kMarkLeft + radius * std::sin(angle)) * scale);
+        return D2D1::Point2F(center.x + radius * pixel * std::cos(angle), center.y + radius * pixel * std::sin(angle));
     };
-    // Each ring's stroke lies inside its radius, as in the package icon.
-    for (const auto& [radius, from, to] : {std::tuple{kOuterRadius, kOuterFrom, kOuterTo}, std::tuple{kInnerRadius, kInnerFrom, kInnerTo}}) {
-        const float middle = radius - stroke / scale / 2;
+    struct Ring { float edge, from, to; };
+    const Ring rings[] = {{mark.outer, vi::kOrbitMarkOuterFrom, vi::kOrbitMarkOuterTo},
+                          {mark.inner, vi::kOrbitMarkInnerFrom, vi::kOrbitMarkInnerTo}};
+    for (std::size_t i = 0; i != (mark.innerRing ? 2u : 1u); ++i) {
+        // Each ring's stroke lies inside its edge, as in the package icon.
+        const auto& ring = rings[i];
+        const float middle = ring.edge - mark.stroke / 2;
         Microsoft::WRL::ComPtr<ID2D1PathGeometry> path;
         Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
         if (SUCCEEDED(factory->CreatePathGeometry(path.GetAddressOf())) && SUCCEEDED(path->Open(sink.GetAddressOf()))) {
-            sink->BeginFigure(point(middle, from), D2D1_FIGURE_BEGIN_HOLLOW);
-            sink->AddArc(D2D1::ArcSegment(point(middle, to), D2D1::SizeF(middle * scale, middle * scale), 0,
-                D2D1_SWEEP_DIRECTION_CLOCKWISE, to - from > 180 ? D2D1_ARC_SIZE_LARGE : D2D1_ARC_SIZE_SMALL));
+            sink->BeginFigure(point(middle, ring.from), D2D1_FIGURE_BEGIN_HOLLOW);
+            sink->AddArc(D2D1::ArcSegment(point(middle, ring.to), D2D1::SizeF(middle * pixel, middle * pixel), 0,
+                D2D1_SWEEP_DIRECTION_CLOCKWISE, ring.to - ring.from > 180 ? D2D1_ARC_SIZE_LARGE : D2D1_ARC_SIZE_SMALL));
             sink->EndFigure(D2D1_FIGURE_END_OPEN);
             sink->Close();
-            target->DrawGeometry(path.Get(), brush, stroke);
+            target->DrawGeometry(path.Get(), brush, mark.stroke * pixel);
         }
     }
-    target->FillEllipse(D2D1::Ellipse(point(kOuterRadius, kDotAngle), kDotRadius * scale, kDotRadius * scale), brush);
+    target->FillEllipse(D2D1::Ellipse(point(mark.outer, vi::kOrbitMarkDotAngle), mark.dot * pixel, mark.dot * pixel), brush);
 }
 }

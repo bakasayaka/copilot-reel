@@ -181,7 +181,7 @@ powershell -File tools\test.ps1 [-Tier unit|smoke|regression|installed] [-Instal
 
 | Tier | Steps |
 | --- | --- |
-| `unit` | `tools/build.ps1`: Release x64 and every unit test |
+| `unit` | `tools/check-versions.ps1` (the seven version copies agree), then `tools/build.ps1`: Release x64 and every unit test |
 | `smoke` | `unit`, then the seam preflight and groups `a` and `hub` |
 | `regression` (default) | `unit`, every seam group, and `tools/capture-seam.py` against the reference stills |
 | `installed` | No build: the installed package's executable equals `build\Release\CopilotReel.exe` and is running |

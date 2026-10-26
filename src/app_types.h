@@ -44,7 +44,7 @@ struct Appearance {
     bool highContrast = false;
     Rgba surface{.976f,.976f,.976f,1};        // solid plate
     Rgba foreground{.106f,.106f,.106f,1};     // primary text and command glyphs
-    Rgba secondary{.365f,.365f,.365f,1};      // chevrons, back chevron, gated ring
+    Rgba secondary{.365f,.365f,.365f,1};      // chevrons and the back chevron
     Rgba outline{.80f,.80f,.80f,1};           // opaque hairline for the native editor
     Rgba tile{1,1,1,1};                       // neutral tile fill
     Rgba tileStroke{0,0,0,.08f};              // 1 DIP tile hairline

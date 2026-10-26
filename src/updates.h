@@ -23,6 +23,9 @@ struct PackageVersion {
 std::optional<PackageVersion> ParseVersion(std::wstring_view text);
 // How versions are shown: "0.3.8" for 0.3.8.0, "0.3.8.1" otherwise.
 std::wstring VersionText(const PackageVersion& version);
+// The version in the executable's own resources (packaging/app.rc), as VersionText shows it, or
+// empty. The package carries the same number (tools/check-versions.ps1).
+std::wstring ExecutableVersion();
 
 struct UpdateOffer {
     PackageVersion version;

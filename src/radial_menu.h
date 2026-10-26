@@ -182,30 +182,33 @@ inline std::vector<MenuEntry> BuildMenu(MenuPage page,const std::vector<AppTarge
     case MenuPage::About: {
         // The reel's own mark comes first, named by the version and the author, then GitHub's mark,
         // two switches that show their state in the icon and the update tile, which checks or
-        // installs the update it found. Every name fits the center's one line.
+        // installs the update it found. Every name fits the center's one line at every size step
+        // (tests/typography_tests.cpp), so the switches say Auto-check and Auto-install, a failure
+        // names only what failed (choosing it tries again, as Up to date checks again), and the
+        // Japanese update tile says 更新, as it does while installing and after a failure.
         const bool updatable=about.stage!=UpdateStage::Unavailable;
         const auto state=[](const wchar_t* target,bool on){return std::wstring(target)+(on?L":on":L":off");};
         result.push_back({{about.version+L" · "+kAuthor,TargetKind::Shell,L"reel:author",L"",L""},MenuAction::AboutInfo});
         result.push_back({{L"GitHub",TargetKind::Shell,L"reel:github",L"",L""},MenuAction::GitHub});
-        result.push_back({{Tr(L"Auto-check updates",L"自动检查更新",L"更新を自動確認"),TargetKind::Shell,state(L"reel:auto-check",about.autoCheck),L"",L""},
+        result.push_back({{Tr(L"Auto-check",L"自动检查更新",L"更新を自動確認"),TargetKind::Shell,state(L"reel:auto-check",about.autoCheck),L"",L""},
             MenuAction::AutoCheck,-1,updatable});
-        result.push_back({{Tr(L"Auto-install updates",L"自动安装更新",L"更新を自動適用"),TargetKind::Shell,state(L"reel:auto-install",about.autoInstall),L"",L""},
+        result.push_back({{Tr(L"Auto-install",L"自动安装更新",L"更新を自動適用"),TargetKind::Shell,state(L"reel:auto-install",about.autoInstall),L"",L""},
             MenuAction::AutoInstall,-1,updatable});
         const auto& version=about.offered;
         switch(about.stage) {
         case UpdateStage::Unavailable:
-            action(Tr(L"Installed app only",L"安装版才能更新",L"インストール版のみ"),L"reel:check-update",MenuAction::CheckUpdate,-1,false);break;
+            action(Tr(L"Installed app only",L"安装版才能更新",L"要インストール"),L"reel:check-update",MenuAction::CheckUpdate,-1,false);break;
         case UpdateStage::Checking:
             action(Tr(L"Checking…",L"正在检查…",L"確認中…"),L"reel:check-update",MenuAction::CheckUpdate);break;
         case UpdateStage::Current:
             action(Tr(L"Up to date",L"已是最新版本",L"最新版です"),L"reel:check-update",MenuAction::CheckUpdate);break;
         case UpdateStage::Available:
-            action(Tr(L"Install ",L"安装 ",L"インストール ")+version,L"reel:install-update",MenuAction::InstallUpdate,-1,true,TileBadge::Dot);break;
+            action(Tr(L"Install ",L"安装 ",L"更新 ")+version,L"reel:install-update",MenuAction::InstallUpdate,-1,true,TileBadge::Dot);break;
         case UpdateStage::Installing:
             action(Tr(L"Installing ",L"正在安装 ",L"更新中 ")+version+L"…",L"reel:install-update",MenuAction::InstallUpdate);break;
         case UpdateStage::Failed:
-            if(version.empty())action(Tr(L"Check failed · Retry",L"检查失败 · 重试",L"確認失敗 · 再試行"),L"reel:check-failed",MenuAction::CheckUpdate);
-            else action(Tr(L"Install failed · Retry",L"安装失败 · 重试",L"更新失敗 · 再試行"),L"reel:install-update",MenuAction::InstallUpdate,-1,true,TileBadge::Dot);
+            if(version.empty())action(Tr(L"Check failed",L"检查失败",L"確認失敗"),L"reel:check-failed",MenuAction::CheckUpdate);
+            else action(Tr(L"Install failed",L"安装失败",L"更新失敗"),L"reel:install-update",MenuAction::InstallUpdate,-1,true,TileBadge::Dot);
             break;
         default:
             action(Tr(L"Check for updates",L"检查更新",L"更新を確認"),L"reel:check-update",MenuAction::CheckUpdate);break;

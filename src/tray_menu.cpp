@@ -18,6 +18,13 @@ enum class PreferredAppMode { Default, AllowDark, ForceDark, ForceLight };
 using SetPreferredAppModeFn = PreferredAppMode(WINAPI*)(PreferredAppMode);
 using FlushMenuThemesFn = void(WINAPI*)();
 
+// The Windows mode, which the taskbar and its notification area follow; the app mode may differ.
+bool TaskbarUsesLightTheme() {
+    DWORD value = 0, bytes = sizeof(value);
+    return RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr, &value, &bytes) == ERROR_SUCCESS && value != 0;
+}
+
 COLORREF ToColorRef(const Rgba& color) {
     auto channel = [](float value) { return static_cast<BYTE>(std::clamp(value, 0.f, 1.f) * 255.f + .5f); };
     return RGB(channel(color.r), channel(color.g), channel(color.b));
@@ -95,12 +102,17 @@ void ApplyMenuTheme(const Appearance& appearance) {
 
 UINT ShowTrayMenu(HWND owner, POINT anchor, const Appearance& appearance,
                   std::initializer_list<TrayMenuItem> items) {
-    ApplyMenuTheme(appearance);
+    // Windows' own notification-area menus follow the Windows mode, as the taskbar and the
+    // monochrome icon do, so a light menu never opens beside a white icon on a dark taskbar.
+    Appearance taskbar = appearance;
+    taskbar.dark = !TaskbarUsesLightTheme();
+    ApplyMenuTheme(taskbar);
     const HMONITOR monitor = MonitorFromPoint(anchor, MONITOR_DEFAULTTONEAREST);
     UINT dpi = 96, dpiY = 96;
     if (FAILED(GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpi, &dpiY))) dpi = GetDpiForSystem();
     const int iconSize = GetSystemMetricsForDpi(SM_CXSMICON, dpi);
-    const COLORREF glyphColor = ToColorRef(appearance.foreground);
+    const auto& foreground = (taskbar.dark ? vi::kDark : vi::kLight).foreground;
+    const COLORREF glyphColor = ToColorRef({foreground.r, foreground.g, foreground.b, 1});
 
     HMENU menu = CreatePopupMenu();
     if (!menu) return 0;
@@ -143,6 +155,8 @@ UINT ShowTrayMenu(HWND owner, POINT anchor, const Appearance& appearance,
     PostMessageW(owner, WM_NULL, 0, 0);
     DestroyMenu(menu);
     for (HBITMAP bitmap : bitmaps) DeleteObject(bitmap);
+    // The process' other menus, the editor's, keep the app mode.
+    ApplyMenuTheme(appearance);
     return choice;
 }
 
@@ -168,13 +182,15 @@ std::vector<DWORD> MarkCoverage(int size) {
     RECT bounds{0, 0, size, size};
     if (SUCCEEDED(factory->CreateDCRenderTarget(&properties, target.GetAddressOf())) &&
         SUCCEEDED(target->BindDC(dc, &bounds))) {
-        // A one-pixel margin at 16 px; the stroke never falls below one pixel.
-        const float margin = size / 16.f;
+        // A margin and a minimum stroke of 1/16 of the icon, in whole pixels: 1 px up to 20 px,
+        // where the mark is the outer orbit and the dot, and 2 px from 24 px.
+        const float margin = std::max(1.f, std::floor(size / 16.f + .5f));
+        const auto mark = MeasureOrbitMark(size - 2 * margin, size / 16.f);
         ComPtr<ID2D1SolidColorBrush> brush;
         target->BeginDraw();
         target->Clear(D2D1::ColorF(0, 0, 0, 0));
         target->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 1), brush.GetAddressOf());
-        DrawOrbitMark(target.Get(), D2D1::RectF(margin, margin, size - margin, size - margin), size / 16.f, brush.Get());
+        DrawOrbitMark(target.Get(), D2D1::Point2F(size / 2.f, size / 2.f), mark, 1, brush.Get());
         if (SUCCEEDED(target->EndDraw())) {
             const auto* source = static_cast<const DWORD*>(bits);
             pixels.assign(source, source + size * size);
@@ -186,11 +202,6 @@ std::vector<DWORD> MarkCoverage(int size) {
     return pixels;
 }
 
-bool TaskbarUsesLightTheme() {
-    DWORD value = 0, bytes = sizeof(value);
-    return RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-        L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr, &value, &bytes) == ERROR_SUCCESS && value != 0;
-}
 }
 
 TrayIconStyle CurrentTrayIconStyle(bool monochrome) {

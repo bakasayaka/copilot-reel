@@ -2,22 +2,28 @@
 The actual wheel UI is rendered from native vector geometry.
 Requires Pillow; outputs are build-time assets, not an animation frame sequence.
 """
+import json
+import math
 from pathlib import Path
 from PIL import Image, ImageDraw
 
 root=Path(__file__).resolve().parents[1]
 out=root/'packaging/assets'
 out.mkdir(parents=True,exist_ok=True)
+# The mark's geometry is iconography.orbitMark, which src/orbit_mark.h also draws.
+mark=json.loads((root/'design/vi/tokens.json').read_text(encoding='utf-8'))['iconography']['orbitMark']
+size,c=mark['canvas'],mark['center']
 scale=8
-im=Image.new('RGBA',(256*scale,256*scale),(0,0,0,0))
+im=Image.new('RGBA',(size*scale,size*scale),(0,0,0,0))
 d=ImageDraw.Draw(im)
 def box(x,y,w,h): return tuple(int(v*scale) for v in (x,y,x+w,y+h))
-d.rounded_rectangle(box(0,0,256,256),radius=56*scale,fill='#005FB8')
-d.arc(box(36,36,184,184),start=-30,end=280,fill='white',width=12*scale)
-d.arc(box(72,72,112,112),start=150,end=440,fill='white',width=12*scale)
-import math
-x=128+92*math.cos(math.radians(-50));y=128+92*math.sin(math.radians(-50))
-d.ellipse(box(x-16,y-16,32,32),fill='white')
+def ring(radius): return box(c-radius,c-radius,2*radius,2*radius)
+d.rounded_rectangle(box(0,0,size,size),radius=mark['plateRadius']*scale,fill=mark['plate'])
+d.arc(ring(mark['outerRadius']),start=mark['outerFrom'],end=mark['outerTo'],fill='white',width=mark['stroke']*scale)
+d.arc(ring(mark['innerRadius']),start=mark['innerFrom'],end=mark['innerTo'],fill='white',width=mark['stroke']*scale)
+angle=math.radians(mark['dotAngle']);dot=mark['dotRadius']
+x=c+mark['outerRadius']*math.cos(angle);y=c+mark['outerRadius']*math.sin(angle)
+d.ellipse(box(x-dot,y-dot,2*dot,2*dot),fill='white')
 resample=Image.Resampling.LANCZOS
 for name,size in [('Square44x44Logo',44),('Square150x150Logo',150),('StoreLogo',50)]:
     im.resize((size,size),resample).save(out/f'{name}.png')

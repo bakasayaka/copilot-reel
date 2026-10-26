@@ -119,6 +119,7 @@ struct OrbitRenderer::Impl {
     bool ready = false, visible = false, closing = false, backdrop = false, softwareDevice = false;
     bool contentDirty = true, appearanceSet = false;
     unsigned surfaceDraws = 0;
+    PaintScratch scratch;  // PaintLocal's bitmap, reused while sizes repeat
     Appearance appearance;
     Language language = Language::English;
     std::wstring sizeLabel = L"100%";  // the Reel size tile's monogram
@@ -316,6 +317,7 @@ struct OrbitRenderer::Impl {
         ReleaseArtwork(nullptr);
         art.clear();
         noiseBrush = nullptr;
+        scratch = {};
         CreateDevices();
         ApplyMaterial();
         contentDirty = true;
@@ -499,7 +501,7 @@ struct OrbitRenderer::Impl {
                 [&](ID2D1DeviceContext* local) {
                     local->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
                     draw(local);
-                });
+                }, &scratch);
         } catch (...) { drawResult = winrt::to_hresult(); }
         const HRESULT endResult = interop->EndDraw();
         winrt::check_hresult(drawResult);
@@ -811,18 +813,30 @@ struct OrbitRenderer::Impl {
         return model.adjustControl && selected == 0 && SideEnabled(model, side);
     }
 
-    // Same slots and artwork classes: tile visuals can stay, only state changes.
+    // A state tile carries its state as the last part of its target (About's switches end in
+    // ":on" or ":off", Tray icon in ":color" or ":monochrome"); the rest names the slot.
+    static std::wstring_view SlotTarget(std::wstring_view target) {
+        if (!target.starts_with(L"reel:")) return target;
+        for (const std::wstring_view state : {L":on", L":off", L":color", L":monochrome"})
+            if (target.ends_with(state)) return target.substr(0, target.size() - state.size());
+        return target;
+    }
+
+    // Same slots: tile visuals can stay, only state changes. A state tile that turns over keeps
+    // its slot even when its artwork class changes; UpdateInPlace crossfades it.
     static bool SameStructure(const Page& p, const PageModel& model) {
         if (p.items.size() != model.items.size() || p.model.adjustControl != model.adjustControl) return false;
         for (size_t i = 0; i != p.items.size(); ++i) {
             const auto& a = p.items[i].entry.visual;
             const auto& b = model.items[i].visual;
-            if (a.kind != b.kind || a.target != b.target || ClassifyArtwork(b) != p.items[i].artClass) return false;
+            if (a.kind != b.kind || SlotTarget(a.target) != SlotTarget(b.target)) return false;
+            if (a.target == b.target && ClassifyArtwork(b) != p.items[i].artClass) return false;
         }
         return true;
     }
 
-    // Same slots, new state (language, preferred, enabled, movable sides): only what changed crossfades.
+    // Same slots, new state (language, preferred, enabled, movable sides, a state tile turning
+    // over): only what changed crossfades, and the seat stays where it is.
     void UpdateInPlace(const PageModel& model, bool animate) {
         auto& p = *page;
         for (size_t i = 0; i != p.items.size(); ++i) {
@@ -831,6 +845,32 @@ struct OrbitRenderer::Impl {
             item.badge = static_cast<int>(i) == model.preferredIndex ? TileBadge::Check : model.items[i].badge;
             const auto key = ArtKey(item.entry.visual, item.badge, false);
             const D2D1_POINT_2F local{itemSize.x / 2, itemSize.y / 2};
+            // A state tile can change its artwork class (Tray icon: the plated color mark, or the
+            // mark alone on the neutral tile); the neutral tile comes or goes with the same crossfade.
+            if (const auto artClass = ClassifyArtwork(item.entry.visual); artClass != item.artClass) {
+                item.artClass = artClass;
+                item.plated = artClass == ArtworkClass::Plated;
+                if (!item.plated && !item.tile) {
+                    item.tile = MakeSprite(tileBrush, itemSize, local);
+                    item.root.Children().InsertAtBottom(item.tile);
+                    if (animate) {
+                        item.tile.Opacity(0);
+                        Opacity(item.tile, 1, vi::kMonogramFadeMs, true);
+                    }
+                } else if (item.plated && item.tile) {
+                    auto tile = item.tile;
+                    item.tile = nullptr;
+                    if (animate) {
+                        auto batch = compositor.CreateScopedBatch(wc::CompositionBatchTypes::Animation);
+                        Opacity(tile, 0, vi::kMonogramFadeMs, true);
+                        batch.End();
+                        auto parent = item.root;
+                        OnCompleted(batch, [parent, tile] { Detach(parent, tile); });
+                    } else {
+                        Detach(item.root, tile);
+                    }
+                }
+            }
             if (key != item.artKey) {
                 auto previous = item.art;
                 item.art = MakeSprite(ArtBrush(item.entry.visual, item.badge, false), itemSize, local);
@@ -888,6 +928,8 @@ struct OrbitRenderer::Impl {
         lastTransition = TransitionName(transition);
         if (transition == PageTransition::Reflow) { Reflow(model); return; }
         if (transition == PageTransition::None && page && !rebuilt && SameStructure(*page, model)) {
+            // Diagnostics tell an update in place from a rebuilt page, which plays the appear animation.
+            lastTransition = L"in-place";
             UpdateInPlace(model, visible);
             SetSelectionState(model.selection, visible);
             return;

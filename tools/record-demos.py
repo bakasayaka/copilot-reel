@@ -21,6 +21,7 @@ import bisect
 import csv
 import ctypes
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -416,13 +417,21 @@ def stills(d, output, suffix):
 DEMOS = {'hold': demo_hold, 'hub': demo_hub, 'drag': demo_drag, 'about': demo_about}
 
 
-class Feed:
-    """A releases feed on 127.0.0.1 offering one version above the demo's 0.3.8; nothing is downloaded."""
+def recorded_version():
+    """The version being recorded, from the package manifest (tools/check-versions.ps1 keeps every copy equal),
+    so About names it and offers the next one rather than a release long past."""
+    text = (ROOT / 'packaging/AppxManifest.xml').read_text(encoding='utf-8')
+    return tuple(int(part) for part in re.search(r'<Identity [^>]*Version="(\d+)\.(\d+)\.(\d+)\.(\d+)"', text).groups())
 
-    def __init__(self):
+
+class Feed:
+    """A releases feed on 127.0.0.1 offering `offered`, a (major, minor, build) version; nothing is downloaded."""
+
+    def __init__(self, offered):
         import http.server
-        body = json.dumps([{'tag_name': 'v0.3.9', 'draft': False, 'prerelease': False, 'assets': [
-            {'name': 'CopilotReel_0.3.9.0_x64.msix', 'size': 1, 'digest': 'sha256:' + '0' * 64,
+        version = '.'.join(map(str, offered))
+        body = json.dumps([{'tag_name': f'v{version}', 'draft': False, 'prerelease': False, 'assets': [
+            {'name': f'CopilotReel_{version}.0_x64.msix', 'size': 1, 'digest': 'sha256:' + '0' * 64,
              'browser_download_url': 'http://127.0.0.1:9/none.msix'}]}]).encode()
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -456,8 +465,9 @@ def main():
     assert CAPTURE.is_file(), 'Build tools/build-capture-tool.ps1 first.'
     args.output.mkdir(parents=True, exist_ok=True)
     work = ROOT / 'artifacts/qa' / ('demos-' + time.strftime('%Y%m%d-%H%M%S'))
-    feed = Feed()
-    extra = {'COPILOT_REEL_TEST_UPDATE_FEED': feed.url, 'COPILOT_REEL_TEST_VERSION': '0.3.8.0'}
+    major, minor, build, revision = recorded_version()
+    feed = Feed((major, minor, build + 1))
+    extra = {'COPILOT_REEL_TEST_UPDATE_FEED': feed.url, 'COPILOT_REEL_TEST_VERSION': f'{major}.{minor}.{build}.{revision}'}
     try:
         for language in args.languages.split(','):
             for theme in args.themes.split(','):

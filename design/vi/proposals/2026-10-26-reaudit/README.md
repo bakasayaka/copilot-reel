@@ -72,6 +72,26 @@ The first audit's own wrong predictions are now corrected:
 | N14 | L | `artwork.cpp:578-612, 669-687` | `HasOwnIcon` and `ShellImage` resolve a shortcut's icon location and target on the UI thread, with the network guard on the `.lnk` path only, so a local shortcut to a UNC or mapped-drive target can stall the reel. (The negative cache is documented in the comment at `:675`, and only stores files that exist; it lasts until restart.) | Check the resolved paths with `IsNetworkPath`. |
 | N15 | L | various | Housekeeping: <ul><li>the orbit mark's geometry is copied in `orbit_mark.h`, `tools/generate-assets.py`, `tests/tray_icon_tests.cpp:39-44` and this report's mockup, without a token;</li><li>the name-clearance test (`typography_tests.cpp:169-176`) uses the seat's half-width and misses the badge ring, 0.5 DIP further, and snapping (worst real gap about 0.24 DIP, nothing overlaps);</li><li>`PaintLocal` allocates a bitmap per paint, which for the name means once per new hover target;</li><li>`app_types.h:47` still says "gated ring".</li></ul> | Add an `iconography.orbitMark` token, widen the test's seat, reuse a scratch bitmap per size, and delete the stale comment. |
 
+## Fixes
+
+All fifteen findings are fixed in code, at the user's request on 2026-10-26. They were checked in the container only (a syntax check against the Windows SDK headers, the token generator, a Python rasterization of the new mark); `docs/validation.md` lists what each still needs on Windows.
+
+| # | Fix | Where it differs from the proposal |
+| --- | --- | --- |
+| N1 | `SameStructure` compares each slot without its state suffix, and `UpdateInPlace` crossfades the art and brings the neutral tile in or out when the artwork class changes. Diagnostics report `transition=in-place`, and the seam checks it for Tray icon and Auto-install. | The state stays in the target; the slot is recognised instead, so `core_tests`, the seam and diagnostics keep their targets. |
+| N2 | `typography_tests` lays out every name the reel gives a tile, in all three languages, at every size step and at 100-200% scaling, and fails on trimming; the monograms must fit their tile. Auto-check, Auto-install; Check failed, Install failed (choosing either tries again); Japanese 更新 `<version>` and 要インストール. | About's `<version> · baka_sayaka` is settled content and is reported, not failed: at about 130 DIP for 0.3.12 it is expected to trim at the 70% step on a 100% display. Catalog names are reported the same way. |
+| N3, N5, N10 | `iconography.orbitMark` and `MeasureOrbitMark`: ring edges on whole pixels, a whole-pixel stroke (the tray's 1/16 of the icon; at least 1/14 of the mark on the tile), and the outer orbit and dot alone whenever the stroke is one pixel. `tray_icon_tests` covers ten sizes and requires solid, crisp outer-ring pixels. | The small variant is chosen by stroke rather than by size: the tray up to 20 px, the tile at the 70% and 85% steps on a 100% display. |
+| N4 | The tray icon is added before `Reload`. | |
+| N6 | The monochrome tile mark is as wide as the color mark on its plate, 28.75 DIP. | |
+| N7 | 单色图标 in the tray menu and `README.zh-CN.md`. | |
+| N8 | The tray menu takes the Windows mode and its foreground; the app mode returns once it closes. | Which mode Windows' own notification-area menus follow is taken as the Windows mode and still needs a look. |
+| N9 | A smoke instance's icon goes by its window, never by the GUID. | |
+| N11 | `capture-seam.py` pins 0.0.0; `record-demos.py` records About at the version in `AppxManifest.xml` and offers the next one. | The README GIFs show the release they were recorded for rather than a neutral version, so they read as current. |
+| N12 | Reference variants light-100, light-150, dark-100-70, dark-100-zh and dark-100-ja, and each name's WCAG contrast in the results (the lowest per variant in `summary.json`). | Frosted stills, whose plate the capture leaves transparent, record no contrast. |
+| N13 | About, the quick menu and diagnostics read the version at run time; `app.manifest` says 0.3.12.0; `tools/check-versions.ps1` checks the seven copies in `tools/test.ps1` and `tools/package.ps1`, and packaging refuses an executable of another version. | The copies are checked rather than generated, since `tools/build.ps1` and CMake would each need their own generator. |
+| N14 | `PrepareShell` skips a local shortcut whose target or icon is on a share. | |
+| N15 | The orbit mark's token feeds `orbit_mark.h`, `generate-assets.py` (byte-identical output) and the tray tests; the clearance test counts the badge ring and a pixel of snapping (0.24 DIP to spare); `PaintLocal` reuses its bitmap while the size repeats; the stale comment is gone. | This report's mockup keeps its own copy, as a record of the shipped mark. |
+
 ## Contradictions in the design contract
 
 | Where | Contradiction |

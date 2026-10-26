@@ -2,8 +2,8 @@
 #include "app_types.h"
 #include <initializer_list>
 
-// The notification-area icon and menu: a native popup menu drawn in the reel's light or dark
-// theme, with Segoe Fluent Icons beside its commands.
+// The notification-area icon and menu: a native popup menu drawn in the Windows mode's light or
+// dark theme, as the taskbar's own menus are, with Segoe Fluent Icons beside its commands.
 namespace reel {
 struct TrayMenuItem {
     UINT command = 0;          // 0 is a separator
@@ -14,13 +14,13 @@ struct TrayMenuItem {
 };
 
 // Popup menus follow the process' preferred app mode: this sets it to the appearance's theme,
-// so the tray menu and the editor's context menus match the reel. High contrast keeps the
-// system menus.
+// so the editor's context menus match the reel. High contrast keeps the system menus.
 void ApplyMenuTheme(const Appearance& appearance);
 
 // Shows the menu at `anchor` (screen pixels, the icon's anchor point) and returns the chosen
-// command, or 0. `owner` must be the window that receives the icon's messages. Applies the
-// menu theme first; high contrast shows no icons.
+// command, or 0. `owner` must be the window that receives the icon's messages. The menu takes the
+// Windows mode (SystemUsesLightTheme) rather than the app mode in `appearance`, which is applied
+// again once it closes; high contrast shows no icons.
 UINT ShowTrayMenu(HWND owner, POINT anchor, const Appearance& appearance,
                   std::initializer_list<TrayMenuItem> items);
 

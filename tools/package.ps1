@@ -11,6 +11,8 @@ $binary=if($Architecture -eq 'arm64') {
     Join-Path $projectRoot "build\$Configuration\CopilotReel.exe"
 }
 if(-not (Test-Path -LiteralPath $binary)) {throw 'Build the application with tools/build.ps1 first.'}
+# One version in the sources, and the executable built from them carries it.
+& (Join-Path $PSScriptRoot 'check-versions.ps1')
 $sdkBin=Join-Path $PSScriptRoot 'local\sdk\c\bin\10.0.26100.0\x64'
 $makeappx=Join-Path $sdkBin 'makeappx.exe'
 $signtool=Join-Path $sdkBin 'signtool.exe'
@@ -53,6 +55,10 @@ $expectedMachine=if($Architecture -eq 'arm64') {[uint16]0xAA64} else {[uint16]0x
 if($machine -ne $expectedMachine) {throw ("{0} is machine 0x{1:X4}; refusing to pack it as {2}." -f $binary, $machine, $Architecture)}
 [xml]$manifest=Get-Content -LiteralPath $manifestPath
 $version=$manifest.Package.Identity.Version
+$fileVersion=[System.Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
+if(('{0}.{1}.{2}.{3}' -f $fileVersion.FileMajorPart,$fileVersion.FileMinorPart,$fileVersion.FileBuildPart,$fileVersion.FilePrivatePart) -ne $version) {
+    throw "$binary is not version $version; build it again."
+}
 if($manifest.Package.Identity.ProcessorArchitecture -ne $Architecture) {throw 'Staged manifest architecture does not match the requested package.'}
 $package=Join-Path $projectRoot "artifacts\CopilotReel_${version}_${Architecture}.msix"
 & $makeappx pack /d $stage /p $package /o

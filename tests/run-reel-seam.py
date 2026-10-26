@@ -1067,10 +1067,12 @@ def group_hub(g):
     seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'monochrome', 'monochrome tray icon')
     state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
     assert state.art[tray] == 'command|reel:tray-icon:monochrome' and state.selected == tray, state.text
+    assert 'transition=in-place' in state.text, 'The tile turns over in place; the page is not rebuilt.'
     assert 'TrayIcon=monochrome' in language(g), 'The tray icon choice is saved.'
     reel.choose(TRAY)
     seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'color', 'color tray icon')
-    assert assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB).art[tray] == 'source|copilot-reel'
+    state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    assert state.art[tray] == 'source|copilot-reel' and 'transition=in-place' in state.text, state.text
     assert 'TrayIcon=color' in language(g)
     assert_no_launch(g, 0)
     g.passed('Tray icon switches the tray icon between color and monochrome in place, saves it, stays selected '
@@ -1265,19 +1267,19 @@ def group_about(g):
         assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
         assert reel.diagnostics()['menuBadges'].split('|')[HUB.index(ABOUT)] == '-', 'About carries no dot before a check.'
         reel.choose(ABOUT)
-        names = ['0.3.6 · baka_sayaka', 'GitHub', 'Auto-check updates', 'Auto-install updates', 'Check for updates']
+        names = ['0.3.6 · baka_sayaka', 'GitHub', 'Auto-check', 'Auto-install', 'Check for updates']
         state = assert_page(g, seam.PAGE_ABOUT, 'About', names)
         github = 'source|github-dark' if state['dark'] == '1' else 'source|github-light'
         assert state.art[:4] == ['source|copilot-reel', github, 'command|reel:auto-check:on', 'command|reel:auto-install:off'], state.art
         assert state['menuBadges'] == '-|-|-|-|-', 'A switch shows its state in its icon, not with a badge.'
         g.passed('About lists the reel mark named by version and author, GitHub, two switches and Check for updates')
 
-        reel.choose('Auto-install updates')
+        reel.choose('Auto-install')
         seam.wait(lambda: reel.diagnostics()['autoInstall'] == '1', 'automatic installs on')
         state = assert_page(g, seam.PAGE_ABOUT)
-        assert state.art[3] == 'command|reel:auto-install:on', state.art
+        assert state.art[3] == 'command|reel:auto-install:on' and 'transition=in-place' in state.text, state.text
         assert 'AutoInstall=1' in (g.data / 'preferences.ini').read_text(encoding='utf-16')
-        reel.choose('Auto-install updates')
+        reel.choose('Auto-install')
         seam.wait(lambda: reel.diagnostics()['autoInstall'] == '0', 'automatic installs off')
         assert_no_launch(g, 0)
         g.passed('a switch turns over in place, is saved and stays on About')

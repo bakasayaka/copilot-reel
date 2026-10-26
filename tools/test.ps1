@@ -1,6 +1,7 @@
 ﻿param(
-    # unit: build Release x64 and run the unit tests. smoke: unit, then the seam preflight and the
-    # main-menu and hub groups. regression: unit, every seam group and the still comparison.
+    # unit: check that the version copies agree, build Release x64 and run the unit tests. smoke:
+    # unit, then the seam preflight and the main-menu and hub groups. regression: unit, every seam
+    # group and the still comparison.
     # installed: no build; only check that the installed package runs build\Release\CopilotReel.exe.
     [ValidateSet('unit','smoke','regression','installed')][string]$Tier = 'regression',
     # Also check, after the tier's build and tests, that the installed package runs that executable.
@@ -80,6 +81,7 @@ $python = 'uv run --python 3.14'
 if ($Tier -eq 'installed') {
     Test-InstalledCopy
 } else {
+    Invoke-Step 'versions' 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\check-versions.ps1' | Out-Null
     $built = Invoke-Step 'unit' 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\build.ps1 -Configuration Release -Architecture x64'
     if ($built) {
         if ($Tier -eq 'smoke') {

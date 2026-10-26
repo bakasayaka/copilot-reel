@@ -589,22 +589,46 @@ std::wstring ResolvePath(const std::wstring& target) {
     return attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) ? std::wstring() : path;
 }
 
+std::wstring Extension(const std::wstring& path) {
+    const auto dot = path.find_last_of(L'.'), slash = path.find_last_of(L"\\/");
+    return dot == std::wstring::npos || (slash != std::wstring::npos && dot < slash) ? std::wstring() : Lower(path.substr(dot));
+}
+
+// The icon location and the target a shortcut stores, environment variables expanded. Loading a
+// .lnk reads the shortcut file alone; neither path is resolved or touched.
+bool LinkPaths(const std::wstring& path, std::wstring& icon, std::wstring& target) {
+    com_ptr<IShellLinkW> link;
+    std::vector<wchar_t> location(32768), destination(32768), expanded(32768);
+    int index = 0;
+    if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(link.put()))) ||
+        FAILED(link.as<IPersistFile>()->Load(path.c_str(), STGM_READ))) return false;
+    auto expand = [&](const wchar_t* text) {
+        const DWORD size = ExpandEnvironmentStringsW(text, expanded.data(), static_cast<DWORD>(expanded.size()));
+        return size && size <= expanded.size() ? std::wstring(expanded.data()) : std::wstring(text);
+    };
+    if (SUCCEEDED(link->GetIconLocation(location.data(), static_cast<int>(location.size()), &index))) icon = expand(location.data());
+    if (link->GetPath(destination.data(), static_cast<int>(destination.size()), nullptr, 0) == S_OK) target = expand(destination.data());
+    return true;
+}
+
+// A local shortcut whose target or icon is on a share stalls like the share itself (OnNetwork).
+bool LinksToNetwork(const std::wstring& path) {
+    std::wstring icon, target;
+    return Extension(path) == L".lnk" && LinkPaths(path, icon, target) && (IsNetworkPath(icon) || IsNetworkPath(target));
+}
+
 // Windows gives an executable that carries no icon its stock application icon, which would pass
 // for plated art. Such a target, and a shortcut whose icon comes from one, keeps the generic
 // glyph instead (VI: a custom app without an icon). Other files keep their type's Shell icon.
 bool HasOwnIcon(const std::wstring& path, bool followLink = true) {
-    const auto dot = path.find_last_of(L'.'), slash = path.find_last_of(L"\\/");
-    const auto extension = dot == std::wstring::npos || (slash != std::wstring::npos && dot < slash) ? std::wstring() : Lower(path.substr(dot));
+    const auto extension = Extension(path);
     if (extension == L".lnk") {
-        com_ptr<IShellLinkW> link;
-        std::array<wchar_t, 32768> location{}, destination{};
-        int index = 0;
-        if (!followLink || FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(link.put()))) ||
-            FAILED(link.as<IPersistFile>()->Load(path.c_str(), STGM_READ))) return true;
-        if (SUCCEEDED(link->GetIconLocation(location.data(), static_cast<int>(location.size()), &index)) && location[0])
-            if (const auto icon = ResolvePath(location.data()); !icon.empty()) return HasOwnIcon(icon, false);
-        if (link->GetPath(destination.data(), static_cast<int>(destination.size()), nullptr, 0) == S_OK && destination[0])
-            if (const auto target = ResolvePath(destination.data()); !target.empty()) return HasOwnIcon(target, false);
+        std::wstring location, destination;
+        if (!followLink || !LinkPaths(path, location, destination)) return true;
+        // The icon location wins over the target, as in the Shell.
+        for (const auto& stored : {location, destination})
+            if (!stored.empty())
+                if (const auto resolved = ResolvePath(stored); !resolved.empty()) return HasOwnIcon(resolved, false);
         return true;
     }
     if (extension != L".exe" && extension != L".dll" && extension != L".com" && extension != L".scr" && extension != L".cpl") return true;
@@ -667,7 +691,8 @@ bool ShellImage(const std::wstring& parsing, std::vector<BYTE>& pixels, UINT& wi
 }
 
 // A target on a network share is never touched on the UI thread: an offline server would
-// stall every page for its connect timeout. It keeps its vendor mark or the generic glyph.
+// stall every page for its connect timeout. It keeps its vendor mark or the generic glyph, as
+// does a local shortcut to one (LinksToNetwork).
 bool OnNetwork(const AppTarget& item) {
     return item.kind == TargetKind::Shell && IsNetworkPath(Unquote(item.target));
 }
@@ -679,7 +704,7 @@ void PrepareShell(const AppTarget& item) {
     const auto key = TargetKey(item);
     if (shellTargets.contains(key) || OnNetwork(item)) return;
     const auto [parsing, identity] = ShellName(item);
-    if (parsing.empty()) return;
+    if (parsing.empty() || LinksToNetwork(parsing)) return;
     // A known answer: no artwork of its own, so SourceKey is empty and the generic glyph draws.
     if (!HasOwnIcon(parsing)) { shellTargets.emplace(key, std::wstring()); return; }
     if (!sources.contains(identity)) {
@@ -750,13 +775,18 @@ bool DrawArtwork(ID2D1DeviceContext* context, const AppTarget& item,
     const D2D1_POINT_2F center{(tile.left + tile.right) / 2, (tile.top + tile.bottom) / 2};
     const float em = vi::kGlyphEm * (tile.right - tile.left) / vi::kTile;
     if (item.target == L"reel:tray-icon:monochrome") {
-        // The monochrome tray icon's mark in the glyph color, as wide as the round command glyphs'
-        // ink (7/8 em, the circle of Info), its stroke at least one device pixel.
+        // The monochrome tray icon's mark in the glyph color, as wide as the color mark on its plate,
+        // so the two states differ only in color. Its stroke is never under 1/14 of the mark, the
+        // tray icon's proportion, and its edges sit on device pixels.
         com_ptr<ID2D1SolidColorBrush> brush;
         if (FAILED(context->CreateSolidColorBrush(style.glyph, brush.put()))) return false;
-        const float half = em * 7 / 16;
-        DrawOrbitMark(context, D2D1::RectF(center.x - half, center.y - half, center.x + half, center.y + half),
-                      96.f / style.dpi, brush.get());
+        const auto grid = Grid(context);
+        const float pixel = grid.aligned ? 1 / grid.scale : 96.f / style.dpi;
+        const float extentPx = (tile.right - tile.left) * vi::kOrbitMarkExtent / vi::kOrbitMarkCanvas / pixel;
+        const auto mark = MeasureOrbitMark(extentPx, extentPx / 14);
+        const float outer = mark.outer * pixel;
+        const auto corner = Snap(grid, {center.x - outer, center.y - outer});
+        DrawOrbitMark(context, {corner.x + outer, corner.y + outer}, mark, pixel, brush.get());
         return true;
     }
     if (IsCommand(item)) {

@@ -7,7 +7,9 @@ and from 0.3.6 'Your apps', an app tile dragged over another slot and over the a
 drag is canceled with Escape, so the order never changes), and an app's actions page without reorder
 chevrons, from 0.3.8 About with its first tile and a switch, and from 0.3.11 the hub's Tray icon chosen
 (the monochrome mark, selected) and a corner hold whose pointer, left off the plate, selects by direction
-without entering the center (it replaces the edge-gated hold of earlier sets). Every image that also
+without entering the center (it replaces the edge-gated hold of earlier sets). From 0.3.13 the variants add
+light at 100% and 150%, the 70% size step at 100% (the name at its 10 px floor) and Chinese and Japanese at
+100%, and every still that shows a name records its WCAG contrast against the plate (nameContrast). Every image that also
 exists in the reference folder is compared pixel by pixel, in every channel; a channel may differ by
 --tolerance levels (default 2, because at rest some anti-aliased edges render up to two levels away), and
 every changed pixel is counted either way.
@@ -61,16 +63,25 @@ PROFILES = [('ChatGPT', 'https://chatgpt.com', ''), ('Claude', 'https://claude.a
             ('Gemini', 'https://gemini.google.com', ''), ('Perplexity', 'https://www.perplexity.ai', ''),
             ('Notepad', 'notepad.exe', ''), ('Windows Settings', 'ms-settings:', ''),
             ('Probe', str(PROBE), '--radial-probe=capture')]
-VARIANTS = [('dark-solid', 'theme=dark;material=solid'), ('light-solid', 'theme=light;material=solid'),
-            ('dark-frosted', 'theme=dark;material=frosted'), ('light-frosted', 'theme=light;material=frosted'),
-            ('contrast', 'contrast=on'), ('dark-100', 'theme=dark;material=solid;dpi=96'),
-            ('dark-150', 'theme=dark;material=solid;dpi=144')]
+# Variant, visual override and preferences.ini values. From 0.3.13 the set adds light at 100% and 150%, the
+# 70% size step at 100%, where the name draws at its 10 px floor, and Chinese and Japanese at 100%.
+VARIANTS = [('dark-solid', 'theme=dark;material=solid', {}), ('light-solid', 'theme=light;material=solid', {}),
+            ('dark-frosted', 'theme=dark;material=frosted', {}), ('light-frosted', 'theme=light;material=frosted', {}),
+            ('contrast', 'contrast=on', {}), ('dark-100', 'theme=dark;material=solid;dpi=96', {}),
+            ('dark-150', 'theme=dark;material=solid;dpi=144', {}), ('light-100', 'theme=light;material=solid;dpi=96', {}),
+            ('light-150', 'theme=light;material=solid;dpi=144', {}),
+            ('dark-100-70', 'theme=dark;material=solid;dpi=96', {'ReelSize': '70'}),
+            ('dark-100-zh', 'theme=dark;material=solid;dpi=96', {'Language': 'zh-CN'}),
+            ('dark-100-ja', 'theme=dark;material=solid;dpi=96', {'Language': 'ja-JP'})]
+# The hub's settled order (AGENTS.md), so the stills find its tiles in every language.
+HUB_LANGUAGE, HUB_APPEARANCE, HUB_TRAY, HUB_MANAGE, HUB_ABOUT, HUB_COUNT = 0, 1, 3, 4, 6, 7
 # Each must have a reference image.
 REFERENCE_STATES = ('main', 'main-claude', 'hub', 'hub-appearance', 'hub-language', 'hub-tray', 'manage', 'manage-drag',
                     'manage-trash', 'entry', 'entry-app', 'about', 'about-author', 'about-switch', 'edge')
 # About shows its updater as an installed reel does: a feed that is never asked (nothing checks by itself
-# in a test instance) and a version, so the switches and the update tile are enabled.
-UPDATER = {'COPILOT_REEL_TEST_UPDATE_FEED': 'http://127.0.0.1:9/releases', 'COPILOT_REEL_TEST_VERSION': '0.3.8.0'}
+# in a test instance) and a version, so the switches and the update tile are enabled. The version is a
+# placeholder, 0.0.0, not a release, so the About stills neither date nor change with each release.
+UPDATER = {'COPILOT_REEL_TEST_UPDATE_FEED': 'http://127.0.0.1:9/releases', 'COPILOT_REEL_TEST_VERSION': '0.0.0.0'}
 # Every animation has come to rest: captured after 0.35 s, a seat that had just travelled still differed
 # from its resting pixels by up to three levels, while 1 s and 3 s captures are identical.
 SETTLE_SECONDS = 1.0
@@ -91,23 +102,52 @@ def slot(reel, index, count, radius=seam.SECTOR_RADIUS_DIP):
     return round(x + math.sin(angle) * radius * scale), round(y - math.cos(angle) * radius * scale)
 
 
-def write_profiles(directory):
+def write_profiles(directory, preferences):
     content = f'[CopilotReel]\r\nVersion=1\r\nCount={len(PROFILES)}\r\n'
     for index, (title, target, arguments) in enumerate(PROFILES):
         content += (f'[App{index}]\r\nName={title}\r\nKind=shell\r\nTarget={seam.encode_ini(target)}\r\n'
                     f'Arguments={arguments}\r\nWorkingDirectory=\r\n')
     (directory / 'apps.ini').write_text(content, encoding='utf-16', newline='')
-    (directory / 'preferences.ini').write_text('[General]\r\nLanguage=en-US\r\n', encoding='utf-16', newline='')
+    general = {'Language': 'en-US', **preferences}
+    (directory / 'preferences.ini').write_text('[General]\r\n' + ''.join(f'{key}={value}\r\n' for key, value in general.items()),
+                                               encoding='utf-16', newline='')
+
+
+def luminance(rgb):
+    """WCAG 2 relative luminance of an 8-bit sRGB color."""
+    def linear(c):
+        c /= 255
+        return c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4
+    r, g, b = (linear(c) for c in rgb[:3])
+    return .2126 * r + .7152 * g + .0722 * b
+
+
+def name_contrast(path):
+    """The WCAG contrast of the center name: its strongest ink pixel against the plate, the most common color
+    in the name's band (160 x 20 DIP at the center). Antialiasing only lowers it, so it bounds the ratio from below.
+    None on a frosted plate, which the capture leaves transparent over whatever lies behind the window."""
+    image = Image.open(path).convert('RGBA')
+    scale = image.width / seam.CANVAS_DIP
+    cx, cy = image.width / 2, image.height / 2
+    band = image.crop((round(cx - 80 * scale), round(cy - 10 * scale), round(cx + 80 * scale), round(cy + 10 * scale)))
+    colors = band.getcolors(band.width * band.height)
+    plate = max(colors)[1]
+    if plate[3] < 255:
+        return None
+    ratios = [(max(a, b) + .05) / (min(a, b) + .05) for a, b in
+              ((luminance(color), luminance(plate)) for _, color in colors if color[3] == 255)]
+    return round(max(ratios), 2)
 
 
 def still(reel, output, variant, name, label):
+    """Captures one state; returns its name, its path and, when it shows a name, the name's WCAG contrast."""
     reel.sync()
     time.sleep(SETTLE_SECONDS)
     values = reel.diagnostics()
     assert values.get('centerLabel') == label, (variant, name, label, values.get('centerLabel'))
     path = output / f'{variant}-{name}.png'
     subprocess.run([str(CAPTURE), str(reel.hwnd), str(path)], creationflags=seam.CREATE_NO_WINDOW, check=True, timeout=10)
-    return name, path
+    return name, path, name_contrast(path) if label else None
 
 
 def wait_visible(reel, visible):
@@ -128,7 +168,7 @@ def capture_add(reel, evidence, variant, opened):
         values = reel.diagnostics()
         assert values.page == seam.PAGE_PRESETS and values.title == ADD_TITLE and values.selected == -1, values.text
         assert len(values.art) == len(values.names), ('menuArt must name every entry', values.names, values.art)
-        state, path = still(reel, evidence, variant, f'add-{len(pages) + 1}', '')
+        state, path, _ = still(reel, evidence, variant, f'add-{len(pages) + 1}', '')
         after = reel.diagnostics()
         assert (after.names, after.art) == (values.names, values.art), 'The Add page changed during its capture.'
         pages.append({'state': state, 'path': path, 'width': reel.rect()[2] - reel.rect()[0],
@@ -141,10 +181,10 @@ def capture_add(reel, evidence, variant, opened):
         reel.choose(NEXT)
 
 
-def capture_variant(variant, override, output, data):
+def capture_variant(variant, override, preferences, output, data):
     directory = data / variant
     directory.mkdir(parents=True)
-    write_profiles(directory)
+    write_profiles(directory, preferences)
     work = seam.primary_work_area()
     anchor = ((work[0] + work[2]) // 2, (work[1] + work[3]) // 2)
     reel = seam.Reel(EXE, directory, run_id='cap-' + uuid.uuid4().hex[:12], pointer=anchor, visual=override, extra=UPDATER)
@@ -163,22 +203,23 @@ def capture_variant(variant, override, output, data):
         wait_visible(reel, True)
         shots.append(still(reel, output, variant, 'hub', ''))
         hub = reel.diagnostics().names
-        reel.pointer(slot(reel, hub.index('Appearance'), len(hub)))
-        shots.append(still(reel, output, variant, 'hub-appearance', 'Appearance'))
-        reel.pointer(slot(reel, hub.index('Language'), len(hub)))
-        shots.append(still(reel, output, variant, 'hub-language', 'Language'))
+        assert len(hub) == HUB_COUNT, hub
+        reel.pointer(slot(reel, HUB_APPEARANCE, HUB_COUNT))
+        shots.append(still(reel, output, variant, 'hub-appearance', hub[HUB_APPEARANCE]))
+        reel.pointer(slot(reel, HUB_LANGUAGE, HUB_COUNT))
+        shots.append(still(reel, output, variant, 'hub-language', hub[HUB_LANGUAGE]))
         # 0.3.11: Tray icon chosen, so it shows the monochrome mark in its seat; chosen again, it is
         # back in color for the stills that follow.
-        tray = slot(reel, hub.index('Tray icon'), len(hub))
+        tray = slot(reel, HUB_TRAY, HUB_COUNT)
         reel.pointer(tray)
         reel.click(tray)
         seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'monochrome', 'monochrome tray icon')
-        shots.append(still(reel, output, variant, 'hub-tray', 'Tray icon'))
+        shots.append(still(reel, output, variant, 'hub-tray', hub[HUB_TRAY]))
         reel.click(tray)
         seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'color', 'color tray icon')
         # 0.3.6: Your apps, then Claude lifted over Perplexity's slot, then over the armed trash.
-        reel.pointer(slot(reel, hub.index('Manage apps'), len(hub)))
-        reel.click(slot(reel, hub.index('Manage apps'), len(hub)))
+        reel.pointer(slot(reel, HUB_MANAGE, HUB_COUNT))
+        reel.click(slot(reel, HUB_MANAGE, HUB_COUNT))
         reel.pointer(anchor)
         names = reel.diagnostics().names
         shots.append(still(reel, output, variant, 'manage', ''))
@@ -211,9 +252,8 @@ def capture_variant(variant, override, output, data):
         reel.pointer(anchor)
         reel.send_command(seam.SETTINGS, anchor)
         wait_visible(reel, True)
-        hub = reel.diagnostics().names
-        reel.pointer(slot(reel, hub.index('About'), len(hub)))
-        reel.click(slot(reel, hub.index('About'), len(hub)))
+        reel.pointer(slot(reel, HUB_ABOUT, HUB_COUNT))
+        reel.click(slot(reel, HUB_ABOUT, HUB_COUNT))
         reel.pointer(anchor)
         values = reel.diagnostics()
         assert values.page == seam.PAGE_ABOUT and len(values.names) == 5, values.text
@@ -239,13 +279,16 @@ def capture_variant(variant, override, output, data):
         reel.send_command(seam.CANCEL)
         wait_visible(reel, False)
         # Add, machine-dependent: opening the hub starts discovery, and Add is read once it has completed.
-        opened = len(reel.read_log())
-        reel.pointer(anchor)
-        reel.send_command(seam.SETTINGS, anchor)
-        wait_visible(reel, True)
-        pages = capture_add(reel, data, variant, opened)
-        reel.send_command(seam.CANCEL)
-        wait_visible(reel, False)
+        # Its tiles do not depend on the language, so the Chinese and Japanese variants leave it out.
+        pages = []
+        if 'Language' not in preferences:
+            opened = len(reel.read_log())
+            reel.pointer(anchor)
+            reel.send_command(seam.SETTINGS, anchor)
+            wait_visible(reel, True)
+            pages = capture_add(reel, data, variant, opened)
+            reel.send_command(seam.CANCEL)
+            wait_visible(reel, False)
         reel.stop()
     finally:
         reel.shutdown()
@@ -349,7 +392,7 @@ def main():
     # Routine runs write to the evidence directory; publishing a version's stills to
     # output/runtime/vX.Y.Z is an explicit choice, so tracked evidence is never rewritten by accident.
     parser.add_argument('--output', default='')
-    parser.add_argument('--variants', default=','.join(v for v, _ in VARIANTS))
+    parser.add_argument('--variants', default=','.join(v for v, _, _ in VARIANTS))
     # At rest, anti-aliased edges render up to two 8-bit levels away from 0.3.4: two contrast tile corners
     # since 0.3.5, and the light hub-language seat, whose 0.3.4 reference was captured just short of rest.
     # A seat captured mid-travel differs by up to 18 levels. 0 makes every change fail.
@@ -367,7 +410,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     data.mkdir(parents=True, exist_ok=True)
     wanted = [name for name in args.variants.split(',') if name]
-    unknown = sorted(set(wanted) - {v for v, _ in VARIANTS})
+    unknown = sorted(set(wanted) - {v for v, _, _ in VARIANTS})
     if unknown:
         raise SystemExit('Unknown variants: ' + ', '.join(unknown))
     evidence = {'captureMethod': 'Windows.Graphics.Capture.CreateForWindow of a seam test instance',
@@ -378,21 +421,22 @@ def main():
                                 'never compared with a reference',
                 'variants': []}
     failures = []
-    for variant, override in VARIANTS:
+    for variant, override, preferences in VARIANTS:
         if variant not in wanted:
             continue
-        entry = {'variant': variant, 'override': override, 'shots': [], 'addPages': []}
+        entry = {'variant': variant, 'override': override, 'preferences': preferences, 'shots': [], 'addPages': []}
         evidence['variants'].append(entry)
         try:
-            shots, pages = capture_variant(variant, override, output, data)
+            shots, pages = capture_variant(variant, override, preferences, output, data)
         except Exception as error:
             entry['error'] = f'{type(error).__name__}: {error}'
             failures.append(f'{variant}: capture failed: {entry["error"]}')
             print(variant, 'capture failed:', entry['error'])
             continue
-        for state, path in shots:
+        for state, path, contrast in shots:
             comparison = None if args.no_reference else compare(path, reference / path.name, args.tolerance)
-            entry['shots'].append({'state': state, 'file': str(path.relative_to(ROOT)), 'comparison': comparison})
+            entry['shots'].append({'state': state, 'file': str(path.relative_to(ROOT)), 'comparison': comparison,
+                                   'nameContrast': contrast})
             if args.no_reference:
                 continue
             if comparison is None:
@@ -425,7 +469,11 @@ def main():
     (data / 'results.json').write_text(json.dumps(evidence, indent=2), encoding='utf-8')
     for failure in failures:
         print('FAIL', failure, file=sys.stderr)
-    print(json.dumps({'passed': evidence['passed'], 'failures': len(failures), 'evidence': str(data / 'results.json')}))
+    # The lowest name contrast of each variant, so tools/test.ps1 carries it into summary.json.
+    contrast = {entry['variant']: min((shot['nameContrast'] for shot in entry['shots'] if shot['nameContrast']), default=None)
+                for entry in evidence['variants']}
+    print(json.dumps({'passed': evidence['passed'], 'failures': len(failures), 'evidence': str(data / 'results.json'),
+                      'nameContrast': contrast}))
     return 0 if evidence['passed'] else 1
 
 

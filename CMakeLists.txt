@@ -134,7 +134,7 @@ if(MSVC)
   target_compile_options(test_input_tests PRIVATE /utf-8 /EHsc /W4)
 endif()
 reel_test(test_input test_input_tests)
-add_executable(typography_tests tests/typography_tests.cpp src/typography.cpp)
+add_executable(typography_tests tests/typography_tests.cpp src/typography.cpp src/localization.cpp src/settings.cpp)
 add_dependencies(typography_tests vi_tokens)
 add_custom_command(TARGET typography_tests POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -142,7 +142,7 @@ add_custom_command(TARGET typography_tests POST_BUILD
     "$<TARGET_FILE_DIR:typography_tests>/assets/fonts")
 target_include_directories(typography_tests PRIVATE src)
 target_compile_definitions(typography_tests PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
-target_link_libraries(typography_tests PRIVATE dwrite windowsapp ole32 user32)
+target_link_libraries(typography_tests PRIVATE dwrite windowsapp user32 gdi32 comdlg32 shell32 ole32 uuid)
 if(MSVC)
   target_compile_options(typography_tests PRIVATE /utf-8 /EHsc /W4)
 endif()

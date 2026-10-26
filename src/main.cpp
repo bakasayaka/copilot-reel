@@ -366,17 +366,19 @@ public:
         if(!CurrentVisualOverride().raw.empty())Log(L"Visual override: "+CurrentVisualOverride().raw);
         renderer_->SetLanguage(CurrentLanguage());renderer_->SetReelSize(ReelSizePercent(CurrentReelSize()));
         PreloadOfficialIconAssets();
-        RefreshAppearance(); Reload();
+        RefreshAppearance();
+        // The icon comes first, so a configuration error found by Reload has an icon to show its notice on.
+        // A test instance is invisible to the Shell, the tray and the user's hotkey.
+        if(!CurrentTestInput().active)AddTray();
+        Reload();
         // A cold start serves a Copilot key press; discovery waits on a worker unless Reload needed it.
         RefreshPresets();
         updater_=std::make_unique<Updater>(window,kUpdateMessage);ScheduleUpdates();
         if(CurrentTestInput().active) {
-            // A test instance is invisible to the Shell, the tray and the user's hotkey.
             ready_=true;const auto pointer=CursorPosition();
             Log(L"Test input seam active: run="+CurrentTestInput().runId+L"; pointer="+std::to_wstring(pointer.x)+L","+std::to_wstring(pointer.y));
             return true;
         }
-        AddTray();
         // This ordinary optional shortcut opens click-to-select preview; it never intercepts Copilot.
         hotkey_=RegisterHotKey(window,1,MOD_CONTROL|MOD_ALT|MOD_NOREPEAT,'R')!=FALSE;
         ready_=true;
@@ -1227,7 +1229,9 @@ public:
     // Windows keeps a tray icon's "show on the taskbar" choice per executable path, and every
     // package version runs from its own folder. A GUID-identified icon keeps one key and only
     // moves its path on an update, signed executable or not (docs/validation.md). Should Windows
-    // refuse the GUID, the icon goes by the window and uID, so it always shows.
+    // refuse the GUID, the icon goes by the window and uID, so it always shows. Only the default
+    // instance carries the GUID: a smoke instance's icon goes by its window from the start, so
+    // neither its add nor its stale-icon delete can reach the installed reel's icon.
     static constexpr GUID kTrayGuid{0x55f5d570,0x3345,0x477e,{0x89,0xfc,0xbc,0x7a,0x2e,0x77,0x31,0x33}};
     NOTIFYICONDATAW TrayData(UINT flags) const {
         NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;data.uFlags=flags;
@@ -1243,14 +1247,17 @@ public:
             data.uVersion=NOTIFYICON_VERSION_4;Shell_NotifyIconW(NIM_SETVERSION,&data);
             return true;
         };
-        trayGuid_=true;
+        trayGuid_=!smoke;
         if(add())return;
         // An icon this window added before (a lost TaskbarCreated race) blocks a second add.
         auto stale=TrayData(0);Shell_NotifyIconW(NIM_DELETE,&stale);
         if(add())return;
-        trayGuid_=false;
-        Log(L"Tray icon GUID refused; the icon goes by its window and uID");
-        if(!add())Log(L"Tray icon could not be added");
+        if(trayGuid_) {
+            trayGuid_=false;
+            Log(L"Tray icon GUID refused; the icon goes by its window and uID");
+            if(add())return;
+        }
+        Log(L"Tray icon could not be added");
     }
     // The icon for the current style, created again only when the style changes.
     HICON TrayIcon() {
@@ -1292,7 +1299,7 @@ public:
             {kCommandSettings,Tr(L"Quick menu...",L"快捷菜单…",L"簡易メニュー…"),vi::kGlyphTraySettings},
             {kCommandDiagnostics,Tr(L"Write diagnostics",L"写出诊断信息",L"診断情報を書き出す"),vi::kGlyphTrayDiagnostics},
             {},
-            {kCommandTrayIcon,Tr(L"Monochrome icon",L"黑白图标",L"モノクロ アイコン"),0,false,CurrentTrayMonochrome()},
+            {kCommandTrayIcon,Tr(L"Monochrome icon",L"单色图标",L"モノクロ アイコン"),0,false,CurrentTrayMonochrome()},
             {},
             {kCommandExit,Tr(L"Exit",L"退出",L"終了"),vi::kGlyphTrayExit}});
         if(choice) PostMessageW(window,WM_COMMAND,choice,0);
@@ -1309,7 +1316,7 @@ public:
         const wchar_t* adjustName=!adjust.control?L"none":adjust.earlier && adjust.later?L"both":adjust.earlier?L"earlier":adjust.later?L"later":L"blocked";
         std::wstring parkedNames;
         for(const auto& app:parked_)parkedNames+=(parkedNames.empty()?L"":L"|")+AppDisplayName(app);
-        text<<L"Copilot Reel 0.3.12\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
+        text<<L"Copilot Reel "<<(updater_?updater_->CurrentVersion():ExecutableVersion())<<L"\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
             <<L"\r\nanimations="<<currentAppearance_.animations<<L"\r\nhighContrast="<<currentAppearance_.highContrast<<L"\r\ntargetCount="<<items_.size()
             <<L"\r\nmenuPage="<<static_cast<int>(page_)<<L"\r\nmenuEntries="<<menu_.size()<<L"\r\npresetOffset="<<presetOffset_
             <<L"\r\npreferredIndex="<<PreferredTargetIndex(items_)<<L"\r\ngestureActive="<<gesture_.Active()

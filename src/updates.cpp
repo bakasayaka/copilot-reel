@@ -439,9 +439,7 @@ bool Updater::Prepared() const {
     return !shared_->prepared.empty();
 }
 
-std::wstring Updater::CurrentVersion() const {
-    if (shared_->running) return VersionText(shared_->running->version);
-    // A development build names the version in its own resources.
+std::wstring ExecutableVersion() {
     wchar_t module[MAX_PATH]{};
     if (!GetModuleFileNameW(nullptr, module, MAX_PATH)) return {};
     DWORD ignored = 0;
@@ -452,6 +450,12 @@ std::wstring Updater::CurrentVersion() const {
         !VerQueryValueW(info.data(), L"\\", reinterpret_cast<void**>(&fixed), &size) || !fixed) return {};
     return VersionText({HIWORD(fixed->dwFileVersionMS), LOWORD(fixed->dwFileVersionMS),
         HIWORD(fixed->dwFileVersionLS), LOWORD(fixed->dwFileVersionLS)});
+}
+
+std::wstring Updater::CurrentVersion() const {
+    if (shared_->running) return VersionText(shared_->running->version);
+    // A development build names the version in its own resources.
+    return ExecutableVersion();
 }
 
 bool Updater::Check() {

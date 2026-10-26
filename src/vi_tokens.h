@@ -88,6 +88,12 @@ inline constexpr wchar_t kGlyphChevronLeftSmall = L'\xE76B', kGlyphChevronRightS
 inline constexpr wchar_t kGlyphTrayPreview = L'\xE890', kGlyphTraySettings = L'\xE713', kGlyphTrayDiagnostics = L'\xE9D9', kGlyphTrayExit = L'\xE7E8';
 inline constexpr wchar_t kGlyphAbout = L'\xE946', kGlyphSwitchOn = L'\xEC11', kGlyphSwitchOff = L'\xF19E', kGlyphCheckUpdate = L'\xE72C', kGlyphCheckFailed = L'\xEA6A', kGlyphDownload = L'\xE896';
 inline constexpr float kSwitchKnobX = 0.25f, kSwitchKnobRadius = 0.125f;  // em of the command glyph
+// The Soft Orbit mark (iconography.orbitMark) in its icon canvas; angles in degrees clockwise from 3 o'clock.
+inline constexpr float kOrbitMarkCanvas = 256.f, kOrbitMarkCenter = 128.f, kOrbitMarkExtent = 184.f, kOrbitMarkStroke = 12.f;
+inline constexpr float kOrbitMarkOuterRadius = 92.f, kOrbitMarkOuterFrom = -30.f, kOrbitMarkOuterTo = 280.f;
+inline constexpr float kOrbitMarkInnerRadius = 56.f, kOrbitMarkInnerFrom = 150.f, kOrbitMarkInnerTo = 440.f;
+inline constexpr float kOrbitMarkDotAngle = -50.f, kOrbitMarkDotRadius = 16.f, kOrbitMarkPlateRadius = 56.f;  inline constexpr Color kOrbitMarkPlate{0.f, 0.373f, 0.722f, 1.f};
+inline constexpr float kOrbitMarkMinimumDotPx = 1.5f, kOrbitMarkInnerRingFromStrokePx = 2.f;
 // Motion (ms / unitless)
 inline constexpr unsigned kOpenFadeMs = 83, kOpenScaleMs = 167;  inline constexpr float kOpenScaleFrom = 0.96f;
 inline constexpr unsigned kCloseFadeMs = 83, kCloseScaleMs = 83;  inline constexpr float kCloseScaleTo = 0.98f;
