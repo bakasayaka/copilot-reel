@@ -1,6 +1,6 @@
 # Appearance and performance testing plan
 
-This plan extends the 0.3.4 application and VI v0.9 baseline. It combines deterministic appearance tests with native rendering and ETW/WPR measurements, and defines regression coverage for the proposed unified menu interaction. Existing results belong in [validation.md](validation.md); the work below is planned unless explicitly marked verified.
+This plan started from the 0.3.4 application and VI v0.9 baseline. It combines deterministic appearance tests with native rendering and ETW/WPR measurements, and defines regression coverage for the proposed unified menu interaction. Existing results belong in [validation.md](validation.md); the work below is planned unless explicitly marked verified.
 
 The product has two packages, x64 and ARM64, from one source tree. ARM64 is cross-compiled on the x64 development host and is not part of this host's runtime matrix. Further x64 appearance, interaction, and performance acceptance uses the layers in this plan. The existing pointer-injection suite remains historical evidence for 0.3.4; it is not the acceptance run for later x64 work.
 
@@ -49,7 +49,7 @@ Use fixed accent and high-contrast palettes, fixed artwork, the shared VI tokens
 | Base and material | Light/dark solid; light/dark injected acrylic | Expected color roles, source kind, alpha and circular clipping; no accidental desktop dependency |
 | High contrast | Black background/white foreground and inverse palette, each with explicit highlight colors | System-role colors replace decorative roles, no backdrop/shadow, readable selected and disabled states |
 | Precedence | Transparency off, energy saver, high contrast, unsupported/slow effects, WARP, factory failure | Exact effective material and fallback reason; no silent successful-acrylic claim |
-| Item states | Idle, hover, selected, disabled, preferred badge, edge gate, Back and EN/ZH | Correct glyphs, labels, order, focus and hit geometry |
+| Item states | Idle, hover, selected, disabled, preferred badge, a corner hold that selects by direction from off the plate, Back and EN/ZH/JA | Correct glyphs, labels, order, focus and hit geometry |
 | Scale | 96/144/192 DPI plus geometry tests across the supported range | No clipped icons or labels; rendering and hit testing use the same final center |
 | Reduced motion | Motion off and high contrast: open, selection, drill in/out, commit, cancel and reopen during exit | Correct final state; no surviving leaving page, delayed launch or orphaned seat expression. Existing implementation uses immediate paths or 1 ms animation durations. |
 | Live changes | Solid/acrylic, normal/contrast, motion on/off, capability loss/recovery, device recreation; include changes during exit | Preserve menu/selection and recover once; no stale backdrop, invisible interactive items or reappearing exit content |
@@ -155,7 +155,7 @@ Interaction acceptance for later x64 work runs through a test seam in the one Re
 ### What an active instance changes
 
 - Namespace: the mutex and ready event get the suffix `.Test.<run id>` (`TestInstanceSuffix()`), and the window title is `Copilot Reel Test <run id>`. There is no tray icon, no Ctrl+Alt+R hotkey and no fast-path registration, so the installed instance stays resident and the Shell never routes to the test process.
-- Pointer: `CursorPosition()` returns the synthetic cursor instead of `GetCursorPos`, for command capture, selection and release alike. Placement, center gating, hit-test math and rendering are unchanged.
+- Pointer: `CursorPosition()` returns the synthetic cursor instead of `GetCursorPos`, for command capture, selection and release alike. Placement, selection by direction, hit-test math and rendering are unchanged.
 - Real input is disconnected. Raw Input is never registered, `WM_NCHITTEST` returns `HTTRANSPARENT`, and real mouse, key and Raw Input messages are dropped and counted. A preview records `activationRequested` instead of calling `SetForegroundWindow` or `SetFocus`.
 - Updates: only an active instance honors `COPILOT_REEL_TEST_UPDATE_FEED` (a releases feed; plain HTTP is accepted from `127.0.0.1` only), `COPILOT_REEL_TEST_VERSION` (the version it updates from) and `COPILOT_REEL_TEST_UPDATE_DELAY` (milliseconds to its first automatic check; without it, it checks only when asked). Its installs stop after downloading and verifying the package (`updateVerified=1`) and never reach the package manager. Without a feed it has no updater, as a development build.
 - Launches: an active instance with `COPILOT_REEL_TEST_LAUNCH=log` logs `Test launch logged: <name>` instead of opening a target, so `tools/record-demos.py` can show real web and app targets without opening any.
@@ -181,7 +181,7 @@ powershell -File tools\test.ps1 [-Tier unit|smoke|regression|installed] [-Instal
 
 | Tier | Steps |
 | --- | --- |
-| `unit` | `tools/check-versions.ps1` (the seven version copies agree), then `tools/build.ps1`: Release x64 and every unit test |
+| `unit` | `tools/check-versions.ps1` (the eight version copies agree), then `tools/build.ps1`: Release x64 and every unit test |
 | `smoke` | `unit`, then the seam preflight and groups `a` and `hub` |
 | `regression` (default) | `unit`, every seam group, and `tools/capture-seam.py` against the reference stills |
 | `installed` | No build: the installed package's executable equals `build\Release\CopilotReel.exe` and is running |

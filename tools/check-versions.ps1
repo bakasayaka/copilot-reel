@@ -1,7 +1,8 @@
-# The version is typed in four files: CMakeLists.txt, packaging\app.rc (the executable's resources,
-# which About, the quick menu and diagnostics read in a development build), packaging\app.manifest
-# and packaging\AppxManifest.xml (the package, which Windows and the updater read). Throws, naming
-# each copy, when they differ; tools\test.ps1 and tools\package.ps1 run it.
+# The version is typed in five files: CMakeLists.txt, packaging\app.rc (the executable's resources,
+# which About, the quick menu and diagnostics read in a development build), packaging\app.manifest,
+# packaging\AppxManifest.xml (the package, which Windows and the updater read) and
+# design\vi\tokens.json (appVersion, the build the VI tokens describe). Throws, naming each copy,
+# when they differ; tools\test.ps1 and tools\package.ps1 run it.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 function Read-Text([string]$Path) { [IO.File]::ReadAllText((Join-Path $root $Path)) }
@@ -19,7 +20,8 @@ $patterns = @(
     @('packaging/app.rc', 'VALUE "FileVersion", "([0-9.]+)', 'app.rc FileVersion string'),
     @('packaging/app.rc', 'VALUE "ProductVersion", "([0-9.]+)', 'app.rc ProductVersion string'),
     @('packaging/app.manifest', '<assemblyIdentity version="([0-9.]+)"', 'app.manifest assemblyIdentity'),
-    @('packaging/AppxManifest.xml', '<Identity [^>]*Version="([0-9.]+)"', 'AppxManifest.xml Identity'))
+    @('packaging/AppxManifest.xml', '<Identity [^>]*Version="([0-9.]+)"', 'AppxManifest.xml Identity'),
+    @('design/vi/tokens.json', '"appVersion"\s*:\s*"([0-9.]+)"', 'tokens.json appVersion'))
 foreach ($pattern in $patterns) {
     $match = [regex]::Match((Read-Text $pattern[0]), $pattern[1])
     if (-not $match.Success) { throw "No version found for $($pattern[2]) in $($pattern[0])." }

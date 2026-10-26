@@ -11,17 +11,17 @@ from dataclasses import dataclass, field, replace
 
 import art
 import fonts
-from scene import Scene, round_rect_path, transform_path
+from scene import Scene, arc, round_rect_path, transform_path
 from tokens import (CANVAS, PLATE_R, ORBIT_R, CENTER_R, RING, TILE, TILE_R, TILE_STROKE,
-                    SEAT, SEAT_R, GLYPH_EM, BADGE, CHEVRON, DISABLED, LABEL, MONOGRAM, SHADOW_BLUR, SHADOW_DY,
-                    glyph_code, slot_angle, theme as make_theme, acrylic_recipe)
+                    SEAT, SEAT_R, GLYPH_EM, BADGE, SWITCH, CHEVRON, DISABLED, LABEL, MONOGRAM, SHADOW_BLUR, SHADOW_DY,
+                    G, APP_VERSION, glyph_code, slot_angle, theme as make_theme, acrylic_recipe)
 
 C = CANVAS / 2
 
 
 @dataclass(frozen=True)
 class Item:
-    key: str              # brand key ('claude'), Shell key ('notepad'), 'cmd:<name>', 'language', 'generic'
+    key: str              # brand key ('claude'), Shell key ('notepad'), 'cmd:<name>', 'language', 'size', 'generic'
     name: str
     enabled: bool = True
 
@@ -39,26 +39,47 @@ def cmd(name, label, enabled=True):
 
 
 LANGUAGE = Item('language', 'Language')
+SIZE = Item('size', 'Reel size')
+# The Reel size tile's monogram at the default step (geometry.sizeDefault).
+SIZE_LABEL = MONOGRAM['sizeStep']['states'][G['sizeDefault']]
+AUTHOR = 'baka_sayaka'    # src/radial_menu.h kAuthor
 
 # Representative content (names as the runtime displays them; built-in commands from src/radial_menu.h).
 APPS = [app('chatgpt', 'ChatGPT'), app('claude', 'Claude'), app('gemini', 'Gemini'), app('perplexity', 'Perplexity'),
         app('vscode', 'Visual Studio Code'), app('notepad', 'Notepad'), app('settings', 'Windows Settings')]
 PLUS = cmd('add', 'Apps and settings')
 MAIN = APPS + [PLUS]
-HUB = [LANGUAGE, cmd('appearance', 'Appearance'), cmd('preferred', 'Preferred agent'), cmd('manage', 'Manage apps'),
-       cmd('add', 'Add app')]
+# The + hub in its settled order. Tray icon shows the reel's color mark (the default color icon); the
+# preferred agent is set on an app's actions page, never here.
+HUB = [LANGUAGE, cmd('appearance', 'Appearance'), SIZE, app('copilot-reel', 'Tray icon'), cmd('manage', 'Manage apps'),
+       cmd('add', 'Add app'), cmd('about', 'About')]
 MANAGE = APPS + [cmd('add', 'Add app')]
-PREFERRED = list(APPS)
+# About at its defaults: the reel's own mark named by the version and the author, GitHub, Auto-check on,
+# Auto-install off and the update tile before a check.
+ABOUT = [app('copilot-reel', f'{APP_VERSION} · {AUTHOR}'), app('github', 'GitHub'), cmd('auto-check:on', 'Auto-check'),
+         cmd('auto-install:off', 'Auto-install'), cmd('check-update', 'Check for updates')]
 PRESETS = [app('chatgpt', 'ChatGPT / Codex'), app('claude', 'Claude Desktop'), app('claude', 'Claude Science'),
            app('antigravity', 'Antigravity'), app('zcode', 'ZCode'), cmd('add', 'Custom app'), cmd('next', 'Next')]
-ENTRY = [cmd('edit', 'Edit app'), cmd('preferred', 'Set as preferred'), cmd('remove', 'Remove from reel')]
+# App actions: the app itself first (it carries its preferred badge), then Edit, Set as preferred and,
+# while more than one app remains, Remove.
+ENTRY = [APPS[0], cmd('edit', 'Edit app'), cmd('preferred', 'Set as preferred'), cmd('remove', 'Remove from reel')]
 EIGHT = APPS + [app('dsh', 'DeepSeek Harness (DSH)')]
 COMMAND_GLYPHS = {'add': 'Add', 'manage': 'Manage', 'preferred': 'Preferred', 'edit': 'Edit', 'remove': 'Remove',
-                  'previous': 'Previous', 'next': 'Next'}
+                  'previous': 'Previous', 'next': 'Next', 'about': 'About', 'check-update': 'CheckUpdate'}
+
+
+def command_glyph(name, dark):
+    """src/artwork.cpp CommandGlyph: Appearance follows the theme, About's switches carry their state."""
+    if name == 'appearance':
+        return 'Moon' if dark else 'Sun'
+    if name.startswith('auto-') and name.endswith((':on', ':off')):
+        return 'SwitchOn' if name.endswith(':on') else 'SwitchOff'
+    return COMMAND_GLYPHS[name]
 
 
 def hub(at_capacity=False):
-    return HUB[:4] + [replace(HUB[4], enabled=not at_capacity)]
+    """The hub; at capacity its Add app tile stays in place, disabled."""
+    return [replace(it, enabled=not at_capacity) if it.key == 'cmd:add' else it for it in HUB]
 
 
 def item_center(index, count):
@@ -94,10 +115,57 @@ class State:
     shadow: bool = True
 
 
-def glyph(s: Scene, code, cx, cy, em, color, alpha=1.0):
+def glyph(s: Scene, code, cx, cy, em, color, alpha=1.0, knob=False):
+    """A command glyph centered on its ink. `knob`: the on switch, ToggleFilled with its knob cut
+    out (geometry.switch), so the tile or the seat beneath shows through it as in src/artwork.cpp."""
     outline = fonts.icon_outline(code)
     if outline:
-        s.path(transform_path(outline[0], cx, cy, em), fill=color, alpha=alpha)
+        path = transform_path(outline[0], cx, cy, em)
+        if knob:
+            path = path + _knob_hole(path, cx + SWITCH['knobX'] * em, cy, SWITCH['knobRadius'] * em)
+        s.path(path, fill=color, alpha=alpha)
+
+
+def _winding(cmds, px, py):
+    """Nonzero winding number of a point for a path's control polygon (exact enough well inside the ink)."""
+    w, start, prev = 0, None, None
+
+    def edge(a, b):
+        nonlocal w
+        (x0, y0), (x1, y1) = a, b
+        side = (x1 - x0) * (py - y0) - (px - x0) * (y1 - y0)
+        if y0 <= py < y1 and side > 0:
+            w += 1
+        elif y1 <= py < y0 and side < 0:
+            w -= 1
+    for cmd, *v in cmds:
+        pts = list(zip(v[0::2], v[1::2]))
+        if cmd == 'M':
+            if prev is not None and prev != start:
+                edge(prev, start)
+            start = prev = pts[0]
+        elif cmd in ('L', 'C'):
+            for p in pts:
+                edge(prev, p)
+                prev = p
+        elif cmd == 'Z':
+            if prev != start:
+                edge(prev, start)
+            prev = start
+    if prev is not None and prev != start:
+        edge(prev, start)
+    return w
+
+
+def _knob_hole(path, kx, ky, r):
+    """A circle wound against the ink around (kx, ky), so the nonzero fill leaves it empty."""
+    inside = _winding(path, kx, ky)
+    if inside == 0:
+        return []
+    circle = arc(kx, ky, r, 0, 360) + [('Z',)]
+    if (_winding(circle, kx, ky) > 0) == (inside > 0):
+        circle = arc(kx, ky, r, 360, 0) + [('Z',)]
+    return circle
 
 
 def label_text(text):
@@ -128,10 +196,11 @@ def draw_art(s, th, it: Item, x, y, *, selected=False, preferred=False, lang='EN
     fg = th.selectionText if (selected and th.hc) else th.foreground
     if it.key == 'language':
         centered_text(s, lang, x, y, MONOGRAM['size'], fg, 'monogram', alpha)
+    elif it.key == 'size':
+        centered_text(s, SIZE_LABEL, x, y, MONOGRAM['sizeStep']['size'], fg, 'monogram', alpha)
     elif it.command:
-        name = it.key[4:]
-        g = ('Moon' if th.dark else 'Sun') if name == 'appearance' else COMMAND_GLYPHS[name]
-        glyph(s, glyph_code(g), x, y, GLYPH_EM, fg, alpha)
+        g = command_glyph(it.key[4:], th.dark)
+        glyph(s, glyph_code(g), x, y, GLYPH_EM, fg, alpha, knob=g == 'SwitchOn')
     else:
         placement = art.placed(it.key, th.dark) if it.key != 'generic' else None
         if placement is None:
@@ -155,7 +224,7 @@ def draw_art(s, th, it: Item, x, y, *, selected=False, preferred=False, lang='EN
 
 
 def is_plated(it: Item, th):
-    if it.command or it.key in ('language', 'generic'):
+    if it.command or it.key in ('language', 'size', 'generic'):
         return False
     return art.source_path(it.key, th.dark) is not None and art.treatment(it.key, th.dark).plated
 

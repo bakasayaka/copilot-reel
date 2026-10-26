@@ -29,8 +29,8 @@ ART_PX = 8          # raster density for artwork in the PDF: pixels per DIP (cov
 
 
 def asset_key(key, dark):
-    """assets/brands file stem for a brand key in a theme (ChatGPT ships light and dark marks)."""
-    return key + ('-dark' if dark else '-light') if key == 'chatgpt' else key
+    """assets/brands file stem for a brand key in a theme (ChatGPT and GitHub ship light and dark marks)."""
+    return key + ('-dark' if dark else '-light') if key in ('chatgpt', 'github') else key
 
 
 def _shell_icon(name, px=256):

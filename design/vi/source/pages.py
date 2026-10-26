@@ -14,7 +14,7 @@ from layout import (Page, W, ML, MR, CW, TOP, BOTTOM, INK, INK2, INK3, RULE, PAN
 from tokens import (T, G, PAL, MOTION, TYPE, ICON, ELEV, MATERIAL, OSD, CANVAS, PLATE_R, PLATE_STROKE, PLATE_INSET, ORBIT_R,
                     CENTER_R, RING, TILE, TILE_R, TILE_STROKE, TILE_INSET, SEAT, SEAT_R,
                     SEAT_STROKE, SEAT_INSET, GLYPH_EM, KEYLINE, BADGE, CHEVRON, DISABLED, LABEL, MONOGRAM, SHADOW_BLUR,
-                    SHADOW_DY, MAX_APPS, ROOT, APP_VERSION, color, over, contrast, slot_angle, glyph_code)
+                    SHADOW_DY, MAX_APPS, ROOT, color, over, contrast, slot_angle, glyph_code)
 
 
 def f(v):
@@ -32,6 +32,12 @@ def main_state(**kw):
 
 def hub_state(**kw):
     return R.State(R.HUB, language=True, submenu=True, **kw)
+
+
+def seat_overshoot():
+    """Peak overshoot of the seat's spring, exp(-pi z / sqrt(1 - z^2)) for its damping ratio z, as a percentage."""
+    z = MOTION['events']['selection']['travel']['dampingRatio']
+    return f'{math.exp(-math.pi * z / math.sqrt(1 - z * z)) * 100:.1f}%'
 
 
 # 01 Principles ------------------------------------------------------------------------------
@@ -52,13 +58,13 @@ def p01():
     principles = [
         ('Windows-neutral surface', f'The system flyout surface, {PAL["light"]["plate"]} or {PAL["dark"]["plate"]}: one soft shadow, '
          f'a {f(PLATE_STROKE)} DIP rim, frosted when transparency is on.'),
-        ('One orbit', f'Every item sits on the {f(ORBIT_R)} DIP orbit, slot 1 at {G["orbit"]["firstSlot"]}, {G["orbit"]["direction"]}, '
+        ('One orbit', f'Every item sits on the {f(ORBIT_R)} DIP orbit, slot 0 at {G["orbit"]["firstSlot"]}, {G["orbit"]["direction"]}, '
          'an equal step apart. Slots never reflow; icons never rotate.'),
         ('A quiet center', 'Idle Main shows a faint ring and submenus a back chevron. Hover shows exactly one name, never a title, caption or hint.'),
-        ('Selection is a seat', f'A {f(SEAT)} DIP seat tinted with the system accent replaces the tile fill. Command glyphs and EN/ZH stay foreground.'),
+        ('Selection is a seat', f'A {f(SEAT)} DIP seat tinted with the system accent replaces the tile fill. Command glyphs and EN/ZH/JA stay foreground.'),
         ('Marks stay true', f'Vendor marks keep their own color and proportion. Plated marks fill the {f(TILE)} DIP tile; open marks sit on a {f(KEYLINE)} DIP keyline.'),
-        ('Brief motion', f'{MOTION["events"]["open"]["fadeMs"]} to {MOTION["events"]["drill"]["enterMs"]} ms, no overshoot, scaled from the plate center. '
-         'Reduced motion and high contrast settle at once.'),
+        ('Brief motion', f'{MOTION["events"]["open"]["fadeMs"]} to {MOTION["events"]["drill"]["enterMs"]} ms, scaled from the plate center. '
+         f'Easing never overshoots; only the seat\'s spring does, by {seat_overshoot()}. Reduced motion and high contrast settle at once.'),
     ]
     cw = (CW - 2 * 40) / 3
     for i, (title, body) in enumerate(principles):
@@ -99,7 +105,7 @@ def p02():
     lw, lh = LABEL['width'] * k, LABEL['height'] * k
     s.rect(cx - lw / 2, cy - lh / 2, lw, lh, stroke=RED, sw=0.7, dash=[2, 2])
     caption(s, cx, cy + lh / 2 + 14, f'label {f(LABEL["width"])} × {f(LABEL["height"])}', RED, 'center', 11, 'small-sb')
-    # Slot step, inside the plate between slot 1 and slot 2
+    # Slot step, inside the plate between slot 0 and slot 1
     from scene import arc
     a0, a1 = slot_angle(0, n), slot_angle(1, n)
     rr = (PLATE_R - 16) * k
@@ -112,7 +118,7 @@ def p02():
     caption(s, cx + (rr + 9) * math.cos(am), cy + (rr + 9) * math.sin(am), f'{f(360 / n)}°', RED, 'left', 11, 'small-sb')
     y = c0y + CANVAS * k + 22
     for i, line in enumerate([
-            f'Slot 1 at {G["orbit"]["firstSlot"]}, {G["orbit"]["direction"]}; step 360/n ({f(360 / n)}° for n = {n}).',
+            f'Slot 0 at {G["orbit"]["firstSlot"]}, {G["orbit"]["direction"]}; step 360/n ({f(360 / n)}° for n = {n}).',
             f'Shadow: blur {f(SHADOW_BLUR)}, offset y {f(SHADOW_DY)}, inside the {f(ELEV["canvasMargin"])} DIP canvas margin.',
             f'Rim: {f(PLATE_STROKE)} DIP, inset {f(PLATE_INSET)} (high contrast {f(G["plate"]["strokeHighContrast"])}).',
             'Pixel grid: centers, tiles and seats snap to device pixels; hairlines ≥ 1 px.']):
@@ -122,7 +128,7 @@ def p02():
     y += 62
     states = [('Idle Main', f'ring {f(RING)}, ringIdle', main_state()),
               ('Idle submenu', f'back chevron em {f(CHEVRON["backEm"])}', hub_state()),
-              ('Named', 'one name; the ring gives way', main_state(selected=1)),
+              ('Named', 'one name, ring hidden', main_state(selected=1)),
               ('Disabled', f'tile and art at {f(DISABLED)}', R.State(R.hub(True), language=True, submenu=True))]
     cw = (CANVAS * k + gutter + 12) / 4
     box_w, box_h, kk = cw - 14, 76, 0.78
@@ -131,7 +137,7 @@ def p02():
         with s.clip_rect(x, y, box_w, box_h, 10):
             s.rect(x, y, box_w, box_h, fill=PANEL)
             if title == 'Disabled':
-                ix, iy = R.item_center(4, 5)
+                ix, iy = R.item_center(next(j for j, it in enumerate(st.items) if not it.enabled), len(st.items))
                 R.reel(s, x + box_w / 2 - (ix - R.C) * 1.6, y + box_h / 2 - (iy - R.C) * 1.6, LIGHT, st, 1.6)
             else:
                 R.reel(s, x + box_w / 2, y + box_h / 2, LIGHT, st, kk)
@@ -226,7 +232,7 @@ def _card_badge(s, x, y, w, h):
 
 
 def _card_chevrons(s, x, y, w, h):
-    _card(s, x, y, w, h, 'Language tile', 'EN / ZH monogram; chevrons and A / D switch in place.')
+    _card(s, x, y, w, h, 'Language tile', 'EN / ZH / JA monogram; chevrons and A / D switch in place.')
     k = 1.9
     cx, cy = x + w / 2, y + h / 2 + 2
     with s.group(cx - R.C * k, cy - (R.C - ORBIT_R) * k, k):
@@ -243,7 +249,7 @@ def _card_chevrons(s, x, y, w, h):
     ink = fonts.icon_outline(glyph_code('ChevronRightSmall'))[1]
     for i, line in enumerate([f'centers (±{f(CHEVRON["offset"])}, {f(CHEVRON["orbitY"])}) from the plate center',
                               f'hit {f(CHEVRON["hit"])} × {f(CHEVRON["hit"])}  ·  em {f(CHEVRON["em"])}, ink {ink[0] * CHEVRON["em"]:.1f} × {ink[1] * CHEVRON["em"]:.1f}',
-                              f'EN / ZH {f(MONOGRAM["size"])} / {MONOGRAM["weight"]}, centered on cap height']):
+                              f'{" / ".join(MONOGRAM["states"])} {f(MONOGRAM["size"])} / {MONOGRAM["weight"]}, centered on cap height']):
         caption(s, cx, cy + hit / 2 + 18 + i * 15, line, RED, 'center', 11, 'small-sb')
 
 
@@ -393,7 +399,7 @@ def p03():
         x = x0 + j * (cw3 + 10)
         bh = 92
         with s.clip_rect(x, yy + 12, cw3, bh, 10):
-            ix, iy = R.item_center(1, 5)
+            ix, iy = R.item_center(1, len(R.HUB))
             R.reel(s, x + cw3 / 2 - (ix - R.C) * k, yy + 12 + bh / 2 - (iy - R.C) * k, th,
                    R.State(R.HUB, language=True, submenu=True, selected=1, label=''), k)
         caption(s, x, yy + bh + 28, th.label, INK2, size=11)
@@ -401,7 +407,7 @@ def p03():
     # Rules
     y = y0 + 22 + len(ROLE_ROWS) * row_h + 26
     rules = [('Accent is a role', 'Fill and text accents come from UISettings ramp steps, never the raw Accent. Fallbacks apply only when the ramp is unavailable.'),
-             ('The seat carries selection', 'Command glyphs and EN/ZH stay foreground on the seat. High contrast paints the seat COLOR_HIGHLIGHT and selected glyphs selectionText.'),
+             ('The seat carries selection', 'Command glyphs and EN/ZH/JA stay foreground on the seat. High contrast paints the seat COLOR_HIGHLIGHT and selected glyphs selectionText.'),
              ('One mix rule', f'{PAL["mix"]}. Translucent roles composite over the plate; frosted tiles use frostedTileAlpha.')]
     cw = (col_role + 3 * col_w - 20 - 2 * 32) / 3
     for i, (title, body) in enumerate(rules):
@@ -561,7 +567,7 @@ def p05():
                 s.rect(R.C - TILE / 2, R.C - TILE / 2, TILE, TILE, fill=LIGHT.plate, r=TILE_R)
             else:
                 R.draw_tile(s, LIGHT, R.C, R.C)
-            R.glyph(s, int(code, 16), R.C, R.C, em, LIGHT.secondary if name in small else LIGHT.foreground)
+            R.glyph(s, int(code, 16), R.C, R.C, em, LIGHT.secondary if name in small else LIGHT.foreground, knob=name == 'SwitchOn')
         s.text(x + 74, yy + 28, name, 12, INK, face='small-sb')
         s.text(x + 74, yy + 44, f'U+{code}', 11.5, INK2, face='mono')
         note = ICON['commandGlyphNotes'].get(name, '').split(' (')[0].split(' at ')[0].split(';')[0]
@@ -673,17 +679,17 @@ def slice_cell(s, x, y, w, h, th, st, scale, seed=0):
 
 
 def state_models():
-    """(name, note, State) with the item of interest at slot 2 of 4 (3 o'clock)."""
+    """(name, note, State) with the item of interest at slot 1 of 4 (3 o'clock)."""
     gem, chat, claude = R.app('gemini', 'Gemini'), R.app('chatgpt', 'ChatGPT'), R.app('claude', 'Claude')
     four = [R.app('vscode', 'Visual Studio Code'), gem, R.app('notepad', 'Notepad'), R.PLUS]
     add_off = R.cmd('add', 'Add app', enabled=False)
-    hub4 = [R.LANGUAGE, R.cmd('appearance', 'Appearance'), R.cmd('manage', 'Manage apps'), R.cmd('preferred', 'Preferred agent')]
+    hub4 = [R.LANGUAGE, R.cmd('appearance', 'Appearance'), R.cmd('manage', 'Manage apps'), R.cmd('about', 'About')]
     commit_alpha = 1 - MOTION['events']['commit']['holdMs'] / MOTION['events']['commit']['fadeMs']
     return [
         ('Idle', 'neutral tiles, faint ring', R.State(four)),
         ('Selected', 'seat replaces the tile fill; one name', R.State(four, selected=1)),
         ('Disabled', f'{f(DISABLED)} opacity; named on hover; never seated', R.State([R.LANGUAGE, add_off, R.cmd('manage', 'Manage apps'),
-                                                                               R.cmd('preferred', 'Preferred agent')], selected=1, submenu=True)),
+                                                                               R.cmd('about', 'About')], selected=1, submenu=True)),
         ('Preferred', f'accent badge at (+{f(BADGE["offset"])}, −{f(BADGE["offset"])})', R.State([four[0], chat, four[2], R.PLUS], preferred=1)),
         ('Keyboard focus', 'the same seat; glyphs stay foreground', R.State(hub4, selected=1, submenu=True, language=True)),
         ('Commit', f't = {MOTION["events"]["commit"]["holdMs"]} ms: the choice holds, the rest fades',
@@ -700,16 +706,17 @@ def p07():
     variants = [(LIGHT, 'Light'), (DARK, 'Dark'), (LIGHT_F, 'Light frosted'), (DARK_F, 'Dark frosted'), (HC, 'High contrast')]
     lab = 104
     cw = (CW - lab) / len(models)
-    scale = (cw - 12) / (SLICE[1] - SLICE[0])
-    ch = 2 * SLICE[2] * scale
+    gap = 10
     y0 = TOP + 6
+    # The slice fills its column, but never so tall that the rows and the two caption lines pass BOTTOM.
+    scale = min((cw - 12) / (SLICE[1] - SLICE[0]), ((BOTTOM - (y0 + 62) - 29) / len(variants) - gap) / (2 * SLICE[2]))
+    ch = 2 * SLICE[2] * scale
     for j, (name, note, _) in enumerate(models):
         x = ML + lab + j * cw
         heading(s, x, y0 + 12, name, 13.5)
         for i, line in enumerate(fonts.wrap(note, cw - 18, 'small', 11)):
             caption(s, x, y0 + 30 + i * 14, line, INK2, size=11)
     y = y0 + 62
-    gap = 10
     for i, (th, vname) in enumerate(variants):
         yy = y + i * (ch + gap)
         heading(s, ML, yy + ch / 2 + 5, vname, 13)
@@ -733,23 +740,24 @@ def layout_models():
     apps = R.APPS
     more = [R.app('dsh', 'DeepSeek Harness (DSH)'), R.app('vscode', 'Visual Studio Code'), R.app('intellij-idea', 'IntelliJ IDEA'),
             R.app('pycharm', 'PyCharm'), R.app('junie', 'Junie')]
+    n_hub = len(R.HUB)
     return [
-        (1, 'Preferred agent, one app', R.State([apps[0]], preferred=0, submenu=True)),
-        (2, 'App actions, last app', R.State(R.ENTRY[:2], submenu=True)),
-        (3, 'App actions', R.State(R.ENTRY, submenu=True)),
-        (4, 'Main, three apps', R.State([apps[0], apps[1], apps[4], R.PLUS], preferred=0)),
-        (5, 'The + hub', R.State(R.HUB, language=True, submenu=True)),
+        (2, 'Manage apps, one app', R.State([apps[0], R.cmd('add', 'Add app')], preferred=0, submenu=True)),
+        (3, 'App actions, last app', R.State(R.ENTRY[:3], preferred=0, submenu=True)),
+        (4, 'App actions', R.State(R.ENTRY, preferred=0, submenu=True)),
+        (5, 'About', R.State(R.ABOUT, submenu=True)),
         (6, 'Main, five apps', R.State(apps[:5] + [R.PLUS], preferred=0)),
+        (n_hub, 'The + hub', R.State(R.HUB, language=True, submenu=True)),
         (7, 'Presets, first page', R.State(R.PRESETS, submenu=True)),
         (8, 'Presets, middle page', R.State(more + [R.cmd('add', 'Custom app'), R.cmd('previous', 'Previous'), R.cmd('next', 'Next')], submenu=True)),
         (9, f'Main at capacity, {MAX_APPS} apps', R.State(R.EIGHT + [R.PLUS], preferred=0)),
-        (5, f'Hub at {MAX_APPS} apps: Add disabled', R.State(R.hub(True), language=True, submenu=True)),
+        (n_hub, f'Hub at {MAX_APPS} apps: Add disabled', R.State(R.hub(True), language=True, submenu=True)),
     ]
 
 
 def p08():
-    p = Page(8, 'Layouts', 'One orbit for one to nine items.',
-             f'Slot 1 at {G["orbit"]["firstSlot"]}, then {G["orbit"]["direction"]} in equal steps of 360/n. At capacity the Add slot stays, disabled.')
+    p = Page(8, 'Layouts', 'One orbit for two to nine items.',
+             f'Slot 0 at {G["orbit"]["firstSlot"]}, then {G["orbit"]["direction"]} in equal steps of 360/n. At capacity the Add slot stays, disabled.')
     s = p.s
     cols, k = 5, 0.6
     cw = CW / cols
@@ -762,7 +770,7 @@ def p08():
         for j in range(n):
             a = math.radians(slot_angle(j, n))
             rr = (ORBIT_R + 34) * k
-            s.text(cx + rr * math.cos(a), cy + rr * math.sin(a) + 3.5, str(j + 1), 9.5, RED, face='small-sb', align='center')
+            s.text(cx + rr * math.cos(a), cy + rr * math.sin(a) + 3.5, str(j), 9.5, RED, face='small-sb', align='center')
         heading(s, x + 22, y + CANVAS * k + 14, f'n = {n}  ·  {f(round(360 / n, 1))}°', 13.5)
         caption(s, x + 22, y + CANVAS * k + 31, name, INK2, size=12)
     return p
@@ -790,11 +798,11 @@ def p09():
     top, mid, bot = 384, 500, 628
     nodes = {
         'main': (xs[0], mid, 'Main', 'apps and +', R.State(R.MAIN, preferred=0)),
-        'hub': (xs[1], mid, '+ hub', 'language, appearance, preferred, manage, add', R.State(R.HUB, language=True, submenu=True)),
+        'hub': (xs[1], mid, '+ hub', 'language, appearance, reel size, tray icon, manage, add, about', R.State(R.HUB, language=True, submenu=True)),
         'manage': (xs[2], top, 'Manage apps', 'apps and Add app', R.State(R.MANAGE, preferred=0, submenu=True)),
-        'preferred': (xs[2], bot, 'Preferred agent', 'apps; the badge marks the choice', R.State(R.PREFERRED, preferred=0, submenu=True)),
+        'about': (xs[2], bot, 'About', 'the reel, GitHub, two switches, updates', R.State(R.ABOUT, submenu=True)),
         'presets': (xs[3], top, 'Presets', 'five per page, Custom, paging', R.State(R.PRESETS, submenu=True)),
-        'entry': (xs[3], bot, 'App actions', 'edit, set preferred, remove', R.State(R.ENTRY, submenu=True)),
+        'entry': (xs[3], bot, 'App actions', 'the app, edit, set as preferred, remove', R.State(R.ENTRY, preferred=0, submenu=True)),
     }
     for depth, x in enumerate(xs):
         caption(s, x, TOP + 14, f'depth {depth}', INK3, 'center', 11, 'small-sb')
@@ -820,7 +828,7 @@ def p09():
             s.text(tx + nx * off, ty + ny * off + 4, text, 11.5, INK, face='small-sb', align='center')
     edge('main', 'hub', '+  Apps and settings')
     edge('hub', 'manage', 'Manage apps', t=0.42)
-    edge('hub', 'preferred', 'Preferred agent', above=False, t=0.42)
+    edge('hub', 'about', 'About', above=False, t=0.42)
     edge('manage', 'presets', 'Add app')
     edge('manage', 'entry', 'an app', t=0.3)
     # The hub's own Add app drills straight to Presets, above Manage.
@@ -846,8 +854,9 @@ def p09():
         _arrow(s, sx_, sy_, tx_, ty_)
         s.text((sx_ + tx_) / 2 + 10, (sy_ + ty_) / 2 + (-6 if sign > 0 else 14), text, 11.5, INK, face='small-sb')
     # In-place actions on the hub
-    caption(s, hx, hy + pr + 50, 'In place, no navigation: EN / ZH via chevrons or A / D;', INK2, 'center', 11.5)
-    caption(s, hx, hy + pr + 65, 'Appearance opens Windows color settings.', INK2, 'center', 11.5)
+    caption(s, hx, hy + pr + 50, 'In place, no navigation: EN / ZH / JA via chevrons or A / D;', INK2, 'center', 11.5)
+    caption(s, hx, hy + pr + 65, 'Reel size and Tray icon change on each confirm.', INK2, 'center', 11.5)
+    caption(s, hx, hy + pr + 80, 'Appearance opens Windows color settings.', INK2, 'center', 11.5)
     # Legend
     y = BOTTOM - 40
     s.line(ML, y - 22, W - MR, y - 22, RULE)
@@ -979,7 +988,7 @@ def motion_rows():
         ('Seat appears', [('seat opacity 0 → 1', 0, se['seatFadeMs'], 'linear'),
                           (f'seat scale {f(se["seatAppearScaleFrom"])} → 1', 0, se['seatAppearMs'], se['seatAppearCurve']),
                           ('tile fill → 0', 0, se['tileFillFadeMs'], 'linear')]),
-        ('Seat travels', [(f'angle: spring ζ {f(se["travel"]["dampingRatio"])}, period {se["travel"]["periodMs"]} ms', 0, 140, 'spring'),
+        ('Seat travels', [(f'angle: spring ζ {f(se["travel"]["dampingRatio"])}, period {se["travel"]["periodMs"]} ms, overshoot {seat_overshoot()}', 0, 140, 'spring'),
                           ('tile fills swap', 0, se['tileFillFadeMs'], 'linear')]),
         ('Name', [('crossfade; ring hides', 0, lb['crossfadeMs'], lb['curve'])]),
         ('Drill in', [(f'out: scale → {f(di["exitScale"])}, → 0', 0, dr['exitMs'], 'decelerate'),
@@ -1009,7 +1018,7 @@ def _progress(curve, u):
 
 def p11():
     p = Page(11, 'Motion', 'Brief, smooth, from the plate center.',
-             'Full tier on Windows.UI.Composition: no app frame timers, no overshoot, every property from its current value.')
+             'Full tier on Windows.UI.Composition: no app frame timers, easing without overshoot, every property from its current value.')
     s = p.s
     rows = motion_rows()
     x0, name_w = ML, 136
@@ -1043,7 +1052,7 @@ def p11():
         yy += len(bars) * lane + gap
     red = MOTION['events']['reducedMotion']
     caption(s, x0, yy + 14, f'Reduced motion and high contrast: the same code path with every duration {red["durationMs"]} ms; completion still fires. '
-            f'Language EN ↔ ZH: only the monogram crossfades ({MOTION["events"]["language"]["monogramCrossfadeMs"]} ms).', INK2, size=11.5)
+            f'Language EN / ZH / JA: only the monogram crossfades ({MOTION["events"]["language"]["monogramCrossfadeMs"]} ms).', INK2, size=11.5)
 
     # Curves
     rx = cx0 + cwid + 70
@@ -1061,12 +1070,16 @@ def p11():
 
 # 12 Motion: native stills ---------------------------------------------------------------------
 
-RUNTIME_DIR = ROOT / 'output' / 'runtime' / f'v{APP_VERSION}'
+# Native evidence: the reference stills of tools/capture-seam.py, named <variant>-<state>.png, and the motion
+# strips, which only the 0.3.4 capture recorded (tools/capture-v034.py); the motion tokens they show are unchanged since.
+STILLS_VERSION, MOTION_VERSION = '0.3.12', '0.3.4'
+STILLS_DIR = ROOT / 'output' / 'runtime' / f'v{STILLS_VERSION}'
+MOTION_DIR = ROOT / 'output' / 'runtime' / f'v{MOTION_VERSION}'
 
 
 @lru_cache(None)
 def _runtime(name):
-    return Image.open(RUNTIME_DIR / name).convert('RGB')
+    return Image.open(MOTION_DIR / name).convert('RGB')
 
 
 @lru_cache(None)
@@ -1090,7 +1103,8 @@ MOTION_STILLS = [
 
 def p12():
     p = Page(12, 'Motion', 'The same motion, captured.',
-             'Frames from Windows Graphics Capture of the native 0.3.4 window (dark, solid). Times are capture timestamps.')
+             f'Frames from Windows Graphics Capture of the native {MOTION_VERSION} window (dark, solid), whose timings '
+             f'{STILLS_VERSION} keeps. Times are capture timestamps.')
     s = p.s
     fs = 92
     y = TOP + 6
@@ -1114,8 +1128,10 @@ def p12():
         y += row_h
         i += len(pair)
     w = tag(s, ML, y + 8, 'native')
-    caption(s, ML + w + 8, y + 8, 'output/runtime/v0.3.4/motion-open-select.png, motion-drill.png, motion-commit.png (frame strips at about 48 fps).',
-            INK2, size=11.5)
+    caption(s, ML + w + 8, y + 8, f'output/runtime/v{MOTION_VERSION}/motion-open-select.png, motion-drill.png, motion-commit.png '
+            '(frame strips at about 48 fps).', INK2, size=11.5)
+    caption(s, ML + w + 8, y + 25, f'No later build recorded motion strips, so these frames show {MOTION_VERSION}\'s five-item hub, '
+            f'drawn before the {f(G["scale"])} reel scale.', INK2, size=11.5)
     return p
 
 
@@ -1217,7 +1233,7 @@ def _dont_scene(s, kind, x, y, w, h, good):
                     R.centered_text(s, 'Settings', R.C, R.C - 9, 14, th.foreground, 'label')
                     s.text(R.C, R.C + 12, 'Release to choose', 11, th.secondary, face='small', align='center')
                     for i, it in enumerate(R.HUB):
-                        ix, iy = R.item_center(i, 5)
+                        ix, iy = R.item_center(i, len(R.HUB))
                         s.text(ix, iy + 32, it.name, 9.5, th.secondary, face='small', align='center')
         elif kind == 'sweep':
             st = R.State(R.MAIN, preferred=0)
@@ -1288,13 +1304,13 @@ def p14():
 # 15 Runtime evidence -------------------------------------------------------------------------
 
 def p15():
-    p = Page(15, 'Evidence', 'Verified in the native 0.3.4 build.',
-             'Windows Graphics Capture of the app window with the visual override; alpha background; 2x unless noted.')
+    p = Page(15, 'Evidence', f'Verified in the native {STILLS_VERSION} build.',
+             'Windows Graphics Capture of the app window through the test seam, with the visual override; alpha background; 2x unless noted.')
     s = p.s
-    folder = RUNTIME_DIR
+    folder = STILLS_DIR
     shots = [('light-solid-main.png', 'Light, Main'), ('light-solid-main-claude.png', 'Light, Claude selected'),
-             ('light-solid-hub-language.png', 'Light, hub, Language'), ('dark-solid-main-claude.png', 'Dark, Claude selected'),
-             ('dark-solid-hub-appearance.png', 'Dark, hub, Appearance'), ('dark-solid-gated.png', 'Dark, edge-gated'),
+             ('light-solid-hub-language.png', 'Light, hub, Language'), ('dark-solid-hub-tray.png', 'Dark, hub, Tray icon'),
+             ('dark-solid-about.png', 'Dark, About'), ('dark-solid-edge.png', 'Dark, corner, by direction'),
              ('contrast-main-claude.png', 'Contrast path*, Claude'), ('contrast-hub-appearance.png', 'Contrast path*, Appearance')]
     n = 8
     gap = 10
@@ -1316,13 +1332,15 @@ def p15():
     caption(s, ML, y2 + 18, 'Dark, hub, Appearance selected; each crop enlarged to the same size, nearest neighbour.', INK2, size=11.5)
     crops = [('dark-100-hub-appearance.png', 1, '100 %  ·  96 DPI'), ('dark-150-hub-appearance.png', 1.5, '150 %  ·  144 DPI'),
              ('dark-solid-hub-appearance.png', 2, '200 %  ·  192 DPI')]
-    ix, iy = R.item_center(1, 5)
+    ix, iy = R.item_center(1, len(R.HUB))
     box = 64     # DIP around the seat
     zs = 196
     for i, (name, scale, label) in enumerate(crops):
         img = Image.open(folder / name).convert('RGB')
-        l, t = (ix - box / 2) * scale, (iy - box / 2) * scale
-        crop = img.crop((round(l), round(t), round(l + box * scale), round(t + box * scale)))
+        # The still is the reel's canvas, centered, drawn at geometry.scale of its DIP values.
+        k = scale * G['scale']
+        l, t = img.width / 2 + (ix - R.C - box / 2) * k, img.height / 2 + (iy - R.C - box / 2) * k
+        crop = img.crop((round(l), round(t), round(l + box * k), round(t + box * k)))
         crop = crop.resize((zs * 3, zs * 3), Image.NEAREST)
         x = ML + i * (zs + 16)
         s.image(crop, x, y2 + 30, zs, zs, jpeg=False)
@@ -1331,12 +1349,14 @@ def p15():
     x3 = ML + 3 * (zs + 16) + 40
     w3 = (W - MR - x3 - 32) / 2
     heading(s, x3, y2, 'Runtime-verified', 13.5)
-    verified = ['Light and dark solid plates: tiles, seat, badge, chevrons, name, ring and gate',
+    verified = ['Light and dark solid plates: Main, the seven-item hub, About, Manage apps with drag and trash; tiles, seat, '
+                'badge, switches, chevrons, name and ring',
                 'The high-contrast code path (seat in COLOR_HIGHLIGHT) with current system colors',
                 'Rendering at 100, 150 and 200 % through the DPI override',
-                'Motion strips: open, cancel, seat appear and travel, drill in with handoff, drill out, commit',
-                'EN / ZH: idle Main pixel-identical; the hub differs only inside the monogram',
-                'Placement: zero interior offset, minimal clamp at eight edge and corner positions, no cursor warp']
+                f'Motion strips ({MOTION_VERSION}): open, cancel, seat appear and travel, drill in with handoff, drill out, commit',
+                f'EN / ZH ({MOTION_VERSION}): idle Main pixel-identical; the hub differs only inside the monogram',
+                'Placement: zero interior offset, minimal clamp at eight edge and corner positions, no cursor warp; off the '
+                'plate, selection by direction']
     yy = y2 + 26
     for line in verified:
         yy = para(s, x3, yy, '–  ' + line, w3, 12, 17) + 8
@@ -1350,9 +1370,9 @@ def p15():
     yy = y2 + 26
     for line in pending:
         yy = para(s, x4, yy, '–  ' + line, w3, 12, 17) + 8
-    caption(s, ML, y2 + 30 + zs + 40, 'Evidence folder: output/runtime/v0.3.4 (per-variant states, contact sheets, motion strips).',
-            INK3, size=11)
-    caption(s, ML, y2 + 30 + zs + 55, 'Validation log: docs/validation.md.', INK3, size=11)
+    caption(s, ML, y2 + 30 + zs + 40, f'Evidence folder: output/runtime/v{STILLS_VERSION}, the reference set of tools/capture-seam.py '
+            f'({len(list(folder.glob("*.png")))} stills).', INK3, size=11)
+    caption(s, ML, y2 + 30 + zs + 55, f'Motion strips: output/runtime/v{MOTION_VERSION}. Validation log: docs/validation.md.', INK3, size=11)
     return p
 
 

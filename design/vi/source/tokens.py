@@ -39,6 +39,7 @@ SEAT, SEAT_R, SEAT_STROKE, SEAT_INSET = G['seat']['size'], G['seat']['radius'], 
 GLYPH_EM = G['glyph']['em']
 KEYLINE = G['artwork']['keyline']
 BADGE = G['badge']
+SWITCH = G['switch']
 CHEVRON = G['chevrons']
 DISABLED = G['disabledOpacity']
 LABEL = TYPE['applicationLabel']

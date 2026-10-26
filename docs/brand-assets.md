@@ -182,9 +182,9 @@ Every reel item belongs to one artwork class (`src/artwork.h`):
 
 | Class | Assets | Treatment |
 | --- | --- | --- |
-| Plated | Claude, Perplexity, ZCode, DeepSeek Harness, JetBrains Air | The vendor plate replaces the neutral tile: cropped to the plate's own bounds (DeepSeek Harness drops its baked shadow margin), scaled to cover the 40 DIP tile and masked to the tile's 10 DIP corner radius, with the tile hairline on top. |
-| Glyph | ChatGPT, Gemini, VS Code, Antigravity, the JetBrains IDE family, Junie, Toolbox, Shell icons | Centered on the neutral tile. The ink bounding box fits a 28 DIP keyline times a per-brand optical scale (0.86 for the dense JetBrains product squares, 1.04 for the Gemini sparkle), so marks read at equal visual weight. |
-| Command | Internal reel actions | Segoe Fluent Icons glyphs at 24 DIP in the foreground color. |
+| Plated | Claude, Perplexity, ZCode, DeepSeek Harness, JetBrains Air, the reel's own mark (`copilot-reel`: About's first tile, and the hub's Tray icon tile while the tray icon is in color) | The mark's own plate replaces the neutral tile: cropped to the plate's own bounds (DeepSeek Harness drops its baked shadow margin), scaled to cover the 40 DIP tile and masked to the tile's 10 DIP corner radius, with the tile hairline on top. |
+| Glyph | ChatGPT, Gemini, VS Code, Antigravity, the JetBrains IDE family, Junie, Toolbox, GitHub's Invertocat (`github-light` / `github-dark`, About's repository tile), Shell icons | Centered on the neutral tile. The ink bounding box fits a 28 DIP keyline times a per-brand optical scale (0.86 for the dense JetBrains product squares, 0.92 for the Invertocat, 1.04 for the Gemini sparkle), so marks read at equal visual weight. |
+| Command | Internal reel actions | Segoe Fluent Icons glyphs at 24 DIP in the foreground color. The hub's Tray icon tile, while the tray icon is monochrome, draws the reel's mark without its plate (`iconography.orbitMark`, `src/orbit_mark.h`) in that color instead. |
 | Generic | No artwork | A neutral window glyph (Segoe Fluent Icons E737). |
 
 The class, optical scale and content rectangle of each brand are tokens, measured
@@ -192,10 +192,13 @@ from the artwork's alpha (coverage of its bounding box and match with a rounded
 rectangle) and tuned on native contact sheets. Shell icons are classified by the
 same alpha analysis at run time.
 
-Masking a plated mark to the tile shape is the only geometric treatment. Marks are
-never recolored, redrawn, distorted, or placed inside a second plate. Light and
-dark variants are used only where the vendor ships them (ChatGPT); in high
-contrast the variant follows the brightness of the system window color.
+Masking a plated mark to the tile shape is the only geometric treatment. Vendor
+marks are never recolored, redrawn, distorted, or placed inside a second plate;
+only the reel's own mark has a second form, drawn alone in the glyph color on the
+monochrome Tray icon tile. Light and dark variants are used only where the vendor
+ships them (ChatGPT, and GitHub's black and white Invertocat: `github-light` on a
+light plate, `github-dark` on a dark one); in high contrast the variant follows
+the brightness of the system window color.
 
 Raster artwork is pre-scaled with WIC high-quality cubic filtering to the exact
 device-pixel size for the current DPI and drawn 1:1 on the pixel grid; any other

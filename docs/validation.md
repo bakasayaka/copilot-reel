@@ -322,15 +322,16 @@ The prior Windows Settings UI Automation check observed a visible, enabled Copil
 ## Repeatable checks
 
 ```powershell
-.\tools\build.ps1
-python .\tests\run-radial.py
-uv run --python 3.14 --with pillow python .\tests\run-language-invariance.py
-uv run --python 3.14 --with pillow python .\tools\capture-v034.py
+.\tools\build-capture-tool.ps1
+.\tools\test.ps1
+.\tools\test.ps1 -Tier installed
 .\tools\verify-registration.ps1
 ```
 
-The radial integration fixture requires no resident Copilot Reel instance, creates a fresh isolated directory, launches only the harmless probe, and restores the pointer. Avoid desktop interaction while it runs. Historical v0.2 tests are archived in `tests/legacy-v0.2/`; they do not describe current UI acceptance.
+`tools/test.ps1` is the one entry point for unit, smoke and regression tests; the [testing plan](testing-plan.md) lists its tiers. The default regression tier checks that the eight version copies agree, builds Release x64 with every unit test, runs every group of `tests/run-reel-seam.py` and compares the stills of `tools/capture-seam.py` with `output/runtime/v0.3.12`; `-Tier smoke` does the same version check, build and unit tests, then runs only the seam preflight and groups `a` and `hub`, without the still comparison, and `-Tier installed` builds nothing and checks that the installed package's executable equals `build\Release\CopilotReel.exe` and is running. Each run writes every step's log and a `summary.json` under `artifacts/qa/test-<stamp>/` and exits 1 when a step fails. The seam runners start separate unpackaged test instances with their own data directories and drive them through the test seam: they never move the pointer, send input or take the foreground, and the installed reel keeps running. `tools/verify-registration.ps1` checks the installed package's Copilot key provider and state declarations and reports whether the user's key selection names it.
+
+`tests/run-radial.py`, `tests/run-language-invariance.py` and `tools/capture-v034.py` are 0.3.4 evidence, and `tools/capture-native-wheels.py` is older; they assume the five-item hub with Preferred agent and the 384 DIP window. They drive the real pointer and need the installed reel to quit first, so they run only while nobody uses the desktop, and `tools/open-installed.ps1 -View Background` restarts the installed reel afterwards. Historical v0.2 tests are archived in `tests/legacy-v0.2/`; they do not describe current UI acceptance.
 
 `tools/install-development.ps1 -PackagePath <signed-msix>` validates signature, identity, and tested executable before removing the exact old package. It shuts down safely, backs up configuration, performs uninstall/install, restores verified data, and checks installed binaries/assets. It does not import certificates or change the Copilot target.
 
-`tools/build-capture-tool.ps1` builds a standalone Windows Graphics Capture helper. `tools/capture-native-wheels.py` captures only the explicitly selected application window using isolated demo entries, even when another desktop window overlaps it. These are actual native renders, not PDF design scenes. Desktop screen captures were rejected when occlusion produced blank images.
+`tools/build-capture-tool.ps1` builds a standalone Windows Graphics Capture helper (`build\Release\capture-window.exe`), which the still comparison and `tools/record-demos.py` need; `tools/build.ps1` does not build it. It captures only the application window it is given, even when another desktop window overlaps it, so the stills are actual native renders, not PDF design scenes. Desktop screen captures were rejected when occlusion produced blank images.

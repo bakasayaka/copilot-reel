@@ -6,7 +6,8 @@ import reel as R
 from scene import Scene
 from tokens import CANVAS, VERSION
 
-RETIRED = ('halo-*.svg', 'petals-*.svg', 'orbit-*.svg', 'radial-settings-*.svg', 'osd-*.svg')
+# The hub has no Preferred agent entry, so the Preferred page's masters are retired; About's replace them.
+RETIRED = ('halo-*.svg', 'petals-*.svg', 'orbit-*.svg', 'radial-settings-*.svg', 'osd-*.svg', 'radial-preferred-*.svg')
 
 
 def screens():
@@ -15,7 +16,7 @@ def screens():
         ('main', R.State(R.MAIN, preferred=0, selected=1)),
         ('hub', R.State(R.HUB, language=True, submenu=True)),
         ('language', R.State(R.HUB, language=True, submenu=True, selected=0)),
-        ('preferred', R.State(R.PREFERRED, preferred=0, submenu=True, selected=2)),
+        ('about', R.State(R.ABOUT, submenu=True, selected=0)),
         ('manage', R.State(R.MANAGE, preferred=0, submenu=True, selected=len(R.MANAGE) - 1)),
         ('presets', R.State(R.PRESETS, submenu=True, selected=3)),
     ]

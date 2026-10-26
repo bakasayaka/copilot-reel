@@ -6,7 +6,7 @@ Copilot Reel uses the official Windows Copilot hardware key provider contract an
 
 The implementation is one native C++20 process with a Win32 message loop. Windows Composition owns the visual tree and property animations; Direct2D and DirectWrite render geometry, icons, and text into reusable surfaces. The same sources build the x64 and ARM64 packages; there is no architecture-specific rendering or input path. The first visual scheme is Soft Orbit.
 
-VI v0.8 defines a quiet radial interface with one combined + entry. Main contains configured agents and +; its idle center is empty. The hub contains language, appearance, reel size, the tray icon, management, adding, and About; an app's own actions set the preferred agent. EN/ZH/JA and sun/moon convey state in the icons. Idle submenus retain a center back chevron; selected applications and commands show one concise functional name as center text. No generic page heading or instruction is drawn.
+VI v0.9 defines a quiet radial interface with one combined + entry. Main contains configured agents and +; its idle center is empty. The hub contains language, appearance, reel size, the tray icon, management, adding, and About; an app's own actions set the preferred agent. EN/ZH/JA and sun/moon convey state in the icons. Idle submenus retain a center back chevron; selected applications and commands show one concise functional name as center text. No generic page heading or instruction is drawn.
 
 Only the wheel registers as a provider. Its targets are ordinary executables, shortcuts, URIs, or applicable packaged application AUMIDs.
 
@@ -48,7 +48,7 @@ Every input means Confirm, Back or Adjust in every page; only the closed reel gi
 | Closed + hold start | Capture the cursor anchor, open Main, select by direction |
 | Closed + short tap | Launch the preferred local application; request a local target if unavailable |
 | Closed + hold stop | Ignore without launching (the tombstone still orders later events) |
-| Opening hold + pointer movement | Keep selection empty until entry into the visible center when the edge clamped the plate; then select by direction, the center cancels |
+| Opening hold + pointer movement | Once the pointer moves 4 DIP, select by direction from the visible center, wherever the edge clamp left it; the center cancels |
 | Opening hold + hold stop | Resolve once: launch the item, or enter its submenu; nothing selected closes |
 | Opening hold + tap or duplicate hold start | Ignore; the gesture is preserved |
 | Persistent menu (a submenu, or a preview) + tap | Confirm the selected item; with nothing selected nothing happens |
@@ -112,7 +112,7 @@ The renderer keeps one composition tree per window, back to front:
 5. Handoff layer for the tile that travels to the center on drill-in.
 6. Back chevron, the drag trash (idle and armed sprites) and two center-label sprites for crossfades.
 
-Every surface has an even device-pixel size and a snapped offset, so items, tiles and hairlines land on the pixel grid at 100-250% scale; hit testing keeps exact geometry. Each surface is painted in a bitmap of its own and copied into the composition atlas (`PaintLocal`, `src/surface_paint.h`), so its pixels never depend on where the atlas keeps it. Item artwork is rasterized once per identity, theme and DPI; selection and hover never redraw it. The idle reel produces no surface draws and no running expressions: the seat's expression stops when its travel settles, when the seat hides mid-travel, and on every reset. Updates that arrive during the exit animation are deferred until the next opening. Device loss replaces the rendering device in place and redraws everything once.
+Every surface has an even device-pixel size and a snapped offset, so items, tiles and hairlines land on the pixel grid at 100-250% scale; hit testing keeps exact geometry. Each surface is painted in a bitmap of its own and copied into the composition atlas (`PaintLocal`, `src/surface_paint.h`), so its pixels never depend on where the atlas keeps it. The one exception is the acrylic noise tile: `NoiseBrush` (`src/renderer.cpp`) draws its CPU bitmap (`AcrylicNoisePixels`) straight into its own surface, pixel for pixel at the surface's whole-pixel atlas offset with nearest-neighbor sampling, so its pixels do not depend on the atlas position either. Item artwork is rasterized once per identity, theme and DPI; selection and hover never redraw it. The idle reel produces no surface draws and no running expressions: the seat's expression stops when its travel settles, when the seat hides mid-travel, and on every reset. Updates that arrive during the exit animation are deferred until the next opening. Device loss replaces the rendering device in place and redraws everything once.
 
 ## Motion
 
@@ -124,7 +124,7 @@ All motion is compositor-driven with values from `tokens.motion`; interruptions 
 | Cancel | Opacity to 0 in 83 ms linear; scale to 0.98, accelerate |
 | Commit | Everything else fades in 83 ms; the chosen item and seat hold 50 ms with a 1 to 0.975 to 1 press, then fade (133 ms) |
 | Selection | The seat fades in (83 ms, 0.94 to 1 in 167 ms), then travels the shortest arc on a spring (damping 0.85, period 50 ms) as the tile fill crossfades with it |
-| Center | Name crossfade 83 ms; the ring gives way while a name shows; arming the gate relaxes the ring in 167 ms |
+| Center | Name crossfade 83 ms; the ring gives way while a name shows, also in 83 ms |
 | Drill in / out | The outgoing page scales to 1.04 / 0.96 and fades in 100 ms; the incoming page scales from 0.94 / 1.04 in 250 ms (0.1, 0.9, 0.2, 1) and fades in after 50 ms; the plate never moves |
 | Handoff | On drill-in the tapped tile travels to the center in 200 ms, scaling to 0.5, and hands over to the back chevron |
 | Swap | Preset paging crossfades with a 0.98 to 1 settle in 120 ms |
