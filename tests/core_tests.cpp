@@ -36,25 +36,22 @@ int main() {
             const int xs[]={work.left,work.right-1,(work.left+work.right)/2};
             const int ys[]={work.top,work.bottom-1,(work.top+work.bottom)/2};
             for(int x:xs) for(int y:ys) {
-                const auto placement=PlaceWheel(x,y,work,size,44.*size/384.);
+                const auto placement=PlaceWheel(x,y,work,size);
                 Check(placement.fits,"normal footprint fits");
                 Check(placement.left>=work.left && placement.top>=work.top && placement.left+size<=work.right && placement.top+size<=work.bottom,"full circle fits monitor work area");
-                if(x==work.left || x==work.right-1 || y==work.top || y==work.bottom-1)
-                    Check(placement.awaitingCenter,"edge opening requires center entry");
             }
         }
     }
-    Check(!PlaceWheel(0,0,{0,0,300,300},384,44).fits,"undersized display never clips silently");
-    const auto interior=PlaceWheel(600,400,{0,0,1920,1040},384,44);
-    Check(interior.centerX==600 && interior.centerY==400 && !interior.awaitingCenter,"interior stays pointer-centered");
+    Check(!PlaceWheel(0,0,{0,0,300,300},384).fits,"undersized display never clips silently");
+    const auto interior=PlaceWheel(600,400,{0,0,1920,1040},384);
+    Check(interior.centerX==600 && interior.centerY==400,"interior stays pointer-centered");
     for(const WorkArea work : {WorkArea{0,0,1920,1040},WorkArea{-3840,-2160,0,0},WorkArea{1920,-1080,5760,2160}}) {
         for(int dpi : {96,120,144,168,192,288,384}) {
             const int size=384*dpi/96;
-            const double deadZone=44.0*dpi/96;
             const int xs[]={work.left,work.left+1,(work.left+work.right)/2,work.right-2,work.right-1};
             const int ys[]={work.top,work.top+1,(work.top+work.bottom)/2,work.bottom-2,work.bottom-1};
             for(int x:xs)for(int y:ys) {
-                const auto placement=PlaceOrbit(x,y,work,size,deadZone);
+                const auto placement=PlaceWheel(x,y,work,size);
                 const bool shouldFit=work.right-work.left>=size && work.bottom-work.top>=size;
                 Check(placement.fits==shouldFit,"orbit fit respects the complete physical footprint at every DPI");
                 if(!shouldFit)continue;
@@ -67,42 +64,27 @@ int main() {
                 const int expectedTop=std::clamp(y-size/2,work.top,work.bottom-size);
                 Check(placement.left==expectedLeft && placement.top==expectedTop,
                     "placement uses only the minimum translation required by the work area");
-                const double dx=x-placement.centerX,dy=y-placement.centerY;
-                Check(placement.awaitingCenter==(dx*dx+dy*dy>deadZone*deadZone),
-                    "orbit arms only when the original pointer is inside the displayed cancel zone");
                 constexpr int offsetX=-5000,offsetY=777;
-                const auto translated=PlaceOrbit(x+offsetX,y+offsetY,
-                    {work.left+offsetX,work.top+offsetY,work.right+offsetX,work.bottom+offsetY},size,deadZone);
-                Check(translated.left==placement.left+offsetX && translated.top==placement.top+offsetY &&
-                    translated.awaitingCenter==placement.awaitingCenter,
+                const auto translated=PlaceWheel(x+offsetX,y+offsetY,
+                    {work.left+offsetX,work.top+offsetY,work.right+offsetX,work.bottom+offsetY},size);
+                Check(translated.left==placement.left+offsetX && translated.top==placement.top+offsetY,
                     "orbit placement is invariant under monitor-origin translation");
             }
         }
     }
     for(int dpi : {96,120,144,192,288,384}) {
         const int size=384*dpi/96;
-        const auto placement=PlaceOrbit(0,0,{-5000,-5000,5000,5000},size,44.0*dpi/96);
+        const auto placement=PlaceWheel(0,0,{-5000,-5000,5000,5000},size);
         Check(placement.centerX==0 && placement.centerY==0,
             "unconstrained wheel opens directly on the pointer at every DPI");
-        Check(!placement.awaitingCenter,"an unconstrained hold is immediately ready for directional selection");
     }
-    Check(!PlaceOrbit(0,0,{0,0,300,300},384,44).fits,"orbit rejects a screen smaller than its footprint");
-    Check(!PlaceOrbit(0,0,{0,0,1920,1080},0,44).fits,"orbit rejects an empty canvas");
-    const auto corner=PlaceOrbit(-3840,-2160,{-3840,-2160,0,0},768,88);
-    Check(corner.left==-3840 && corner.top==-2160 && corner.awaitingCenter,
-        "a corner shifts the full canvas minimally and guards selection until center entry");
-    // The reel gates at its plate radius (168 of 192 DIP): a clamp that leaves the pointer on the
-    // plate arms at once; only a pointer left outside it enters the center first.
-    const auto onPlate=PlaceOrbit(1920-60,500,{0,0,1920,1080},768,168.0*2);
-    Check(onPlate.left==1920-768 && std::abs(onPlate.centerX-(1920-384))<=.5 && !onPlate.awaitingCenter,
-        "a pointer the edge clamp leaves on the plate selects without re-entering the center");
-    const auto offPlate=PlaceOrbit(1920-4,500,{0,0,1920,1080},768,168.0*2);
-    Check(offPlate.awaitingCenter,"a pointer the clamp leaves outside the plate enters the center first");
-    const auto smallShift=PlaceOrbit(180,400,{0,0,1920,1080},384,44);
-    Check(smallShift.centerX==192 && smallShift.centerY==400 && !smallShift.awaitingCenter,
-        "small boundary correction within the cancel zone does not add an unnecessary gate");
-    const auto oddCanvas=PlaceOrbit(600,400,{0,0,1920,1080},383,44);
-    Check(std::abs(oddCanvas.centerX-600)<=.5 && std::abs(oddCanvas.centerY-400)<=.5 && !oddCanvas.awaitingCenter,
+    Check(!PlaceWheel(0,0,{0,0,1920,1080},0).fits,"orbit rejects an empty canvas");
+    const auto corner=PlaceWheel(-3840,-2160,{-3840,-2160,0,0},768);
+    Check(corner.left==-3840 && corner.top==-2160,"a corner shifts the full canvas minimally");
+    const auto smallShift=PlaceWheel(180,400,{0,0,1920,1080},384);
+    Check(smallShift.centerX==192 && smallShift.centerY==400,"a small boundary correction moves the canvas only that far");
+    const auto oddCanvas=PlaceWheel(600,400,{0,0,1920,1080},383);
+    Check(std::abs(oddCanvas.centerX-600)<=.5 && std::abs(oddCanvas.centerY-400)<=.5,
         "odd pixel dimensions remain pointer-centered within half a pixel");
     GestureState g;
     Check(!g.Release(), "orphan stop cannot launch");
@@ -116,14 +98,15 @@ int main() {
     Check(g.Generation()!=old && !g.Active() && !g.Release(), "cancel invalidates pending work");
     g.Start(); g.Select(7,6);
     Check(!g.Release(), "stale config index cannot launch");
-    g.Start(true);
-    Check(!g.Select(1,6) && !g.ObservePointer(100,-100,6) && g.Selected()==-1,"crossing a displaced item stays unselected");
-    Check(!g.Release(),"release before center entry cancels");
-    g.Start(true);
-    Check(g.ObservePointer(0,0,6) && !g.AwaitingCenter() && g.Selected()==-1,"center entry arms without selecting");
-    Check(g.ObservePointer(0,-112,6) && g.Release()==0,"armed selection uses visual center");
-    g.Start(true);g.ObservePointer(0,0,6);g.ObservePointer(112,0,6);g.ObservePointer(0,0,6);
-    Check(!g.Release(),"returning to center cancels after arming");
+    // A pointer the edge clamp leaves outside the plate (192 DIP right of the center at the
+    // reel's 168 DIP plate radius) selects by direction without entering the center first.
+    g.Start();
+    Check(g.ObservePointer(192,0,6) && g.Selected()==HitTest(192,0,6) && g.Release()==HitTest(192,0,6),
+        "a pointer off the plate selects by direction at once");
+    g.Start();
+    Check(g.ObservePointer(0,-112,6) && g.Release()==0,"selection uses the visual center");
+    g.Start();g.ObservePointer(112,0,6);g.ObservePointer(0,0,6);
+    Check(!g.Release(),"returning to center cancels");
     HoldOrdering ordering;
     Check(ordering.Start(100),"first Down is accepted");
     Check(!ordering.Start(100) && !ordering.Start(99),"duplicate and stale Down are rejected");
@@ -160,9 +143,9 @@ int main() {
         Check(main[count].action==MenuAction::Settings && main[count].visual.target==L"reel:add",
             "the single plus icon opens the combined hub without launching an app");
         const auto hub=BuildMenu(MenuPage::Settings,apps,presets);
-        Check(hub.size()==6u && hub[4].action==MenuAction::Presets,"hub keeps its Add slot at every app count, so it never reflows");
-        Check(hub[4].enabled==(count<kMaxApps),"hub Add is enabled only while another app can be saved");
-        for(size_t i : {0u,1u,2u,3u,5u})Check(hub[i].enabled,"hub commands other than Add are always enabled");
+        Check(hub.size()==7u && hub[5].action==MenuAction::Presets,"hub keeps its Add slot at every app count, so it never reflows");
+        Check(hub[5].enabled==(count<kMaxApps),"hub Add is enabled only while another app can be saved");
+        for(size_t i : {0u,1u,2u,3u,4u,6u})Check(hub[i].enabled,"hub commands other than Add are always enabled");
         const auto manage=BuildMenu(MenuPage::Manage,apps,presets);
         Check(manage.size()==count+1,"manage wheel keeps its Add slot at the saved-app limit");
         for(size_t i=0;i<count;++i)
@@ -217,13 +200,20 @@ int main() {
         "a drop needs apps, room for them and a real pointer");
     const std::vector<AppTarget> noApps;
     const auto settings=BuildMenu(MenuPage::Settings,noApps,presets);
-    Check(settings.size()==6 && settings[0].action==MenuAction::Language &&
-        settings[1].action==MenuAction::Appearance && settings[2].action==MenuAction::Size &&
-        settings[3].action==MenuAction::Manage && settings[4].action==MenuAction::Presets && settings[5].action==MenuAction::About,
-        "the combined hub contains language, appearance, reel size, management, Add and About; the preferred agent is set from an app's actions");
+    Check(settings.size()==7 && settings[0].action==MenuAction::Language &&
+        settings[1].action==MenuAction::Appearance && settings[2].action==MenuAction::Size && settings[3].action==MenuAction::TrayIcon &&
+        settings[4].action==MenuAction::Manage && settings[5].action==MenuAction::Presets && settings[6].action==MenuAction::About,
+        "the combined hub contains language, appearance, reel size, the tray icon, management, Add and About; the preferred agent is set from an app's actions");
+    // The Tray icon tile shows the saved choice in its icon and keeps its name.
+    Check(settings[3].visual.target==L"reel:tray-icon:color","a color tray icon shows the reel's color mark");
+    SetTrayMonochrome(true);
+    const auto monochromeHub=BuildMenu(MenuPage::Settings,noApps,presets);
+    SetTrayMonochrome(false);
+    Check(monochromeHub[3].visual.target==L"reel:tray-icon:monochrome" && monochromeHub[3].visual.name==settings[3].visual.name &&
+        monochromeHub[3].action==MenuAction::TrayIcon,"a monochrome tray icon shows the mark alone under the same name");
     for(const auto& command:settings)Check(command.visual.target.starts_with(L"reel:") && command.action!=MenuAction::Launch,
         "settings metadata cannot be mistaken for an app-launch action");
-    Check(settings[5].badge==TileBadge::None,"About carries no dot while no update waits");
+    Check(settings[6].badge==TileBadge::None,"About carries no dot while no update waits");
 
     // About: the reel's mark named by the version and author, GitHub, the two switches with their
     // state in the icon, and one tile that checks for an update or installs the one found.
@@ -245,7 +235,7 @@ int main() {
         about.autoCheck=false;about.autoInstall=true;
         page=BuildMenu(MenuPage::About,noApps,presets,0,-1,0,about);
         Check(page[2].visual.target==L"reel:auto-check:off" && page[3].visual.target==L"reel:auto-install:on","the switches follow their state");
-        Check(BuildMenu(MenuPage::Settings,noApps,presets,0,-1,0,about)[5].badge==TileBadge::Dot,"the hub's About tile carries the dot");
+        Check(BuildMenu(MenuPage::Settings,noApps,presets,0,-1,0,about)[6].badge==TileBadge::Dot,"the hub's About tile carries the dot");
         about.stage=UpdateStage::Failed;
         Check(UpdateWaiting(about) && BuildMenu(MenuPage::About,noApps,presets,0,-1,0,about)[4].action==MenuAction::InstallUpdate,
             "a failed install keeps the update waiting");
@@ -364,9 +354,9 @@ int main() {
     std::vector<AppTarget> full;
     for(int i=0;i<8;++i)full.push_back({L"App",TargetKind::Shell,L"C:\\A"+std::to_wstring(i)+L".exe",L"",L""});
     const auto fullHub=BuildMenu(MenuPage::Settings,full,presets),fullManage=BuildMenu(MenuPage::Manage,full,presets);
-    Check(!CanConfirm(fullHub,4) && !CanConfirm(fullManage,8) && CanConfirm(fullHub,0) && CanConfirm(fullHub,5) && CanConfirm(fullManage,7),
+    Check(!CanConfirm(fullHub,5) && !CanConfirm(fullManage,8) && CanConfirm(fullHub,0) && CanConfirm(fullHub,6) && CanConfirm(fullManage,7),
         "a disabled Add cannot be confirmed; enabled items can");
-    Check(!CanConfirm(fullHub,-1) && !CanConfirm(fullHub,6),"nothing selected or a stale index confirms nothing");
+    Check(!CanConfirm(fullHub,-1) && !CanConfirm(fullHub,7),"nothing selected or a stale index confirms nothing");
 
     // Copilot events in every reel state.
     const ReelContext closed{},open{true,false},blocked{false,true},openBlocked{true,true};

@@ -1,6 +1,18 @@
 # Validation status
 
-Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.10**. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-10-26, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.11**. This records demonstrated behavior and its limits, not full release acceptance.
+
+## Verified in v0.3.11
+
+0.3.11 adds Tray icon to the hub and drops the center gate, both at the user's request.
+
+| Area | Evidence and scope |
+| --- | --- |
+| Tray icon on the hub | The hub's fourth tile switches the tray icon as the tray menu does (`ToggleTrayIcon`, which now also re-renders an open reel). `core_tests` checks the seven-item hub and that the tile's target follows the saved choice under one name; `iconography_tests` (209 checks) that the color tile is the reel's plated mark, pixel-identical to About's, and the monochrome tile the mark alone, centered inside the tile and distinct from About's Info glyph. Seam group `hub`: choosing the tile twice saves `TrayIcon=monochrome` and then `color`, turns the tile over in place and keeps it selected; the hover names include it in English, Chinese and Japanese. The mark's drawing moved to `src/orbit_mark.h`, shared with the tray icon, whose `tray_icon_tests` (178 checks) pass unchanged. |
+| No center entry | `PlaceWheel` no longer computes a gate and `GestureState` has no waiting state; the renderer's gated ring and dot, their tokens (`centerZone.ringGatedStroke`, `gateDotRadius`, `motion.events.gate`), the `awaitingCenter` log field and `gestureAwaitingCenter` diagnostic are gone. Seam group `a`: at all eight edges and corners 2 px inside the work area the clamp leaves the pointer off the plate, the opening position selects nothing, and a 10 DIP move toward the center selects the sector it points at; from the bottom-right corner the pointer goes straight to Probe 1, whose release launches it once. The on-plate and interior checks are unchanged. |
+| Interaction | `tests/run-reel-seam.py` passed all 13 groups. |
+| Rendering against 0.3.10 | `output/runtime/v0.3.11` has 105 stills: `hub-tray` (the monochrome mark seated, named Tray icon) is new, and `edge` (a top-left corner hold moved 10 DIP inward, selecting + without the center) replaces `gated`. The three hub states change across the orbit, which now has seven tiles. Elsewhere some tiles and center names moved by exactly one device pixel, for example GitHub on About (+1 px) and Windows Settings on Main (−1 px) at 200%; ChatGPT and the other tiles are unchanged. The 0.3.10 code, built again from `4d018ae` in a temporary worktree, still matched v0.3.10 exactly in the dark solid, 100% and 150% variants, so the shift comes from this build. Most likely, removing the gate's two surfaces moved the remaining surfaces in the composition atlas: each surface's content transform carries its atlas offset as a fractional DIP translation (offset × 96 / DPI), so a position exactly half a device pixel off the grid can round the other way. A full regression run then passed against v0.3.11, including the frosted stills. |
+| README | `tools/record-demos.py` opens Manage apps and About at their new hub slots; the hub, drag and About GIFs were recorded again in all three languages and both themes, so the README shows the seven-item hub. |
 
 ## Verified in v0.3.10
 

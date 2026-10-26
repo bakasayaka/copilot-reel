@@ -109,14 +109,14 @@ struct OrbitRenderer::Impl {
         bool overTrash = false, trash = true;
     };
     struct Canvas { wc::CompositionDrawingSurface surface{nullptr}; wn::float2 size{}; };
-    struct CenterState { float ringIdle = -1, ringGated = -1, dot = -1, back = -1, trash = -1, armed = -1; };
+    struct CenterState { float ringIdle = -1, back = -1, trash = -1, armed = -1; };
 
     HWND window;
     UINT dpi = 96;
     // `closing` covers the exit animation: the tree is still attached, but nothing may
     // re-show content until Hide or the next Show.
     bool ready = false, visible = false, closing = false, backdrop = false, softwareDevice = false;
-    bool contentDirty = true, appearanceSet = false, awaitCenter = false;
+    bool contentDirty = true, appearanceSet = false;
     unsigned surfaceDraws = 0;
     Appearance appearance;
     Language language = Language::English;
@@ -144,8 +144,7 @@ struct OrbitRenderer::Impl {
 
     wc::CompositionEasingFunction linear{nullptr}, decelerate{nullptr}, accelerate{nullptr}, drill{nullptr};
     wc::ContainerVisual pixelRoot{nullptr}, dpiRoot{nullptr}, root{nullptr}, pagesLayer{nullptr}, handoffLayer{nullptr};
-    wc::SpriteVisual backdropVisual{nullptr}, base{nullptr}, ringIdle{nullptr}, ringGated{nullptr}, gateDot{nullptr}, back{nullptr},
-        trash{nullptr}, trashArmed{nullptr};
+    wc::SpriteVisual backdropVisual{nullptr}, base{nullptr}, ringIdle{nullptr}, back{nullptr}, trash{nullptr}, trashArmed{nullptr};
     wc::SpriteVisual labels[2]{wc::SpriteVisual{nullptr}, wc::SpriteVisual{nullptr}};
     wc::CompositionDrawingSurface labelSurfaces[2]{wc::CompositionDrawingSurface{nullptr}, wc::CompositionDrawingSurface{nullptr}};
     int activeLabel = 0;
@@ -261,8 +260,6 @@ struct OrbitRenderer::Impl {
         backdropVisual.Clip(compositor.CreateGeometricClip(disk));
         base = compositor.CreateSpriteVisual();
         ringIdle = compositor.CreateSpriteVisual();
-        ringGated = compositor.CreateSpriteVisual();
-        gateDot = compositor.CreateSpriteVisual();
         pagesLayer = compositor.CreateContainerVisual();
         handoffLayer = compositor.CreateContainerVisual();
         back = compositor.CreateSpriteVisual();
@@ -271,8 +268,8 @@ struct OrbitRenderer::Impl {
         for (auto& label : labels) label = compositor.CreateSpriteVisual();
         // Back to front: material, plate (shadow, fill, rim), center ring, orbit pages, the
         // handoff clone, then the center's back chevron, drag trash (over the shrunken tile) and name.
-        for (const wc::Visual& visual : std::initializer_list<wc::Visual>{backdropVisual, base, ringIdle, ringGated,
-                 gateDot, pagesLayer, handoffLayer, back, trash, trashArmed, labels[0], labels[1]})
+        for (const wc::Visual& visual : std::initializer_list<wc::Visual>{backdropVisual, base, ringIdle,
+                 pagesLayer, handoffLayer, back, trash, trashArmed, labels[0], labels[1]})
             root.Children().InsertAtTop(visual);
 
         CreateDevices();
@@ -684,19 +681,6 @@ struct OrbitRenderer::Impl {
                 SolidBrush(context, Color(appearance.ringIdle)).get(), StrokeDip(vi::kRingStroke));
         });
         Place(ringIdle, canvas, c);
-        canvas = MakeCanvas(ringHalf, ringHalf);
-        Paint(canvas.surface, [&](ID2D1DeviceContext* context) {
-            const D2D1_POINT_2F rc{canvas.size.x / 2, canvas.size.y / 2};
-            context->DrawEllipse(D2D1::Ellipse(rc, vi::kCenterZoneRadius, vi::kCenterZoneRadius),
-                SolidBrush(context, Color(appearance.secondary)).get(), StrokeDip(vi::kRingGatedStroke));
-        });
-        Place(ringGated, canvas, c);
-        canvas = MakeCanvas(vi::kGateDotRadius + 2, vi::kGateDotRadius + 2);
-        Paint(canvas.surface, [&](ID2D1DeviceContext* context) {
-            context->FillEllipse(D2D1::Ellipse({canvas.size.x / 2, canvas.size.y / 2}, vi::kGateDotRadius, vi::kGateDotRadius),
-                SolidBrush(context, Color(appearance.secondary)).get());
-        });
-        Place(gateDot, canvas, c);
         canvas = MakeCanvas(vi::kBackChevronEm, vi::kBackChevronEm);
         Paint(canvas.surface, [&](ID2D1DeviceContext* context) {
             DrawGlyph(context, Glyph::BackChevron, {canvas.size.x / 2, canvas.size.y / 2}, vi::kBackChevronEm,
@@ -821,7 +805,7 @@ struct OrbitRenderer::Impl {
     static float SideIdle(const PageModel& model, int side) { return SideEnabled(model, side) ? 1.f : vi::kDisabledOpacity; }
     // A side shows the foreground variant only while slot 0 is selected and that side can move.
     bool SideActive(const PageModel& model, int side, int selected) const {
-        return model.adjustControl && selected == 0 && !awaitCenter && SideEnabled(model, side);
+        return model.adjustControl && selected == 0 && SideEnabled(model, side);
     }
 
     // Same slots and artwork classes: tile visuals can stay, only state changes.
@@ -892,7 +876,6 @@ struct OrbitRenderer::Impl {
     }
 
     void SetPage(const PageModel& model, PageTransition transition, int origin) {
-        awaitCenter = model.awaitCenter;
         std::vector<AppTarget> targets;
         for (const auto& item : model.items) targets.push_back(item.visual);
         PrepareArtwork(targets, static_cast<float>(dpi));
@@ -1192,7 +1175,7 @@ struct OrbitRenderer::Impl {
     }
 
     std::wstring CenterText() const {
-        if (!page || awaitCenter || page->drag >= 0) return {};
+        if (!page || page->drag >= 0) return {};
         const int selected = page->model.selection;
         if (selected < 0 || static_cast<size_t>(selected) >= page->items.size()) return {};
         return AppDisplayName(page->items[selected].entry.visual);
@@ -1257,8 +1240,7 @@ struct OrbitRenderer::Impl {
             auto& p = *page;
             if (selected < -1 || static_cast<size_t>(selected + 1) > p.items.size()) selected = -1;
             p.model.selection = selected;
-            p.model.awaitCenter = awaitCenter;
-            const int seat = awaitCenter || selected < 0 || !p.items[selected].entry.enabled ? -1 : selected;
+            const int seat = selected < 0 || !p.items[selected].entry.enabled ? -1 : selected;
             const int previous = p.seatIndex;
             if (seat != previous) {
                 if (previous >= 0) ItemSelected(p.items[previous], false, animate);
@@ -1307,10 +1289,9 @@ struct OrbitRenderer::Impl {
     // is dragged the trash owns it alone.
     void UpdateCenter(bool animate, unsigned backDelay = 0) {
         const bool named = !labelText.empty();
-        const bool gated = awaitCenter && page;
         const bool dragging = page && page->drag >= 0;
-        const bool quiet = !named && !gated && !dragging;
-        const CenterState next{quiet ? 1.f : 0.f, gated ? 1.f : 0.f, gated ? 1.f : 0.f,
+        const bool quiet = !named && !dragging;
+        const CenterState next{quiet ? 1.f : 0.f,
             page && page->model.isSubmenu && quiet ? 1.f : 0.f,
             dragging ? (page->trash ? 1.f : vi::kDisabledOpacity) : 0.f,
             dragging && page->overTrash ? 1.f : 0.f};
@@ -1320,11 +1301,7 @@ struct OrbitRenderer::Impl {
             if (next.armed > 0 && animate && Animated())
                 trashArmed.StartAnimation(L"Scale", ScaleAnimation(vi::kDragArmScaleFrom, 1, vi::kDragArmMs, decelerate));
         }
-        const bool arming = center.ringGated > 0 && !gated;
-        if (next.ringIdle != center.ringIdle)
-            Opacity(ringIdle, next.ringIdle, arming ? vi::kGateArmMs : vi::kRingHideMs, animate, arming ? decelerate : linear);
-        if (next.ringGated != center.ringGated) Opacity(ringGated, next.ringGated, vi::kGateArmMs, animate, decelerate);
-        if (next.dot != center.dot) Opacity(gateDot, next.dot, vi::kGateDotFadeMs, animate);
+        if (next.ringIdle != center.ringIdle) Opacity(ringIdle, next.ringIdle, vi::kRingHideMs, animate, linear);
         if (next.back != center.back || (backDelay && next.back > 0))
             Opacity(back, next.back, vi::kLabelFadeMs, animate, linear, next.back > 0 ? backDelay : 0);
         center = next;
@@ -1360,7 +1337,7 @@ struct OrbitRenderer::Impl {
         }
         Settle(labels[activeLabel], labelText.empty() ? 0.f : 1.f);
         Settle(labels[1 - activeLabel], 0);
-        for (const wc::Visual& visual : std::initializer_list<wc::Visual>{ringIdle, ringGated, gateDot, back})
+        for (const wc::Visual& visual : std::initializer_list<wc::Visual>{ringIdle, back})
             visual.StopAnimation(L"Scale");
         Settle(trash, 0);
         Settle(trashArmed, 0);
@@ -1406,8 +1383,8 @@ struct OrbitRenderer::Impl {
             // The chosen item holds for one beat with a light press while the rest leaves.
             auto& p = *page;
             auto& chosen = p.items[p.seatIndex];
-            for (const wc::Visual& visual : std::initializer_list<wc::Visual>{base, backdropVisual, ringIdle, ringGated,
-                     gateDot, back, trash, trashArmed, labels[0], labels[1], p.chevrons[0], p.chevrons[1], p.chevronsActive[0], p.chevronsActive[1]})
+            for (const wc::Visual& visual : std::initializer_list<wc::Visual>{base, backdropVisual, ringIdle,
+                     back, trash, trashArmed, labels[0], labels[1], p.chevrons[0], p.chevrons[1], p.chevronsActive[0], p.chevronsActive[1]})
                 Opacity(visual, 0, vi::kCommitFadeMs, true);
             for (auto& item : p.items) if (&item != &chosen) Opacity(item.root, 0, vi::kCommitFadeMs, true);
             for (const wc::Visual& visual : std::initializer_list<wc::Visual>{chosen.root, p.seat}) {
@@ -1516,12 +1493,6 @@ std::pair<D2D1_RECT_F, D2D1_RECT_F> OrbitRenderer::AdjustArrowBounds() const {
     constexpr float left = kCenter - vi::kChevronOffset, right = kCenter + vi::kChevronOffset;
     return {D2D1::RectF(left - h, y - h, left + h, y + h), D2D1::RectF(right - h, y - h, right + h, y + h)};
 }
-void OrbitRenderer::SetAwaitCenter(bool awaitCenter) {
-    if (impl_->awaitCenter == awaitCenter) return;
-    impl_->awaitCenter = awaitCenter;
-    if (impl_->ready && impl_->page)
-        impl_->Run([&] { impl_->SetSelectionState(impl_->page->model.selection, impl_->visible); });
-}
 void OrbitRenderer::SetSelection(int index) {
     if (!impl_->ready || !impl_->page) return;
     if (index < -1 || index >= static_cast<int>(impl_->page->items.size())) index = -1;
@@ -1557,8 +1528,7 @@ std::wstring OrbitRenderer::Diagnostics() const {
     const auto& page = self.page;
     return L"centerLabel=" + (self.visible ? self.CenterText() : L"") +
         L"\r\nWindows Composition + Direct2D/DirectWrite; icons=official-artwork-unified-tiles+segoe-fluent-icons; material=" +
-        self.backdropStatus + L"; center gate=" + (self.awaitCenter ? L"waiting" : L"armed") +
-        L"; menu=" + (page ? page->model.title : L"") + L"; submenu=" + (page && page->model.isSubmenu ? L"yes" : L"no") +
+        self.backdropStatus + L"; menu=" + (page ? page->model.title : L"") + L"; submenu=" + (page && page->model.isSubmenu ? L"yes" : L"no") +
         L"; adjust=" + self.AdjustState() + L"; transition=" + self.lastTransition +
         L"; drag=" + std::to_wstring(page ? page->drag : -1) + L"; trash=" + self.TrashState() +
         L"; animation=open-fade83-scale167/close83/commit133/seat-spring/drill250/handoff200; center=quiet; perimeter=neutral" +

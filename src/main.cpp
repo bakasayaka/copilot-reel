@@ -520,7 +520,7 @@ public:
             dpi=std::max(1,size*96/static_cast<int>(kCanvasDip));
             size=MulDiv(static_cast<int>(kCanvasDip),dpi,96);
         }
-        placement=PlaceOrbit(pointer.x,pointer.y,{work.left,work.top,work.right,work.bottom},size,kRadiusDip*dpi/96.0);
+        placement=PlaceWheel(pointer.x,pointer.y,{work.left,work.top,work.right,work.bottom},size);
         if(!placement.fits) {Log(L"Opening skipped: the work area cannot contain the reel");return false;}
         return true;
     }
@@ -546,9 +546,10 @@ public:
         SetWindowPos(window,HWND_TOPMOST,placement.left,placement.top,size,size,SWP_NOACTIVATE);
         placing_=false;
         input_.Opened(preview,stamp?stamp:EventStamp());
-        gesture_.Start(!preview && placement.awaitingCenter);
-        // The opening position itself selects nothing: an edge can leave the pointer over a tile,
-        // and a release before the pointer moves must cancel, as it does at the center.
+        gesture_.Start();
+        // The opening position itself selects nothing: an edge can leave the pointer over a tile
+        // or off the plate, and a release before the pointer moves must cancel, as it does at the
+        // center. Once it moves, the pointer selects by direction wherever it is.
         pageCursor_=pointer;observed_=false;moved_=false;
         renderer_->Resize(dpi_);renderer_->SetAppearance(currentAppearance_);
         pageShown_=false;RenderMenu();
@@ -563,7 +564,7 @@ public:
             GetWindowRect(window,&bounds);
         }
         if(!(GetWindowLongPtrW(window,GWL_EXSTYLE)&WS_EX_TOPMOST))Log(L"Warning: the reel window is not topmost; another window can cover it");
-        Log(std::wstring(preview?L"Preview opened":L"Hold started")+L"; pointer="+std::to_wstring(anchor_.x)+L","+std::to_wstring(anchor_.y)+L"; window="+std::to_wstring(bounds.left)+L","+std::to_wstring(bounds.top)+L","+std::to_wstring(bounds.right)+L","+std::to_wstring(bounds.bottom)+L"; awaitingCenter="+(gesture_.AwaitingCenter()?L"true":L"false")+(interrupted?L"; interrupted=exit":L""));
+        Log(std::wstring(preview?L"Preview opened":L"Hold started")+L"; pointer="+std::to_wstring(anchor_.x)+L","+std::to_wstring(anchor_.y)+L"; window="+std::to_wstring(bounds.left)+L","+std::to_wstring(bounds.top)+L","+std::to_wstring(bounds.right)+L","+std::to_wstring(bounds.bottom)+(interrupted?L"; interrupted=exit":L""));
         // Add is reached from the hub and from Manage; discovery refreshes behind them.
         if(page==MenuPage::Settings || page==MenuPage::Manage)RefreshPresets();
         return true;
@@ -606,7 +607,7 @@ public:
         model.adjustControl=adjust.control;model.adjustEarlier=adjust.earlier;model.adjustLater=adjust.later;
         model.preferredIndex=page_==MenuPage::Main || page_==MenuPage::Manage?PreferredTargetIndex(items_):
             page_==MenuPage::Entry && PreferredTargetIndex(items_)==editing_?0:-1;
-        model.selection=gesture_.Selected();model.awaitCenter=gesture_.AwaitingCenter();
+        model.selection=gesture_.Selected();
         auto transition=PageTransition::None;
         if(reflow && pageShown_ && gesture_.Active() && shownPage_==page_) {
             transition=PageTransition::Reflow;
@@ -680,11 +681,8 @@ public:
             if(gesture_.Select(0,static_cast<unsigned>(menu_.size())))renderer_->SetSelection(0);
             return;
         }
-        const bool wasAwaiting=gesture_.AwaitingCenter();
-        if(gesture_.ObservePointer((screen.x-centerX_)*96.0/dpi_,(screen.y-centerY_)*96.0/dpi_,static_cast<unsigned>(menu_.size()))) {
-            renderer_->SetAwaitCenter(gesture_.AwaitingCenter());renderer_->SetSelection(gesture_.Selected());
-            if(wasAwaiting && !gesture_.AwaitingCenter())Log(L"Center entered; direction selection armed");
-        }
+        if(gesture_.ObservePointer((screen.x-centerX_)*96.0/dpi_,(screen.y-centerY_)*96.0/dpi_,static_cast<unsigned>(menu_.size())))
+            renderer_->SetSelection(gesture_.Selected());
     }
     // The language tile and its later chevron step forward through EN, ZH and JA; the earlier
     // chevron and A step back. Every step wraps.
@@ -997,6 +995,7 @@ public:
         case MenuAction::Settings:Navigate(MenuPage::Settings,selected);break;
         case MenuAction::Language:SwitchLanguage();break;
         case MenuAction::Size:NextReelSize();break;
+        case MenuAction::TrayIcon:ToggleTrayIcon();break;
         case MenuAction::Appearance:
             gesture_.Cancel();Hide(false,HideStyle::Commit);LaunchTarget({L"Windows appearance",TargetKind::Shell,L"ms-settings:colors",L"",L""});break;
         case MenuAction::Entry:editing_=entry.index;Navigate(MenuPage::Entry,selected);break;
@@ -1274,10 +1273,12 @@ public:
         auto data=TrayData(NIF_ICON);data.hIcon=icon;
         Shell_NotifyIconW(NIM_MODIFY,&data);
     }
+    // From the tray menu or the hub's Tray icon tile, which shows the choice and stays selected.
     void ToggleTrayIcon() {
         const bool monochrome=!CurrentTrayMonochrome();
         if(!SaveTrayMonochrome(monochrome)) {Log(L"Tray icon preference save failed");return;}
         SetTrayMonochrome(monochrome);UpdateTrayIcon();
+        if(gesture_.Active())RenderMenu();
         Log(monochrome?L"Tray icon: monochrome":L"Tray icon: color");
     }
     void RemoveTray() {
@@ -1291,7 +1292,7 @@ public:
             {kCommandSettings,Tr(L"Quick menu...",L"快捷菜单…",L"簡易メニュー…"),vi::kGlyphTraySettings},
             {kCommandDiagnostics,Tr(L"Write diagnostics",L"写出诊断信息",L"診断情報を書き出す"),vi::kGlyphTrayDiagnostics},
             {},
-            {kCommandTrayIcon,Tr(L"Monochrome icon",L"黑白图标",L"モノクロアイコン"),0,false,CurrentTrayMonochrome()},
+            {kCommandTrayIcon,Tr(L"Monochrome icon",L"黑白图标",L"モノクロ アイコン"),0,false,CurrentTrayMonochrome()},
             {},
             {kCommandExit,Tr(L"Exit",L"退出",L"終了"),vi::kGlyphTrayExit}});
         if(choice) PostMessageW(window,WM_COMMAND,choice,0);
@@ -1308,11 +1309,11 @@ public:
         const wchar_t* adjustName=!adjust.control?L"none":adjust.earlier && adjust.later?L"both":adjust.earlier?L"earlier":adjust.later?L"later":L"blocked";
         std::wstring parkedNames;
         for(const auto& app:parked_)parkedNames+=(parkedNames.empty()?L"":L"|")+AppDisplayName(app);
-        text<<L"Copilot Reel 0.3.10\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
+        text<<L"Copilot Reel 0.3.11\r\n"<<L"DPI="<<dpi_<<L"\r\nreelScale="<<vi::kReelScale<<L"\r\nreelSize="<<ReelSizePercent(CurrentReelSize())<<L"\r\n"<<L"dark="<<currentAppearance_.dark<<L"\r\ntransparencyRequested="<<currentAppearance_.transparency
             <<L"\r\nanimations="<<currentAppearance_.animations<<L"\r\nhighContrast="<<currentAppearance_.highContrast<<L"\r\ntargetCount="<<items_.size()
             <<L"\r\nmenuPage="<<static_cast<int>(page_)<<L"\r\nmenuEntries="<<menu_.size()<<L"\r\npresetOffset="<<presetOffset_
             <<L"\r\npreferredIndex="<<PreferredTargetIndex(items_)<<L"\r\ngestureActive="<<gesture_.Active()
-            <<L"\r\ngestureSelected="<<gesture_.Selected()<<L"\r\ngestureAwaitingCenter="<<gesture_.AwaitingCenter()
+            <<L"\r\ngestureSelected="<<gesture_.Selected()
             <<L"\r\npreview="<<input_.Persistent()<<L"\r\nheld="<<input_.Held()<<L"\r\neditorOpen="<<editorOpen_
             <<L"\r\nmenuNames="<<names<<L"\r\nmenuArt="<<art<<L"\r\nadjust="<<adjustName<<L"\r\naddCatalog="<<addCatalog_.size()<<L"\r\naddInstalled="<<addInstalled_
             <<L"\r\naddParked="<<addParked_<<L"\r\nparked="<<parked_.size()<<L"\r\nparkedNames="<<parkedNames
@@ -1328,7 +1329,9 @@ public:
         const auto updates=CurrentUpdatePreferences();
         text<<L"\r\nmenuBadges="<<badges<<L"\r\nautoCheck="<<updates.autoCheck<<L"\r\nautoInstall="<<updates.autoInstall
             <<L"\r\nlastUpdateCheck="<<updates.lastCheck
-            // The icon the notification area shows: its style, size and the monochrome mark's COLORREF.
+            // The saved choice (a test instance keeps it but shows no icon), then the icon the
+            // notification area shows: its style, size and the monochrome mark's COLORREF.
+            <<L"\r\ntrayIconChoice="<<(CurrentTrayMonochrome()?L"monochrome":L"color")
             <<L"\r\ntrayIcon="<<(trayIconStyle_.monochrome?L"monochrome":L"color")<<L"\r\ntrayIconGuid="<<trayGuid_<<L"\r\ntrayIconSize="<<trayIconStyle_.size
             <<L"\r\ntrayIconColor="<<std::hex<<std::setw(6)<<std::setfill(L'0')<<trayIconStyle_.color<<std::dec<<std::setfill(L' ')
             <<L"\r\n"<<updater_->Diagnostics();

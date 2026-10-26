@@ -2,6 +2,7 @@
 #include "iconography.h"
 #include "local_launch.h"
 #include "official_icons.h"
+#include "orbit_mark.h"
 #include "vi_tokens.h"
 
 #include <appmodel.h>
@@ -317,9 +318,10 @@ std::wstring TargetKey(const AppTarget& item) {
     return (item.kind == TargetKind::Aumid ? L"aumid|" : L"shell|") + Lower(Unquote(item.target));
 }
 
-// About shows two marks among its commands: the reel's own and GitHub's.
+// About shows two marks among its commands: the reel's own and GitHub's. The hub's Tray icon
+// shows the reel's color mark while the tray icon is in color.
 std::wstring_view MarkedCommand(const AppTarget& item) {
-    if (item.target == L"reel:author") return L"copilot-reel";
+    if (item.target == L"reel:author" || item.target == L"reel:tray-icon:color") return L"copilot-reel";
     if (item.target == L"reel:github") return L"github";
     return {};
 }
@@ -747,6 +749,16 @@ bool DrawArtwork(ID2D1DeviceContext* context, const AppTarget& item,
     if (!context || !(tile.right > tile.left) || !(tile.bottom > tile.top)) return false;
     const D2D1_POINT_2F center{(tile.left + tile.right) / 2, (tile.top + tile.bottom) / 2};
     const float em = vi::kGlyphEm * (tile.right - tile.left) / vi::kTile;
+    if (item.target == L"reel:tray-icon:monochrome") {
+        // The monochrome tray icon's mark in the glyph color, as wide as the round command glyphs'
+        // ink (7/8 em, the circle of Info), its stroke at least one device pixel.
+        com_ptr<ID2D1SolidColorBrush> brush;
+        if (FAILED(context->CreateSolidColorBrush(style.glyph, brush.put()))) return false;
+        const float half = em * 7 / 16;
+        DrawOrbitMark(context, D2D1::RectF(center.x - half, center.y - half, center.x + half, center.y + half),
+                      96.f / style.dpi, brush.get());
+        return true;
+    }
     if (IsCommand(item)) {
         Glyph glyph{};
         if (!CommandGlyph(item, style.dark, glyph)) return false;

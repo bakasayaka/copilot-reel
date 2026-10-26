@@ -38,7 +38,7 @@ Let `P` be the pointer at opening, `C` the nearest legal visual center, and `R` 
 4. Entering the visible center zone arms the menu. Subsequent direction selection uses `C`; releasing inside the center still cancels.
 5. Time alone never arms the menu or switches its origin. The system pointer is not warped.
 
-This center-entry guard is this project's proposal, not a claim about Kando, Fly-Pie, or Blender. Its cost is an extra inward movement near a boundary. It deliberately favors predictable release behavior over a single blind flick at every screen position.
+This center-entry guard is this project's proposal, not a claim about Kando, Fly-Pie, or Blender. Copilot Reel shipped it for a pointer left outside the plate from 0.3.5.1 to 0.3.10; 0.3.11 removed it at the user's request, so every opening selects by direction once the pointer moves, and only the opening position itself never selects. Its cost is an extra inward movement near a boundary. It deliberately favors predictable release behavior over a single blind flick at every screen position.
 
 An explicitly enabled pointer-recentering option can be evaluated later. Relative virtual-pointer navigation requires separate input/feedback and restoration design and is not the default.
 

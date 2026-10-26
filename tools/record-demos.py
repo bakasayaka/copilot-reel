@@ -342,7 +342,7 @@ def demo_hub(d):
 def demo_drag(d):
     """Manage apps: drag a tile to another slot, then drop one on the trash in the center."""
     open_preview(d)
-    open_page(d, 3)  # Manage apps
+    open_page(d, 4)  # Manage apps
     d.record(8000)
     names = d.reel.diagnostics().names
     count = len(names)
@@ -376,7 +376,7 @@ def demo_drag(d):
 def demo_about(d):
     """About: a switch turns over in place, then a check finds an update and offers it."""
     open_preview(d)
-    open_page(d, 5)  # About
+    open_page(d, 6)  # About
     d.record(8500)
     count = len(d.reel.diagnostics().names)
     d.move(d.reel.sector(0, count), steps=10, seconds=.4)

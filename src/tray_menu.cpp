@@ -1,4 +1,5 @@
 #include "tray_menu.h"
+#include "orbit_mark.h"
 #include "vi_tokens.h"
 #include <commctrl.h>
 #include <d2d1.h>
@@ -146,15 +147,8 @@ UINT ShowTrayMenu(HWND owner, POINT anchor, const Appearance& appearance,
 }
 
 namespace {
-// The Soft Orbit mark of the package icon (tools/generate-assets.py), in its 256-unit canvas:
-// an outer ring of radius 92 and an inner one of 56, both 12 wide inside their radius, each
-// with its own gap, and a dot on the outer ring. Without the plate the mark fills the icon.
-constexpr float kMarkCenter = 128, kOuterRadius = 92, kInnerRadius = 56, kMarkStroke = 12;
-constexpr float kOuterFrom = -30, kOuterTo = 280, kInnerFrom = 150, kInnerTo = 440;
-constexpr float kDotAngle = -50, kDotRadius = 16;
-constexpr float kMarkLeft = 36, kMarkExtent = 184;  // the outer ring's edge bounds the mark
-
-// Coverage of the mark, `size` pixels square, as premultiplied BGRA from a software target.
+// Coverage of the Soft Orbit mark without its plate, `size` pixels square, as premultiplied
+// BGRA from a software target.
 std::vector<DWORD> MarkCoverage(int size) {
     using Microsoft::WRL::ComPtr;
     std::vector<DWORD> pixels;
@@ -175,32 +169,12 @@ std::vector<DWORD> MarkCoverage(int size) {
     if (SUCCEEDED(factory->CreateDCRenderTarget(&properties, target.GetAddressOf())) &&
         SUCCEEDED(target->BindDC(dc, &bounds))) {
         // A one-pixel margin at 16 px; the stroke never falls below one pixel.
-        const float margin = size / 16.f, scale = (size - 2 * margin) / kMarkExtent;
-        const float stroke = std::max(kMarkStroke * scale, size / 16.f);
-        auto point = [&](float radius, float degrees) {
-            const float angle = degrees * 3.14159265f / 180;
-            return D2D1::Point2F(margin + (kMarkCenter - kMarkLeft + radius * std::cos(angle)) * scale,
-                                 margin + (kMarkCenter - kMarkLeft + radius * std::sin(angle)) * scale);
-        };
+        const float margin = size / 16.f;
         ComPtr<ID2D1SolidColorBrush> brush;
         target->BeginDraw();
         target->Clear(D2D1::ColorF(0, 0, 0, 0));
         target->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 1), brush.GetAddressOf());
-        // Each ring's stroke lies inside its radius, as in the package icon.
-        for (const auto& [radius, from, to] : {std::tuple{kOuterRadius, kOuterFrom, kOuterTo}, std::tuple{kInnerRadius, kInnerFrom, kInnerTo}}) {
-            const float middle = radius - stroke / scale / 2;
-            ComPtr<ID2D1PathGeometry> path;
-            ComPtr<ID2D1GeometrySink> sink;
-            if (brush && SUCCEEDED(factory->CreatePathGeometry(path.GetAddressOf())) && SUCCEEDED(path->Open(sink.GetAddressOf()))) {
-                sink->BeginFigure(point(middle, from), D2D1_FIGURE_BEGIN_HOLLOW);
-                sink->AddArc(D2D1::ArcSegment(point(middle, to), D2D1::SizeF(middle * scale, middle * scale), 0,
-                    D2D1_SWEEP_DIRECTION_CLOCKWISE, to - from > 180 ? D2D1_ARC_SIZE_LARGE : D2D1_ARC_SIZE_SMALL));
-                sink->EndFigure(D2D1_FIGURE_END_OPEN);
-                sink->Close();
-                target->DrawGeometry(path.Get(), brush.Get(), stroke);
-            }
-        }
-        if (brush) target->FillEllipse(D2D1::Ellipse(point(kOuterRadius, kDotAngle), kDotRadius * scale, kDotRadius * scale), brush.Get());
+        DrawOrbitMark(target.Get(), D2D1::RectF(margin, margin, size - margin, size - margin), size / 16.f, brush.Get());
         if (SUCCEEDED(target->EndDraw())) {
             const auto* source = static_cast<const DWORD*>(bits);
             pixels.assign(source, source + size * size);

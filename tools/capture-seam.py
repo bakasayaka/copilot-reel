@@ -2,18 +2,21 @@
 
 The application runs as an isolated, unpackaged test instance (tests/reel_seam.py): it never moves the
 pointer, sends input, takes the foreground or touches the installed instance. Each variant captures
-Main, a selected vendor tile, the hub, two hub selections and an edge-gated hold (the still set of
-tools/capture-v034.py), and from 0.3.6 'Your apps', an app tile dragged over another slot and over the
-armed center trash (the drag is canceled with Escape, so the order never changes), and an app's actions
-page without reorder chevrons, and from 0.3.8 About with its first tile and a switch. Every image that also
+Main, a selected vendor tile, the hub and two hub selections (the still set of tools/capture-v034.py),
+and from 0.3.6 'Your apps', an app tile dragged over another slot and over the armed center trash (the
+drag is canceled with Escape, so the order never changes), and an app's actions page without reorder
+chevrons, from 0.3.8 About with its first tile and a switch, and from 0.3.11 the hub's Tray icon chosen
+(the monochrome mark, selected) and a corner hold whose pointer, left off the plate, selects by direction
+without entering the center (it replaces the edge-gated hold of earlier sets). Every image that also
 exists in the reference folder is compared pixel by pixel, in every channel; a channel may differ by
 --tolerance levels (default 2, because at rest some anti-aliased edges render up to two levels away), and
 every changed pixel is counted either way.
 0.3.6 draws the reel at 0.8 of its DIP geometry, so 0.3.4 and 0.3.5 stills are no longer comparable, and
 0.3.7 adds Reel size and 0.3.8 About to the hub, 0.3.9 sets text below 13 px in Segoe UI Variable Small
-and widens the name line, and 0.3.10 draws the probe apps, which carry no icon, as the generic glyph: the
-reference set is output/runtime/v0.3.10, published with --no-reference. Frosted stills show what lies behind
-the window, so they match only while that stays the same.
+and widens the name line, 0.3.10 draws the probe apps, which carry no icon, as the generic glyph, and 0.3.11
+adds Tray icon to the hub and drops the center gate: the reference set is output/runtime/v0.3.11, published
+with --no-reference. Frosted stills show what lies behind the window, so they match only while that stays
+the same.
 
 Last, each variant opens Add from the hub once agent discovery has completed and captures every Add page
 with the pointer on the plate center, so nothing is selected. Add lists what is installed on this machine,
@@ -28,7 +31,7 @@ tolerance or has another size, when a reference state has no reference image, wh
 their identities, or when a variant cannot be captured. --no-reference records every still without a
 comparison, to publish a new reference set after a deliberate visual change.
 
-    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.10]
+    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.11]
         [--output output/runtime/vX.Y.Z] [--variants dark-solid,light-solid,...] [--tolerance 2] [--no-reference]
 
 Without --output the stills go to the run's evidence directory under artifacts/qa.
@@ -62,8 +65,8 @@ VARIANTS = [('dark-solid', 'theme=dark;material=solid'), ('light-solid', 'theme=
             ('contrast', 'contrast=on'), ('dark-100', 'theme=dark;material=solid;dpi=96'),
             ('dark-150', 'theme=dark;material=solid;dpi=144')]
 # Each must have a reference image.
-REFERENCE_STATES = ('main', 'main-claude', 'hub', 'hub-appearance', 'hub-language', 'manage', 'manage-drag',
-                    'manage-trash', 'entry', 'entry-app', 'about', 'about-author', 'about-switch', 'gated')
+REFERENCE_STATES = ('main', 'main-claude', 'hub', 'hub-appearance', 'hub-language', 'hub-tray', 'manage', 'manage-drag',
+                    'manage-trash', 'entry', 'entry-app', 'about', 'about-author', 'about-switch', 'edge')
 # About shows its updater as an installed reel does: a feed that is never asked (nothing checks by itself
 # in a test instance) and a version, so the switches and the update tile are enabled.
 UPDATER = {'COPILOT_REEL_TEST_UPDATE_FEED': 'http://127.0.0.1:9/releases', 'COPILOT_REEL_TEST_VERSION': '0.3.8.0'}
@@ -163,6 +166,15 @@ def capture_variant(variant, override, output, data):
         shots.append(still(reel, output, variant, 'hub-appearance', 'Appearance'))
         reel.pointer(slot(reel, hub.index('Language'), len(hub)))
         shots.append(still(reel, output, variant, 'hub-language', 'Language'))
+        # 0.3.11: Tray icon chosen, so it shows the monochrome mark in its seat; chosen again, it is
+        # back in color for the stills that follow.
+        tray = slot(reel, hub.index('Tray icon'), len(hub))
+        reel.pointer(tray)
+        reel.click(tray)
+        seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'monochrome', 'monochrome tray icon')
+        shots.append(still(reel, output, variant, 'hub-tray', 'Tray icon'))
+        reel.click(tray)
+        seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'color', 'color tray icon')
         # 0.3.6: Your apps, then Claude lifted over Perplexity's slot, then over the armed trash.
         reel.pointer(slot(reel, hub.index('Manage apps'), len(hub)))
         reel.click(slot(reel, hub.index('Manage apps'), len(hub)))
@@ -211,11 +223,18 @@ def capture_variant(variant, override, output, data):
         shots.append(still(reel, output, variant, 'about-switch', values.names[2]))
         reel.send_command(seam.CANCEL)
         wait_visible(reel, False)
+        # A corner hold leaves the pointer off the plate; 10 DIP toward the center it selects the
+        # sector it points at, without entering the center.
         corner = (work[0] + 24, work[1] + 24)
         reel.pointer(corner)
         reel.send_command(seam.HOLD_START, corner)
         wait_visible(reel, True)
-        shots.append(still(reel, output, variant, 'gated', ''))
+        cx, cy = reel.center()
+        step = 10 * reel.scale() / math.hypot(corner[0] - cx, corner[1] - cy)
+        reel.pointer((round(corner[0] - (corner[0] - cx) * step), round(corner[1] - (corner[1] - cy) * step)))
+        values = reel.diagnostics()
+        assert values.selected >= 0, values.text
+        shots.append(still(reel, output, variant, 'edge', values.names[values.selected]))
         reel.send_command(seam.CANCEL)
         wait_visible(reel, False)
         # Add, machine-dependent: opening the hub starts discovery, and Add is read once it has completed.
@@ -323,7 +342,7 @@ def describe(comparison):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--reference', default='output/runtime/v0.3.10')
+    parser.add_argument('--reference', default='output/runtime/v0.3.11')
     parser.add_argument('--no-reference', action='store_true',
                         help='Record every still without comparing it, to publish a new reference set.')
     # Routine runs write to the evidence directory; publishing a version's stills to

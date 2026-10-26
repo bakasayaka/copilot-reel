@@ -11,7 +11,7 @@ namespace reel {
 enum class MenuPage { Main, Manage, Presets, Settings, Entry=5, About=6 };
 enum class MenuAction { Launch, Manage, Settings, Edit, Presets, Preset, Restore, Custom,
     Language, SetPreferred, Appearance, Entry, Remove, Previous, Next, Done, Size,
-    About, AboutInfo, GitHub, AutoCheck, AutoInstall, CheckUpdate, InstallUpdate };
+    About, AboutInfo, GitHub, AutoCheck, AutoInstall, CheckUpdate, InstallUpdate, TrayIcon };
 // Disabled entries keep their slot and name but can never be chosen.
 struct MenuEntry { AppTarget visual; MenuAction action; int index=-1; bool enabled=true; TileBadge badge=TileBadge::None; };
 inline constexpr wchar_t kAuthor[]=L"baka_sayaka";
@@ -173,6 +173,9 @@ inline std::vector<MenuEntry> BuildMenu(MenuPage page,const std::vector<AppTarge
         action(Tr(L"Appearance",L"外观",L"外観"),L"reel:appearance",MenuAction::Appearance);
         // Shows its step in the tile; each confirm moves to the next and wraps.
         action(Tr(L"Reel size",L"轮盘大小",L"リールの大きさ"),L"reel:size",MenuAction::Size);
+        // Shows the notification-area icon it chose: the reel's color mark or the mark alone.
+        action(Tr(L"Tray icon",L"托盘图标",L"トレイ アイコン"),
+            CurrentTrayMonochrome()?L"reel:tray-icon:monochrome":L"reel:tray-icon:color",MenuAction::TrayIcon);
         action(Tr(L"Manage apps",L"管理应用",L"アプリの管理"),L"reel:manage",MenuAction::Manage);
         action(Tr(L"Add app",L"添加应用",L"アプリを追加"),L"reel:add",MenuAction::Presets,-1,canAdd);
         action(Tr(L"About",L"关于",L"バージョン情報"),L"reel:about",MenuAction::About,-1,true,UpdateWaiting(about)?TileBadge::Dot:TileBadge::None);break;

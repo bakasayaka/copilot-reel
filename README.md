@@ -51,7 +51,7 @@
 
 <h2 align="center">Feels like part of Windows</h2>
 
-<p align="center">Light or dark, your accent color, transparency and high contrast: the reel follows your Windows settings, starts quietly when you sign in and never takes your keyboard focus. Its notification-area icon can be a single-color mark that matches the taskbar: right-click it and check Monochrome icon.</p>
+<p align="center">Light or dark, your accent color, transparency and high contrast: the reel follows your Windows settings, starts quietly when you sign in and never takes your keyboard focus. Its notification-area icon can be a single-color mark that matches the taskbar: choose Tray icon under +, or right-click the icon and check Monochrome icon.</p>
 
 <br>
 

@@ -163,7 +163,7 @@ $lines = @(
     '// Device-pixel floors: text keeps scaling with the reel down to these sizes, raised at most kTextFloorMaxGrowth times.'
     "inline constexpr float kLabelMinimumPx = $(Float 'typography.minimumPx.label'), kMonogramMinimumPx = $(Float 'typography.minimumPx.monogram'), kTextFloorMaxGrowth = $(Float 'typography.minimumPx.maxGrowth');"
     "inline constexpr float kChevronOffset = $(Float "$g.chevrons.offset"), kChevronEm = $(Float "$g.chevrons.em"), kChevronHit = $(Float "$g.chevrons.hit"), kBackChevronEm = $(Float "$g.chevrons.backEm");"
-    "inline constexpr float kRingStroke = $(Float "$g.centerZone.ringStroke"), kRingGatedStroke = $(Float "$g.centerZone.ringGatedStroke"), kGateDotRadius = $(Float "$g.centerZone.gateDotRadius");"
+    "inline constexpr float kRingStroke = $(Float "$g.centerZone.ringStroke");"
     "inline constexpr float kPlateStroke = $(Float "$g.plate.stroke"), kPlateStrokeHighContrast = $(Float "$g.plate.strokeHighContrast");"
     "inline constexpr float kShadowBlur = $(Float 'elevation.shadowBlur'), kShadowOffsetY = $(Float 'elevation.shadowOffsetY');   // Fluent flyout elevation"
     "inline constexpr float kTrashEm = $(Float "$g.trash.em"), kTrashRingStroke = $(Float "$g.trash.ringStroke"), kTrashArmedRadius = $(Float "$g.trash.armedRadius");"
@@ -204,7 +204,7 @@ $lines = @(
     "inline constexpr unsigned kCommitHoldMs = $(UInt "$commit.holdMs"), kCommitFadeMs = $(UInt "$commit.fadeMs"), kCommitPressMs = $(UInt "$commit.pressMs"), kCommitTotalMs = $(UInt "$commit.totalMs");  inline constexpr float kCommitPressScale = $(Float "$commit.pressScale");"
     "inline constexpr unsigned kSeatFadeMs = $(UInt "$m.selection.seatFadeMs"), kSeatAppearMs = $(UInt "$m.selection.seatAppearMs"), kTileFillFadeMs = $(UInt "$m.selection.tileFillFadeMs");  inline constexpr float kSeatAppearScaleFrom = $(Float "$m.selection.seatAppearScaleFrom");"
     "inline constexpr float kSeatSpringDamping = $(Float "$m.selection.travel.dampingRatio");  inline constexpr unsigned kSeatSpringPeriodMs = $(UInt "$m.selection.travel.periodMs");"
-    "inline constexpr unsigned kLabelFadeMs = $(UInt "$m.centerLabel.crossfadeMs"), kRingHideMs = $(UInt "$m.centerLabel.ringHideMs"), kGateArmMs = $(UInt "$m.gate.armMs"), kGateDotFadeMs = $(UInt "$m.gate.dotFadeMs");"
+    "inline constexpr unsigned kLabelFadeMs = $(UInt "$m.centerLabel.crossfadeMs"), kRingHideMs = $(UInt "$m.centerLabel.ringHideMs");"
     "inline constexpr unsigned kDrillExitMs = $(UInt "$m.drill.exitMs"), kDrillEnterMs = $(UInt "$m.drill.enterMs"), kDrillEnterFadeMs = $(UInt "$m.drill.enterFadeMs"), kDrillEnterDelayMs = $(UInt "$m.drill.enterDelayMs");"
     "inline constexpr float kDrillInExitScale = $(Float "$m.drillIn.exitScale"), kDrillInEnterScale = $(Float "$m.drillIn.enterScaleFrom"), kDrillOutExitScale = $(Float "$m.drillOut.exitScale"), kDrillOutEnterScale = $(Float "$m.drillOut.enterScaleFrom");"
     "inline constexpr unsigned kHandoffMs = $(UInt "$m.handoff.travelMs"), kHandoffFadeMs = $(UInt "$m.handoff.fadeMs"), kHandoffLabelFadeMs = $(UInt "$m.handoff.labelFadeMs");  inline constexpr float kHandoffScaleTo = $(Float "$m.handoff.scaleTo");"

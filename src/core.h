@@ -12,14 +12,16 @@ struct WorkArea { int left, top, right, bottom; };
 struct WheelPlacement {
     int left = 0, top = 0, size = 0;
     double centerX = 0, centerY = 0;
-    bool fits = false, awaitingCenter = false;
+    bool fits = false;
 };
 
 // Use the complete drawing footprint, including shadow padding. All positions
 // are physical screen pixels; negative coordinates support secondary monitors.
-// A pointer farther than gatePixels from the final center waits for center entry.
-inline WheelPlacement PlaceWheel(int pointerX, int pointerY, WorkArea work,
-                                int size, double gatePixels) {
+// The pointer is the origin unless the complete footprint crosses a work-area
+// boundary. In that case use only the minimum translation needed to contain it.
+// Wherever the clamp leaves the pointer, on the plate or off it, selection goes by
+// direction from the plate center as soon as the pointer moves; there is no center entry.
+inline WheelPlacement PlaceWheel(int pointerX, int pointerY, WorkArea work, int size) {
     WheelPlacement result;
     if(size <= 0 || work.right-work.left < size || work.bottom-work.top < size) return result;
     result.left=std::clamp(pointerX-size/2,work.left,work.right-size);
@@ -28,17 +30,7 @@ inline WheelPlacement PlaceWheel(int pointerX, int pointerY, WorkArea work,
     result.centerX=result.left+size/2.0;
     result.centerY=result.top+size/2.0;
     result.fits=true;
-    const double dx=pointerX-result.centerX,dy=pointerY-result.centerY;
-    result.awaitingCenter=dx*dx+dy*dy>gatePixels*gatePixels;
     return result;
-}
-
-// The pointer is the origin unless the complete footprint crosses a work-area
-// boundary. In that case use only the minimum translation needed to contain it.
-// The reel passes its plate radius as the gate: a pointer the clamp leaves on the plate
-// selects by direction at once, and only one left outside the plate enters the center first.
-inline WheelPlacement PlaceOrbit(int x, int y, WorkArea work, int size, double gate) {
-    return PlaceWheel(x,y,work,size,gate);
 }
 
 // URI activations can arrive out of process-creation order. An Up tombstone
@@ -108,22 +100,18 @@ inline int HitTest(double dx, double dy, unsigned count, double deadZone = 44.0)
 
 class GestureState {
 public:
-    bool Start(bool awaitCenter = false) {
+    bool Start() {
         if (active_) return false;
-        active_ = true; awaitingCenter_ = awaitCenter; selected_ = -1; ++generation_; return true;
+        active_ = true; selected_ = -1; ++generation_; return true;
     }
     bool Select(int index, unsigned count) {
-        if (!active_ || awaitingCenter_) return false;
+        if (!active_) return false;
         const int valid = index >= 0 && static_cast<unsigned>(index) < count ? index : -1;
         if (valid == selected_) return false;
         selected_ = valid; return true;
     }
     bool ObservePointer(double dx,double dy,unsigned count,double deadZone=44.0) {
         if(!active_ || !std::isfinite(dx) || !std::isfinite(dy)) return false;
-        if(awaitingCenter_) {
-            if(dx*dx+dy*dy<=deadZone*deadZone) {awaitingCenter_=false;return true;}
-            return false;
-        }
         return Select(HitTest(dx,dy,count,deadZone),count);
     }
     std::optional<int> Release() {
@@ -132,14 +120,12 @@ public:
         Cancel();
         return result < 0 ? std::optional<int>{} : std::optional<int>{result};
     }
-    void Cancel() { active_ = false; awaitingCenter_ = false; selected_ = -1; ++generation_; }
+    void Cancel() { active_ = false; selected_ = -1; ++generation_; }
     bool Active() const { return active_; }
-    bool AwaitingCenter() const { return awaitingCenter_; }
     int Selected() const { return selected_; }
     unsigned Generation() const { return generation_; }
 private:
     bool active_ = false;
-    bool awaitingCenter_ = false;
     int selected_ = -1;
     unsigned generation_ = 0;
 };

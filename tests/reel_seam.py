@@ -33,8 +33,8 @@ CANVAS_DIP = 384
 CENTER_DIP = 192
 SECTOR_RADIUS_DIP = 112
 DEAD_ZONE_DIP = 44
-# A hold the edge clamp leaves within the plate selects by direction at once; one left outside
-# it enters the DEAD_ZONE_DIP center first (src/core.h PlaceOrbit).
+# Wherever the edge clamp leaves a hold, on the plate or off it, it selects by direction once the
+# pointer moves; there is no center entry (src/core.h PlaceWheel).
 PLATE_RADIUS_DIP = 168
 # A page selects nothing until the pointer leaves this square around where it opened (MovePointer).
 OPENING_SLOP_DIP = 4
@@ -75,7 +75,7 @@ VK_NONE = 0  # routes nowhere: a Key packet with it is a pure ordering barrier
 RUN_ID = re.compile(r'[A-Za-z0-9-]{8,40}')
 DONE = re.compile(r'Test input (\d+) done; page=(-?\d+); selected=(-?\d+); active=([01]); drag=(-?\d+); target=([\w:]+)')
 OPENING = re.compile(r'(Hold started|Preview opened); pointer=(-?\d+),(-?\d+); '
-                     r'window=(-?\d+),(-?\d+),(-?\d+),(-?\d+); awaitingCenter=(true|false)')
+                     r'window=(-?\d+),(-?\d+),(-?\d+),(-?\d+)')
 # The whole 'Hold started' line; a hold that cut short a running exit ends with '; interrupted=exit'.
 HOLD_LINE = re.compile(r'Hold started;[^\r\n]*')
 INTERRUPTED_EXIT = '; interrupted=exit'

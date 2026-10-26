@@ -22,7 +22,7 @@ inline constexpr float kLabelSize = 14.f, kLabelWidth = 160.f, kLabelHeight = 20
 // Device-pixel floors: text keeps scaling with the reel down to these sizes, raised at most kTextFloorMaxGrowth times.
 inline constexpr float kLabelMinimumPx = 10.f, kMonogramMinimumPx = 9.f, kTextFloorMaxGrowth = 1.5f;
 inline constexpr float kChevronOffset = 40.f, kChevronEm = 14.f, kChevronHit = 40.f, kBackChevronEm = 14.f;
-inline constexpr float kRingStroke = 1.f, kRingGatedStroke = 1.5f, kGateDotRadius = 2.f;
+inline constexpr float kRingStroke = 1.f;
 inline constexpr float kPlateStroke = 1.f, kPlateStrokeHighContrast = 2.f;
 inline constexpr float kShadowBlur = 16.f, kShadowOffsetY = 8.f;   // Fluent flyout elevation
 inline constexpr float kTrashEm = 20.f, kTrashRingStroke = 1.5f, kTrashArmedRadius = 30.f;
@@ -94,7 +94,7 @@ inline constexpr unsigned kCloseFadeMs = 83, kCloseScaleMs = 83;  inline constex
 inline constexpr unsigned kCommitHoldMs = 50, kCommitFadeMs = 83, kCommitPressMs = 100, kCommitTotalMs = 133;  inline constexpr float kCommitPressScale = 0.975f;
 inline constexpr unsigned kSeatFadeMs = 83, kSeatAppearMs = 167, kTileFillFadeMs = 83;  inline constexpr float kSeatAppearScaleFrom = 0.94f;
 inline constexpr float kSeatSpringDamping = 0.85f;  inline constexpr unsigned kSeatSpringPeriodMs = 50;
-inline constexpr unsigned kLabelFadeMs = 83, kRingHideMs = 83, kGateArmMs = 167, kGateDotFadeMs = 83;
+inline constexpr unsigned kLabelFadeMs = 83, kRingHideMs = 83;
 inline constexpr unsigned kDrillExitMs = 100, kDrillEnterMs = 250, kDrillEnterFadeMs = 83, kDrillEnterDelayMs = 50;
 inline constexpr float kDrillInExitScale = 1.04f, kDrillInEnterScale = 0.94f, kDrillOutExitScale = 0.96f, kDrillOutEnterScale = 1.04f;
 inline constexpr unsigned kHandoffMs = 200, kHandoffFadeMs = 83, kHandoffLabelFadeMs = 33;  inline constexpr float kHandoffScaleTo = 0.5f;

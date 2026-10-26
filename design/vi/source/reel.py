@@ -1,7 +1,7 @@
 """The Soft Orbit reel as vector scenes: a line-by-line mirror of src/renderer.cpp.
 
 Layer order (back to front, renderer Initialize): shadow, backdrop (frosted), plate fill, rim,
-idle ring, gated ring, gate dot, back chevron, page (seat, items, language chevrons), handoff
+idle ring, back chevron, page (seat, items, language chevrons), handoff
 clone, center label. Every size comes from tokens.json via tokens.py.
 """
 from __future__ import annotations
@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, replace
 import art
 import fonts
 from scene import Scene, round_rect_path, transform_path
-from tokens import (CANVAS, PLATE_R, ORBIT_R, CENTER_R, RING, RING_GATED, GATE_DOT, TILE, TILE_R, TILE_STROKE,
+from tokens import (CANVAS, PLATE_R, ORBIT_R, CENTER_R, RING, TILE, TILE_R, TILE_STROKE,
                     SEAT, SEAT_R, GLYPH_EM, BADGE, CHEVRON, DISABLED, LABEL, MONOGRAM, SHADOW_BLUR, SHADOW_DY,
                     glyph_code, slot_angle, theme as make_theme, acrylic_recipe)
 
@@ -74,7 +74,6 @@ class State:
     preferred: int = -1
     language: bool = False        # PageModel.languageControl (the hub)
     submenu: bool = False
-    gated: bool = False
     lang: str = 'EN'
     label: str | None = None      # override the center text (None = the selected item's name)
     root_alpha: float = 1.0
@@ -85,7 +84,7 @@ class State:
     seat_scale: float = 1.0
     seat_angle: float | None = None   # degrees; travel frames place the seat between slots
     label_alpha: float = 1.0
-    center_alpha: float = 1.0     # ring / back chevron / gate opacity multiplier
+    center_alpha: float = 1.0     # ring / back chevron opacity multiplier
     plate_alpha: float = 1.0      # commit: plate, shadow and rim fade together
     item_alpha: dict = field(default_factory=dict)
     item_scale: dict = field(default_factory=dict)
@@ -190,16 +189,13 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
             s.circle(C, C, PLATE_R - rim / 2, stroke=th.plateStroke, sw=rim)
 
         # Center state (renderer UpdateCenter).
-        seat_index = -1 if st.gated or st.selected < 0 or not st.items[st.selected].enabled else st.selected
-        text = st.label if st.label is not None else ('' if st.gated or st.selected < 0 else st.items[st.selected].name)
+        seat_index = -1 if st.selected < 0 or not st.items[st.selected].enabled else st.selected
+        text = st.label if st.label is not None else ('' if st.selected < 0 else st.items[st.selected].name)
         named = bool(text) and st.label_alpha > 0
         ca = st.center_alpha
-        if not named and not st.gated:
+        if not named:
             s.circle(C, C, CENTER_R, stroke=th.ringIdle, sw=RING, alpha=ca)
-        if st.gated:
-            s.circle(C, C, CENTER_R, stroke=th.secondary, sw=RING_GATED, alpha=ca)
-            s.circle(C, C, GATE_DOT, fill=th.secondary, alpha=ca)
-        back = st.back_alpha if st.back_alpha is not None else (1.0 if st.submenu and not named and not st.gated else 0.0)
+        back = st.back_alpha if st.back_alpha is not None else (1.0 if st.submenu and not named else 0.0)
         if back > 0:
             glyph(s, glyph_code('BackChevron'), C, C, CHEVRON['backEm'], th.secondary, back * ca)
 
@@ -223,7 +219,7 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
                 draw_item(s, th, it, x, y, seated=i == seat_index, selected=i == seat_index, preferred=i == st.preferred,
                           lang=st.lang, alpha=st.item_alpha.get(i, 1.0), scale=st.item_scale.get(i, 1.0))
             if st.language and n:
-                active = st.selected == 0 and not st.gated
+                active = st.selected == 0
                 col = th.foreground if active else th.secondary
                 y = C - ORBIT_R
                 glyph(s, glyph_code('ChevronLeftSmall'), C - CHEVRON['offset'], y, CHEVRON['em'], col)

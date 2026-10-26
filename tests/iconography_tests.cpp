@@ -178,6 +178,17 @@ int main() {
         }
         Check(canvas.Draw(Target(L"reel:appearance"),dpi,false).hash!=canvas.Draw(Target(L"reel:appearance"),dpi,true).hash,
             "appearance shows the sun in light and the moon in dark");
+        // The hub's Tray icon shows the tray icon it chose: the reel's plated color mark, or the mark
+        // alone, centered at the size of a command glyph.
+        const auto trayColor=Target(L"reel:tray-icon:color"),trayMono=Target(L"reel:tray-icon:monochrome");
+        PrepareArtwork({trayColor,trayMono},dpi);
+        const auto color=canvas.Draw(trayColor,dpi),mono=canvas.Draw(trayMono,dpi);
+        Check(ClassifyArtwork(trayColor)==ArtworkClass::Plated && color.visible>800*dpi/96*dpi/96 && color.inCorners==0,
+            "a color tray icon fills its tile with the reel's own mark");
+        Check(color.hash==canvas.Draw(Target(L"reel:author"),dpi).hash,"it is the mark About shows");
+        Check(ClassifyArtwork(trayMono)==ArtworkClass::Command && mono.visible>20 && mono.outsideTile==0 &&
+            std::abs(mono.centerX-32)<2.5f && std::abs(mono.centerY-32)<2.5f,"a monochrome tray icon is the mark alone, centered");
+        Check(mono.hash!=color.hash && mono.hash!=canvas.Draw(Target(L"reel:about"),dpi).hash,"the two tray icons and About stay distinct");
     }
     // Catalog entries that still need a target all have an empty one; their catalog name picks the
     // mark, so they must never share artwork (0.3.5 drew Antigravity's for JetBrains IDE and Junie).

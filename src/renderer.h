@@ -40,7 +40,6 @@ struct PageModel {
     bool adjustEarlier = true, adjustLater = true; // a side that cannot move draws at the disabled opacity and never shows the active color
     int preferredIndex = -1;
     int selection = -1;
-    bool awaitCenter = false;
     // Reflow only: the previous page's slot of each item, or -1 for a new item. When empty,
     // items are matched to the previous page by app.
     std::vector<int> from;
@@ -67,7 +66,6 @@ public:
     // Local canvas DIP hit rectangles beside the adjustable tile at the top orbit:
     // first the left chevron (earlier), then the right one (later).
     std::pair<D2D1_RECT_F, D2D1_RECT_F> AdjustArrowBounds() const;
-    void SetAwaitCenter(bool awaitCenter);
     void SetSelection(int index);
     // Dragging on Manage apps. BeginDrag lifts item `index` and shows the trash in the center,
     // drawn disabled when nothing may be removed (`trash` false). DragTo moves the lifted item to

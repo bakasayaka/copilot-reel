@@ -46,10 +46,11 @@ assert seam.forbidden_tokens() == FORBIDDEN
 
 APPS = ['Probe 0', 'Probe 1', 'Probe 2']
 PLUS = 'Apps and settings'
-LANGUAGE, APPEARANCE, SIZE, MANAGE, ADD, ABOUT = 'Language', 'Appearance', 'Reel size', 'Manage apps', 'Add app', 'About'
-HUB = [LANGUAGE, APPEARANCE, SIZE, MANAGE, ADD, ABOUT]
-HUB_ZH = ['语言', '外观', '轮盘大小', '管理应用', '添加应用', '关于']
-HUB_JA = ['言語', '外観', 'リールの大きさ', 'アプリの管理', 'アプリを追加', 'バージョン情報']
+LANGUAGE, APPEARANCE, SIZE, TRAY, MANAGE, ADD, ABOUT = \
+    'Language', 'Appearance', 'Reel size', 'Tray icon', 'Manage apps', 'Add app', 'About'
+HUB = [LANGUAGE, APPEARANCE, SIZE, TRAY, MANAGE, ADD, ABOUT]
+HUB_ZH = ['语言', '外观', '轮盘大小', '托盘图标', '管理应用', '添加应用', '关于']
+HUB_JA = ['言語', '外観', 'リールの大きさ', 'トレイ アイコン', 'アプリの管理', 'アプリを追加', 'バージョン情報']
 CUSTOM, PREVIOUS, NEXT = 'Custom app', 'Previous', 'Next'
 EDIT, SET_PREFERRED, REMOVE = 'Edit app', 'Set as preferred', 'Remove from reel'
 
@@ -101,14 +102,13 @@ def verify_placement(g, offset, point, held):
     distance = math.hypot(x - point[0], y - point[1])
     if (expected_left, expected_top) == (point[0] - size // 2, point[1] - size // 2):
         assert abs(x - point[0]) <= .5 and abs(y - point[1]) <= .5, 'An unconstrained opening is centered on the pointer.'
-    guarded = held and distance > seam.PLATE_RADIUS_DIP * reel.scale()
-    assert match.group(8) == ('true' if guarded else 'false'), \
-        'Only a hold the clamp leaves outside the plate waits for center entry.'
+    # Off the plate or on it, a hold selects by direction once the pointer moves (no center entry).
+    off_plate = held and distance > seam.PLATE_RADIUS_DIP * reel.scale()
     EVIDENCE.placements.append({'group': g.name, 'pointer': list(point), 'bounds': [left, top, right, bottom],
                                 'centerDisplacementPixels': round(distance, 2),
-                                'centerDisplacementDip': round(distance / reel.scale(), 2), 'awaitingCenter': guarded,
+                                'centerDisplacementDip': round(distance / reel.scale(), 2), 'offPlate': off_plate,
                                 'held': held, 'dpi': seam.user32.GetDpiForWindow(reel.hwnd)})
-    return guarded
+    return off_plate
 
 
 def open_hold(g, point, via='command'):
@@ -241,14 +241,14 @@ def on_plate_hold(g, side, point, launched):
     """A hold clamped at an edge with the pointer still on the plate. Returns the launch count."""
     reel = g.reel
     offset = len(reel.read_log())
-    assert not open_hold(g, point), f'A {side}-edge hold left on the plate needs no center entry.'
+    assert not open_hold(g, point), f'A {side}-edge hold 30 DIP inside the edge stays on the plate.'
     center = reel.center()
     scale = reel.scale()
     distance = math.hypot(point[0] - center[0], point[1] - center[1]) / scale
     assert seam.DEAD_ZONE_DIP < distance <= seam.PLATE_RADIUS_DIP, \
         f'The {side}-edge hold must be clamped off center yet stay on the plate ({distance:.1f} DIP).'
     state = reel.diagnostics()
-    assert state['gestureAwaitingCenter'] == '0' and state.selected == -1, state.text
+    assert state.selected == -1, state.text
     # The opening point lies over a sector, yet neither it nor a move inside the slop selects.
     reel.pointer(point)
     assert reel.diagnostics().selected == -1, 'The opening position itself must not select.'
@@ -266,12 +266,10 @@ def on_plate_hold(g, side, point, launched):
     reel.pointer(moved)
     state = reel.diagnostics()
     expected = sector_index(moved[0] - center[0], moved[1] - center[1], len(state.names))
-    assert state.selected == expected and state['gestureAwaitingCenter'] == '0', \
-        f'Moving 10 DIP must select sector {expected} at once: {state.text}'
+    assert state.selected == expected, f'Moving 10 DIP must select sector {expected} at once: {state.text}'
     name = state.names[expected]
     release(g)
     reel.hidden()
-    assert 'Center entered' not in reel.read_log()[offset:], 'An on-plate hold never waits for the center.'
     assert_launch(g, launched + 1, name)
     return launched + 1, name
 
@@ -356,7 +354,7 @@ def group_a(g):
     open_hold(g, ANCHOR)
     state = reel.diagnostics()
     assert state.page == seam.PAGE_MAIN and state.names == APPS + [PLUS], state.names
-    assert state.flag('held') and not state.flag('preview') and state['gestureAwaitingCenter'] == '0'
+    assert state.flag('held') and not state.flag('preview')
     reel.pointer(ANCHOR)
     assert reel.diagnostics().selected == -1
     release(g)
@@ -393,30 +391,31 @@ def group_a(g):
     g.passed('Escape during an opening hold cancels, and its late release launches nothing')
 
     for point in edge_points():
-        assert open_hold(g, point), 'An edge or corner hold that leaves the pointer off the plate waits for center entry.'
+        assert open_hold(g, point), 'An edge or corner hold 2 px inside the work area leaves the pointer off the plate.'
+        center = reel.center()
+        reel.pointer(point)
+        assert reel.diagnostics().selected == -1, 'The opening position itself must not select.'
+        # 10 DIP toward the center: past the slop, still off the plate and in the same direction.
+        moved = toward(point, center, -round(10 * reel.scale()))
+        reel.pointer(moved)
         state = reel.diagnostics()
-        reel.pointer(reel.sector(0, len(state.names)))
-        state = reel.diagnostics()
-        assert state.selected == -1 and state['gestureAwaitingCenter'] == '1', 'Crossing a sector before center entry selects nothing.'
-        release(g)
+        expected = sector_index(moved[0] - center[0], moved[1] - center[1], len(state.names))
+        assert state.selected == expected, f'A pointer off the plate selects sector {expected} by direction at once: {state.text}'
+        reel.key(seam.VK_ESCAPE)
         reel.hidden()
+        release(g)
     assert_no_launch(g, 1)
     corner = edge_points()[-1]
     open_hold(g, corner)
-    target = reel.sector_of('Probe 1')
-    reel.pointer(target)
-    assert reel.diagnostics().selected == -1
-    offset = len(reel.read_log())
-    reel.pointer(reel.center_point())
-    assert 'Center entered; direction selection armed' in reel.read_log()[offset:]
-    reel.pointer(target)
+    reel.pointer(reel.sector_of('Probe 1'))
     state = reel.diagnostics()
-    assert state.selected == state.index('Probe 1') and state['gestureAwaitingCenter'] == '0'
+    assert state.selected == state.index('Probe 1'), 'From a corner the pointer reaches a sector without entering the center.'
     release(g)
     reel.hidden()
     assert_launch(g, 2, 'Probe 1')
     g.passed('eight edges and corners 2 px inside the work area clamp minimally and leave the pointer off the plate; '
-             'selection arms only after center entry and then launches once')
+             'the opening position selects nothing, a move selects by direction without entering the center, '
+             'and the release launches once')
 
     # Wall-clock delays are recorded, never asserted: the reel's own markers decide.
     state = reel.diagnostics()
@@ -499,7 +498,7 @@ def group_a(g):
     launched = 3
     for side, point in on_plate_points(reel.scale()):
         launched, name = on_plate_hold(g, side, point, launched)
-        g.passed(f'a hold 30 DIP inside the {side} edge clamps minimally and stays on the plate without center entry; '
+        g.passed(f'a hold 30 DIP inside the {side} edge clamps minimally and stays on the plate; '
                  f'neither the opening point nor a 3 DIP move selects and the release cancels; '
                  f'10 DIP of movement selects {name!r} at once and its release launches it once')
     assert_quiet(g)
@@ -972,7 +971,7 @@ def group_interior(g):
     release(g)
     reel.hidden()
     point = interior_points(size)[0]
-    assert not open_hold(g, point), 'An interior hold needs no center entry.'
+    assert not open_hold(g, point), 'An interior hold stays on the plate.'
     assert reel.center() == (float(point[0]), float(point[1])), 'An off-center desktop point remains the exact plate center.'
     release(g)
     reel.hidden()
@@ -1058,6 +1057,24 @@ def group_hub(g):
     assert (g.data / 'apps.ini').read_bytes() == apps_before, 'Switching language never changes the apps.'
     assert_no_launch(g, 0)
     g.passed('both chevrons and the language icon step and persist the language; the app profile is shared')
+
+    # Tray icon turns the notification-area icon over in place and shows the choice in its icon.
+    # A test instance shows no tray icon, so diagnostics report the saved choice.
+    tray = HUB.index(TRAY)
+    state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    assert state['trayIconChoice'] == 'color' and state.art[tray] == 'source|copilot-reel', state.art
+    reel.choose(TRAY)
+    seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'monochrome', 'monochrome tray icon')
+    state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    assert state.art[tray] == 'command|reel:tray-icon:monochrome' and state.selected == tray, state.text
+    assert 'TrayIcon=monochrome' in language(g), 'The tray icon choice is saved.'
+    reel.choose(TRAY)
+    seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'color', 'color tray icon')
+    assert assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB).art[tray] == 'source|copilot-reel'
+    assert 'TrayIcon=color' in language(g)
+    assert_no_launch(g, 0)
+    g.passed('Tray icon switches the tray icon between color and monochrome in place, saves it, stays selected '
+             'and shows the reel mark or the mark alone')
     close_menu(g, 2)
     assert_quiet(g)
     reel.stop()
@@ -1246,7 +1263,7 @@ def group_about(g):
         open_preview(g, ANCHOR)
         reel.choose(PLUS)
         assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
-        assert reel.diagnostics()['menuBadges'].split('|')[5] == '-', 'About carries no dot before a check.'
+        assert reel.diagnostics()['menuBadges'].split('|')[HUB.index(ABOUT)] == '-', 'About carries no dot before a check.'
         reel.choose(ABOUT)
         names = ['0.3.6 · baka_sayaka', 'GitHub', 'Auto-check updates', 'Auto-install updates', 'Check for updates']
         state = assert_page(g, seam.PAGE_ABOUT, 'About', names)
@@ -1287,7 +1304,7 @@ def group_about(g):
 
         open_preview(g, ANCHOR)
         reel.choose(PLUS)
-        assert reel.diagnostics()['menuBadges'].split('|')[5] == 'dot', 'The hub shows the waiting update.'
+        assert reel.diagnostics()['menuBadges'].split('|')[HUB.index(ABOUT)] == 'dot', 'The hub shows the waiting update.'
         close_menu(g, 2)
         for mode, expect in (('digest', "GitHub's SHA-256"), ('tampered', 'signature is not trusted')):
             feed.mode = mode

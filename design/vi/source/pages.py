@@ -12,7 +12,7 @@ import reel as R
 from layout import (Page, W, ML, MR, CW, TOP, BOTTOM, INK, INK2, INK3, RULE, PANEL, PANEL_DARK, PAPER, RED, DO, DONT,
                     para, heading, caption, mono, panel, tag, dim_h, dim_v, leader, check_mark)
 from tokens import (T, G, PAL, MOTION, TYPE, ICON, ELEV, MATERIAL, OSD, CANVAS, PLATE_R, PLATE_STROKE, PLATE_INSET, ORBIT_R,
-                    CENTER_R, RING, RING_GATED, GATE_DOT, TILE, TILE_R, TILE_STROKE, TILE_INSET, SEAT, SEAT_R,
+                    CENTER_R, RING, TILE, TILE_R, TILE_STROKE, TILE_INSET, SEAT, SEAT_R,
                     SEAT_STROKE, SEAT_INSET, GLYPH_EM, KEYLINE, BADGE, CHEVRON, DISABLED, LABEL, MONOGRAM, SHADOW_BLUR,
                     SHADOW_DY, MAX_APPS, ROOT, APP_VERSION, color, over, contrast, slot_angle, glyph_code)
 
@@ -122,7 +122,7 @@ def p02():
     y += 62
     states = [('Idle Main', f'ring {f(RING)}, ringIdle', main_state()),
               ('Idle submenu', f'back chevron em {f(CHEVRON["backEm"])}', hub_state()),
-              ('Edge-gated', f'ring {f(RING_GATED)} + dot r {f(GATE_DOT)}', main_state(gated=True)),
+              ('Named', 'one name; the ring gives way', main_state(selected=1)),
               ('Disabled', f'tile and art at {f(DISABLED)}', R.State(R.hub(True), language=True, submenu=True))]
     cw = (CANVAS * k + gutter + 12) / 4
     box_w, box_h, kk = cw - 14, 76, 0.78
@@ -685,7 +685,6 @@ def state_models():
         ('Disabled', f'{f(DISABLED)} opacity; named on hover; never seated', R.State([R.LANGUAGE, add_off, R.cmd('manage', 'Manage apps'),
                                                                                R.cmd('preferred', 'Preferred agent')], selected=1, submenu=True)),
         ('Preferred', f'accent badge at (+{f(BADGE["offset"])}, −{f(BADGE["offset"])})', R.State([four[0], chat, four[2], R.PLUS], preferred=1)),
-        ('Edge-gated', 'ring + dot in secondary; no selection', R.State([four[0], claude, four[2], R.PLUS], gated=True, selected=1)),
         ('Keyboard focus', 'the same seat; glyphs stay foreground', R.State(hub4, selected=1, submenu=True, language=True)),
         ('Commit', f't = {MOTION["events"]["commit"]["holdMs"]} ms: the choice holds, the rest fades',
          R.State([four[0], claude, four[2], R.PLUS], selected=1, plate_alpha=commit_alpha, label_alpha=commit_alpha,
@@ -694,7 +693,7 @@ def state_models():
 
 
 def p07():
-    p = Page(7, 'States', 'Seven states in every appearance.',
+    p = Page(7, 'States', 'Six states in every appearance.',
              'Each cell is the slice from the plate center to the item at 3 o\'clock. Selection is only ever the seat.')
     s = p.s
     models = state_models()
@@ -883,9 +882,9 @@ def p10():
     half = CANVAS * k / 2
     scenarios = [
         ('Interior', 'Pointer = plate center. Choose a direction at once.', 'interior'),
-        ('Screen edge', 'The 384 DIP footprint moves inward to the work area. Off the plate, selection waits.', 'edge'),
+        ('Screen edge', 'The 384 DIP footprint moves inward to the work area; the pointer may end up off the plate.', 'edge'),
         ('Corner', 'Both axes clamp minimally; the circle, order and angles stay.', 'corner'),
-        ('Armed', f'Entering the center zone arms selection; the ring settles in {MOTION["events"]["gate"]["armMs"]} ms.', 'armed'),
+        ('Off the plate', 'A pointer left outside the plate selects by direction as soon as it moves; it never enters the center first.', 'armed'),
     ]
     for i, (title, note, kind) in enumerate(scenarios):
         x = ML + i * (cw + 24)
@@ -906,17 +905,19 @@ def p10():
             px, py = wx1 - 16, wy1 - 22
         cx = min(max(px, wx0 + half), wx1 - half)
         cy = min(max(py, wy0 + half), wy1 - half)
-        dist = math.hypot(px - cx, py - cy) / k
-        gated = dist > PLATE_R and kind != 'armed'
-        st = R.State(R.MAIN, preferred=0, gated=gated)
+        # Off the plate, a move of the pointer selects the sector it points at from the plate center.
+        n = len(R.MAIN)
+        sector = int(((math.atan2(py - cy, px - cx) + math.pi / 2) % (2 * math.pi) + math.pi / n) // (2 * math.pi / n)) % n
+        st = R.State(R.MAIN, preferred=0, selected=sector if kind == 'armed' else -1)
         with s.clip_rect(x, y0, cw, ph, 12):
             R.reel(s, cx, cy, LIGHT, st, k)
             if kind != 'interior':
                 s.rect(cx - half, cy - half, 2 * half, 2 * half, stroke=RED, sw=0.7, dash=[3, 3])
             if kind == 'armed':
-                s.path([('M', px, py), ('C', px - 30, py + 40, cx + 30, cy + 10, cx + 6, cy + 4)], stroke=RED, sw=0.9, dash=[2, 3])
+                mx, my = px - (px - cx) * 0.08, py - (py - cy) * 0.08
+                s.path([('M', px, py), ('L', mx, my)], stroke=RED, sw=0.9, dash=[2, 3])
                 s.circle(px, py, 2.5, fill=RED)
-                pointer(s, cx + 4, cy + 2, 0.9)
+                pointer(s, mx, my, 0.9)
             else:
                 pointer(s, px, py, 0.9)
         if kind in ('edge', 'corner'):
@@ -927,7 +928,7 @@ def p10():
     y = y0 + ph + 104
     rules = [('Zero offset', f'Interior: pointer offset {OSD and T["edgeLayout"]["pointerOffset"]}; no line from the pointer, no cursor warp.'),
              ('Minimal clamp', f'Clamp the whole canvas, shadow margin included ({f(ELEV["canvasMargin"])} DIP); keep order, angles, radius and icon size.'),
-             ('Gate', f'Only when clamping leaves the pointer outside the plate (r {f(PLATE_R)}): selection waits for center entry; early release cancels. On the plate it selects by direction once the pointer moves 4 DIP; the opening position never selects.'),
+             ('No gate', f'On the plate or outside it (r {f(PLATE_R)}), selection goes by direction once the pointer moves 4 DIP; the opening position never selects, and an early release cancels.'),
              ('Small screens', 'If the canvas cannot fit, scale it uniformly; text and targets shrink with it.')]
     cw2 = (CW - 3 * 24) / 4
     for i, (a, b) in enumerate(rules):
@@ -966,7 +967,7 @@ def _curve_plot(s, x, y, w, h, curve, title):
 
 def motion_rows():
     E = MOTION['events']
-    o, cl, cm, se, lb, ga = E['open'], E['close'], E['commit'], E['selection'], E['centerLabel'], E['gate']
+    o, cl, cm, se, lb = E['open'], E['close'], E['commit'], E['selection'], E['centerLabel']
     dr, di, do_, ho, sw = E['drill'], E['drillIn'], E['drillOut'], E['handoff'], E['swap']
     hold = cm['holdMs']
     return [
@@ -981,7 +982,6 @@ def motion_rows():
         ('Seat travels', [(f'angle: spring ζ {f(se["travel"]["dampingRatio"])}, period {se["travel"]["periodMs"]} ms', 0, 140, 'spring'),
                           ('tile fills swap', 0, se['tileFillFadeMs'], 'linear')]),
         ('Name', [('crossfade; ring hides', 0, lb['crossfadeMs'], lb['curve'])]),
-        ('Gate arms', [('ring to idle style', 0, ga['armMs'], ga['armCurve']), ('dot → 0', 0, ga['dotFadeMs'], 'linear')]),
         ('Drill in', [(f'out: scale → {f(di["exitScale"])}, → 0', 0, dr['exitMs'], 'decelerate'),
                       (f'in: scale {f(di["enterScaleFrom"])} → 1', 0, dr['enterMs'], dr['enterCurve']),
                       ('in: opacity 0 → 1', dr['enterDelayMs'], dr['enterFadeMs'], dr['enterFadeCurve'])]),
@@ -1178,7 +1178,7 @@ def p13():
     caption(s, x2, y + 24 + 5 * 16 + 6, 'or capabilities change.', INK3, size=11)
     yl = y + 150
     heading(s, ML, yl, 'Layers, back to front', 13.5)
-    layers = ['shadow', 'backdrop', 'plate + rim', 'ring / gate', 'seat', 'page items', 'handoff', 'labels ×2']
+    layers = ['shadow', 'backdrop', 'plate + rim', 'ring', 'seat', 'page items', 'handoff', 'labels ×2']
     lw = (CW - 7 * 8 - 170) / 8
     for i, name in enumerate(layers):
         x = ML + 170 + i * (lw + 8)
