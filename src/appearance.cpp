@@ -112,6 +112,7 @@ Appearance AppearanceSource::Read() {
         out.textOnAccent=out.selectionText=highlightText;
         // No contrast-theme role means destructive: the trash glyph carries it, armed like a selection.
         out.critical=text; out.criticalFill=highlight; out.textOnCritical=highlightText;
+        out.disabledText=Color(GetSysColor(COLOR_GRAYTEXT));
         out.shadowOpacity=0;
     }
     return out;

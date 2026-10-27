@@ -184,6 +184,13 @@ def assert_quiet(g):
     EVIDENCE.foreground.append({'group': g.name, 'foregroundPid': pid, 'testPid': reel.process.pid})
 
 
+def center_steps(state):
+    """The center's last animated steps from the renderer's diagnostics (P7), e.g. 'name-out:33|back-in:83@33'."""
+    match = re.search(r'center steps=([^;\r\n]*)', state.text)
+    assert match, 'The renderer reports its center steps.'
+    return match.group(1)
+
+
 def center_label(g, expected, source):
     state = g.reel.diagnostics()
     assert state['centerLabel'] == expected, (source, expected, state['centerLabel'])
@@ -1012,14 +1019,19 @@ def group_hub(g):
     apps_before = (g.data / 'apps.ini').read_bytes()
     open_preview(g, ANCHOR)
     assert_page(g, seam.PAGE_MAIN, 'Copilot Reel', APPS + [PLUS])
-    reel.pointer(reel.sector_of('Probe 0'))
-    center_label(g, 'Probe 0', 'main app hover')
-    reel.pointer(reel.sector_of(PLUS))
-    center_label(g, PLUS, 'main combined entry hover')
-    reel.pointer(reel.center_point())
-    center_label(g, '', 'idle main')
+    # P7: the center shows one thing at a time. What leaves clears in 33 ms; what enters waits for it.
+    state = reel.pointer(reel.sector_of('Probe 0')) and center_label(g, 'Probe 0', 'main app hover')
+    assert center_steps(state) == 'name-in:83@33|ring-out:33', state.text
+    state = reel.pointer(reel.sector_of(PLUS)) and center_label(g, PLUS, 'main combined entry hover')
+    assert center_steps(state) == 'name-in:83@33|name-out:33', state.text
+    state = reel.pointer(reel.center_point()) and center_label(g, '', 'idle main')
+    assert center_steps(state) == 'seat-out:83|name-out:33|ring-in:83@33', state.text
     reel.choose(PLUS)
-    assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    reel.pointer(reel.sector_of(LANGUAGE))
+    state = reel.pointer(reel.center_point()) and center_label(g, '', 'idle hub')
+    assert center_steps(state) == 'seat-out:83|name-out:33|ring-in:83@33|back-in:83@33', 'The name clears before the back chevron enters: ' + state.text
+    g.passed('one thing at a time in the center: a name clears in 33 ms before the next name, the ring or the back chevron fades in')
     assert not reel.owned_windows(seam.EDITOR_CLASS), 'The combined hub stays in the reel.'
     hub_hover(g, HUB, 'en-US', keyboard=True)
     g.passed('EN hub hover names, adjust chevrons, idle center and Tab selection with wrap are correct')
@@ -1438,11 +1450,38 @@ def group_tray(g):
              f'{len(samples)} samples during the run and after it')
 
 
+def group_capacity(g):
+    """Eight apps fill the reel: the hub's Add app is disabled, names itself in secondary (R13) and does nothing."""
+    reel = g.reel
+    apps = [f'Probe {i}' for i in range(8)]
+    seam.write_apps(g.data / 'apps.ini', [(app, PROBE, f'--radial-probe={i}') for i, app in enumerate(apps)])
+    reel.start()
+    open_preview(g, ANCHOR)
+    assert_page(g, seam.PAGE_MAIN, 'Copilot Reel', apps + [PLUS])
+    reel.choose(PLUS)
+    state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    add = HUB.index(ADD)
+    assert state['menuEnabled'][add] == '0' and state['menuEnabled'].count('0') == 1, state['menuEnabled']
+    reel.pointer(reel.sector_of(ADD))
+    state = center_label(g, ADD, 'disabled hover')
+    assert state.selected == add and 'name role=secondary' in state.text, 'A disabled item names itself in secondary: ' + state.text
+    reel.pointer(reel.sector_of(MANAGE))
+    state = center_label(g, MANAGE, 'enabled hover')
+    assert 'name role=foreground' in state.text, state.text
+    reel.choose(ADD)
+    assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    assert_no_launch(g, 0)
+    g.passed('with eight apps the hub disables Add app; hovered, it names itself in secondary, not foreground, and choosing it does nothing')
+    close_menu(g, 2)
+    assert_quiet(g)
+    reel.stop()
+
+
 GROUPS = {
     'a': group_a, 'b': group_b, 'c': group_c, 'd': group_d, 'e': group_e,
     'fast-path': group_fast_path, 'interior': group_interior, 'hub': group_hub,
     'preferred': group_preferred, 'draws': group_draws, 'cold': group_cold, 'about': group_about,
-    'tray': group_tray,
+    'tray': group_tray, 'capacity': group_capacity,
 }
 
 

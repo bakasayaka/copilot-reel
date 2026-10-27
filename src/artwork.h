@@ -1,6 +1,7 @@
 #pragma once
 #include "app_types.h"
 #include <d2d1_1.h>
+#include <optional>
 #include <vector>
 
 namespace reel {
@@ -17,6 +18,9 @@ struct ArtworkStyle {
     bool dark = false;         // plate theme; selects vendor light/dark variants
     bool highContrast = false;
     D2D1_COLOR_F glyph{0, 0, 0, 1};  // command and generic glyph color
+    // The app mode, which picks Appearance's sun or moon; unset follows `dark`. A contrast theme's
+    // plate can be dark while the app mode is light.
+    std::optional<bool> appDark;
 };
 
 // Native command glyphs: Segoe Fluent Icons, with a vector fallback.
@@ -55,6 +59,25 @@ void DrawGlyph(ID2D1DeviceContext* context, Glyph glyph, D2D1_POINT_2F center,
 
 // Maps reel:* command targets to glyphs. False for reel:language and non-commands.
 bool CommandGlyph(const AppTarget& item, bool darkTheme, Glyph& glyph);
+
+// A tile's badge: the preferred agent's check, or a waiting update's dot. `center` sits on the
+// device-pixel grid of a surface whose origin does, so the ring, the disc and the check share it.
+struct BadgeShape { D2D1_POINT_2F center{}; float disc = 0, ring = 0; };
+// `itemCenter` is the tile's center in DIP, on a pixel boundary; `dpi` the surface's device DPI.
+// The dot keeps its device-pixel floor, never larger than the check's disc, and its ring its width.
+BadgeShape MeasureBadge(TileBadge badge, D2D1_POINT_2F itemCenter, float dpi);
+struct BadgeColors {
+    D2D1_COLOR_F disc{}, onDisc{};  // the disc and the check on it
+    D2D1_COLOR_F seat{};            // the seat fill a selected tile sits on
+};
+// Cuts the badge's ring out of everything already drawn, so whatever lies beneath the tile shows
+// through: the plate, the acrylic, or the seat.
+void CutBadgeRing(ID2D1DeviceContext* context, const BadgeShape& shape);
+// One cutout rule for every badge: cuts the ring, fills the part of it inside `seat` (a selected
+// tile's seat, nullptr otherwise) with the seat fill so the ring never leaves the seat and the
+// seat's stroke parts around the badge, then draws the disc and, for a check, the check.
+void DrawBadge(ID2D1DeviceContext* context, TileBadge badge, const BadgeShape& shape, const BadgeColors& colors,
+               const D2D1_ROUNDED_RECT* seat, float dpi);
 
 // Releases device-dependent caches after device loss. nullptr releases all.
 void ReleaseArtwork(ID2D1Device* device = nullptr);

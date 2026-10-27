@@ -23,6 +23,7 @@
 #include <winrt/Windows.UI.Composition.Desktop.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <initializer_list>
@@ -122,6 +123,12 @@ struct OrbitRenderer::Impl {
     // Pages built and seats that appeared (faded in and scaled up when animated), so diagnostics
     // show that an update in place rebuilt nothing and left the seat as it was.
     unsigned pagesBuilt = 0, seatAppears = 0;
+    // The center's last animated steps, "what-out:ms" or "what-in:ms@delay" (P7), for diagnostics.
+    std::wstring centerSteps;
+    void CenterStep(const wchar_t* what, bool in, unsigned ms, unsigned delay = 0) {
+        centerSteps += (centerSteps.empty() ? L"" : L"|") + std::wstring(what) + (in ? L"-in:" : L"-out:") + std::to_wstring(ms) +
+            (in && delay ? L"@" + std::to_wstring(delay) : L"");
+    }
     PaintScratch scratch;  // PaintLocal's bitmap, reused while sizes repeat
     Appearance appearance;
     Language language = Language::English;
@@ -154,7 +161,9 @@ struct OrbitRenderer::Impl {
     wc::CompositionDrawingSurface labelSurfaces[2]{wc::CompositionDrawingSurface{nullptr}, wc::CompositionDrawingSurface{nullptr}};
     int activeLabel = 0;
     std::wstring labelText;
-    wc::CompositionSurfaceBrush tileBrush{nullptr}, seatBrush{nullptr}, chevronBrush{nullptr},
+    bool labelDisabled = false;  // the name is a disabled item's
+    std::array<wc::CompositionSurfaceBrush, 3> tileBrushes{nullptr, nullptr, nullptr};  // by TileBadge
+    wc::CompositionSurfaceBrush seatBrush{nullptr}, chevronBrush{nullptr},
         chevronActiveBrush{nullptr}, noiseBrush{nullptr};
     wn::float2 itemSize{}, seatSize{}, chevronSize{};
     std::map<std::wstring, wc::CompositionSurfaceBrush> art;  // per-item artwork, by ArtKey
@@ -548,7 +557,7 @@ struct OrbitRenderer::Impl {
         layout->GetLineMetrics(&line, 1, &lines);
         const float baseline = SnapDip(centerDip.y + style.capRatio * size / 2);
         context->DrawTextLayout({centerDip.x - width / 2, baseline - line.baseline}, layout.get(),
-            SolidBrush(context, color).get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+            SolidBrush(context, color).get(), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
     }
 
     void DrawBase(ID2D1DeviceContext* context, wn::float2 size) {
@@ -582,7 +591,9 @@ struct OrbitRenderer::Impl {
             context->DrawImage(shadow.get(), &shadowOffset);
             // Knock the disk out: nothing of the shadow remains under a translucent plate.
             context->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_COPY);
-            context->FillEllipse(D2D1::Ellipse(c, radius - 1, radius - 1), SolidBrush(context, D2D1::ColorF(0, 0.f)).get());
+            // A frosted plate has no fill over its outermost DIP, so the shadow goes there too (R5).
+            const float knock = backdrop ? radius : radius - 1;
+            context->FillEllipse(D2D1::Ellipse(c, knock, knock), SolidBrush(context, D2D1::ColorF(0, 0.f)).get());
             context->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
         }
         // Frosted plates take their fill from the acrylic visual beneath.
@@ -609,7 +620,9 @@ struct OrbitRenderer::Impl {
         const auto seat = D2D1::RectF(h - s, h - s, h + s, h + s);
         context->FillRoundedRectangle(D2D1::RoundedRect(seat, vi::kSeatRadius, vi::kSeatRadius),
             SolidBrush(context, Color(appearance.selection)).get());
-        const float w = StrokeDip(appearance.highContrast ? vi::kSeatStrokeHighContrast : vi::kSeatStroke);
+        // At least a device pixel heavier than the tile hairline, which it would match at 100% (R12).
+        const float w = (std::max)(StrokeDip(appearance.highContrast ? vi::kSeatStrokeHighContrast : vi::kSeatStroke),
+            StrokeDip(vi::kTileStroke) + 1 / Scale());
         context->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(seat.left + w / 2, seat.top + w / 2,
             seat.right - w / 2, seat.bottom - w / 2), vi::kSeatRadius - w / 2, vi::kSeatRadius - w / 2),
             SolidBrush(context, Color(appearance.highContrast ? appearance.selectionText : appearance.accent)).get(), w);
@@ -621,10 +634,12 @@ struct OrbitRenderer::Impl {
         const auto& plate = appearance.surface;
         return appearance.highContrast ? plate.r * .2126f + plate.g * .7152f + plate.b * .0722f < .5f : appearance.dark;
     }
-    void DrawItemArt(ID2D1DeviceContext* context, wn::float2 size, const AppTarget& visual, TileBadge badge, bool selected) {
+    void DrawItemArt(ID2D1DeviceContext* context, wn::float2 size, const AppTarget& visual, TileBadge badge, bool selected,
+                     bool grayed = false) {
         const float h = size.x / 2, t = SnapDip(vi::kTile / 2);
         const auto tile = D2D1::RectF(h - t, h - t, h + t, h + t);
-        const auto glyph = Color(selected && appearance.highContrast ? appearance.selectionText : appearance.foreground);
+        const auto glyph = Color(grayed ? appearance.disabledText :
+            selected && appearance.highContrast ? appearance.selectionText : appearance.foreground);
         const bool darkPlate = DarkPlate();
         if (visual.target == kLanguageTarget) {
             DrawCentered(context, Monogram(language), monogramStyle, {h, h}, vi::kTile, glyph);
@@ -632,28 +647,36 @@ struct OrbitRenderer::Impl {
             DrawCentered(context, sizeLabel, sizeMonogramStyle, {h, h}, vi::kTile, glyph);
         } else {
             DrawArtwork(context, visual, tile, ArtworkStyle{static_cast<float>(dpi), darkPlate,
-                appearance.highContrast, glyph});
+                appearance.highContrast, glyph, appearance.dark});
             // Plated marks replace the neutral tile, so they carry its hairline themselves.
             if (ClassifyArtwork(visual) == ArtworkClass::Plated) DrawTile(context, size, false);
         }
         if (badge != TileBadge::None) {
-            // Accent disc with a plate-colored ring that reads as a cutout; the dot is smaller and has no check.
-            // The dot keeps a device-pixel floor, never larger than the check's disc, and its ring keeps its width.
-            const bool check = badge == TileBadge::Check;
-            const D2D1_POINT_2F at{h + vi::kBadgeOffset, h - vi::kBadgeOffset};
-            const float disc = check ? vi::kBadgeRadius : FloorDip(vi::kBadgeDotRadius, vi::kBadgeDotMinimumPx,
-                static_cast<float>(dpi), vi::kBadgeRadius / vi::kBadgeDotRadius);
-            const float ring = disc + (check ? vi::kBadgeRingRadius - vi::kBadgeRadius : vi::kBadgeDotRingRadius - vi::kBadgeDotRadius);
-            context->FillEllipse(D2D1::Ellipse(at, ring, ring),
-                SolidBrush(context, Color(selected ? appearance.selection : appearance.surface)).get());
-            context->FillEllipse(D2D1::Ellipse(at, disc, disc), SolidBrush(context, Color(appearance.accent)).get());
-            if (check)
-                DrawGlyph(context, Glyph::Check, at, 2 * vi::kBadgeRadius, Color(appearance.textOnAccent), static_cast<float>(dpi));
+            // The ring is a cutout (P2): the plate, the acrylic or the seat shows through it. A selected
+            // badge sits on the seat, so its ring takes the seat fill inside the seat and the plate outside.
+            // In high contrast the highlight is both the seat and the accent, so a selected disc inverts.
+            const bool inverted = selected && appearance.highContrast;
+            const BadgeColors colors{Color(inverted ? appearance.selectionText : appearance.accent),
+                Color(inverted ? appearance.selection : appearance.textOnAccent), Color(appearance.selection)};
+            const auto seat = SeatRect(size);
+            DrawBadge(context, badge, MeasureBadge(badge, {h, h}, static_cast<float>(dpi)), colors,
+                selected ? &seat : nullptr, static_cast<float>(dpi));
         }
     }
+    // A disabled item rests at kDisabledOpacity; high contrast draws it in GRAYTEXT at full opacity
+    // instead, since a faded contrast color falls below 3:1 (R9).
+    float RestOpacity(const Item& item) const { return item.entry.enabled || appearance.highContrast ? 1.f : vi::kDisabledOpacity; }
+    bool GrayedOut(const Item& item) const { return !item.entry.enabled && appearance.highContrast; }
+    // The seat as DrawSeat draws it, around the center of a canvas of `size`.
+    D2D1_ROUNDED_RECT SeatRect(wn::float2 size) const {
+        const float h = size.x / 2, s = SnapDip(vi::kSeat / 2);
+        return D2D1::RoundedRect(D2D1::RectF(h - s, h - s, h + s, h + s), vi::kSeatRadius, vi::kSeatRadius);
+    }
+    // The neutral tile under an item: a badged item's has its badge ring cut out, as its artwork does.
+    const wc::CompositionSurfaceBrush& TileBrush(TileBadge badge) const { return tileBrushes[static_cast<int>(badge)]; }
 
-    std::wstring ArtKey(const AppTarget& visual, TileBadge badge, bool selected) const {
-        std::wstring key = selected ? L"S" : L"N";
+    std::wstring ArtKey(const AppTarget& visual, TileBadge badge, bool selected, bool grayed = false) const {
+        std::wstring key = selected ? L"S" : grayed ? L"G" : L"N";
         key += badge == TileBadge::Check ? L"P|" : badge == TileBadge::Dot ? L"D|" : L"-|";
         // The artwork source, not the target: catalog entries without a target share an empty one.
         // A Shell icon that appears later (a drive or package becoming available) changes it.
@@ -661,14 +684,16 @@ struct OrbitRenderer::Impl {
         key += L"|" + std::to_wstring(static_cast<int>(ClassifyArtwork(visual)));
         if (visual.target == kLanguageTarget) key += std::wstring(L"|") + Monogram(language);
         if (visual.target == kSizeTarget) key += L"|" + sizeLabel;
+        // Sun or moon follows the app mode, which high contrast can set apart from the plate.
+        if (visual.target == L"reel:appearance") key += appearance.dark ? L"|moon" : L"|sun";
         return key;
     }
     // Item artwork is rasterized once per identity, theme and DPI; selection never redraws it.
-    wc::CompositionSurfaceBrush ArtBrush(const AppTarget& visual, TileBadge badge, bool selected) {
-        const auto key = ArtKey(visual, badge, selected);
+    wc::CompositionSurfaceBrush ArtBrush(const AppTarget& visual, TileBadge badge, bool selected, bool grayed = false) {
+        const auto key = ArtKey(visual, badge, selected, grayed);
         if (const auto found = art.find(key); found != art.end()) return found->second;
         const auto canvas = MakeCanvas(itemSize.x / 2, itemSize.y / 2);
-        Paint(canvas.surface, [&](ID2D1DeviceContext* context) { DrawItemArt(context, canvas.size, visual, badge, selected); });
+        Paint(canvas.surface, [&](ID2D1DeviceContext* context) { DrawItemArt(context, canvas.size, visual, badge, selected, grayed); });
         auto brush = compositor.CreateSurfaceBrush(canvas.surface);
         art.emplace(key, brush);
         return brush;
@@ -685,8 +710,9 @@ struct OrbitRenderer::Impl {
         canvas = MakeCanvas(ringHalf, ringHalf);
         Paint(canvas.surface, [&](ID2D1DeviceContext* context) {
             const D2D1_POINT_2F rc{canvas.size.x / 2, canvas.size.y / 2};
-            context->DrawEllipse(D2D1::Ellipse(rc, vi::kCenterZoneRadius, vi::kCenterZoneRadius),
-                SolidBrush(context, Color(appearance.ringIdle)).get(), StrokeDip(vi::kRingStroke));
+            // Inset like the trash ring and the rim, so the two rings share their outer edge (R8).
+            const float w = StrokeDip(vi::kRingStroke), r = vi::kCenterZoneRadius - w / 2;
+            context->DrawEllipse(D2D1::Ellipse(rc, r, r), SolidBrush(context, Color(appearance.ringIdle)).get(), w);
         });
         Place(ringIdle, canvas, c);
         canvas = MakeCanvas(vi::kBackChevronEm, vi::kBackChevronEm);
@@ -716,10 +742,16 @@ struct OrbitRenderer::Impl {
         }
 
         const float itemHalf = vi::kBadgeOffset + vi::kBadgeRingRadius + 1.5f;
-        canvas = MakeCanvas(itemHalf, itemHalf);
-        itemSize = canvas.size;
-        Paint(canvas.surface, [&](ID2D1DeviceContext* context) { DrawTile(context, canvas.size, true); });
-        tileBrush = compositor.CreateSurfaceBrush(canvas.surface);
+        for (const auto badge : {TileBadge::None, TileBadge::Check, TileBadge::Dot}) {
+            canvas = MakeCanvas(itemHalf, itemHalf);
+            itemSize = canvas.size;
+            Paint(canvas.surface, [&](ID2D1DeviceContext* context) {
+                DrawTile(context, canvas.size, true);
+                if (badge != TileBadge::None)
+                    CutBadgeRing(context, MeasureBadge(badge, {canvas.size.x / 2, canvas.size.y / 2}, static_cast<float>(dpi)));
+            });
+            tileBrushes[static_cast<int>(badge)] = compositor.CreateSurfaceBrush(canvas.surface);
+        }
         canvas = MakeCanvas(vi::kSeat / 2 + 2, vi::kSeat / 2 + 2);
         seatSize = canvas.size;
         Paint(canvas.surface, [&](ID2D1DeviceContext* context) { DrawSeat(context, canvas.size); });
@@ -743,6 +775,7 @@ struct OrbitRenderer::Impl {
             Place(labels[i], canvas, c);
         }
         labelText.clear();
+        labelDisabled = false;
     }
 
     // ---- Pages.
@@ -771,24 +804,24 @@ struct OrbitRenderer::Impl {
             item.badge = static_cast<int>(i) == model.preferredIndex ? TileBadge::Check : model.items[i].badge;
             item.artClass = ClassifyArtwork(item.entry.visual);
             item.plated = item.artClass == ArtworkClass::Plated;
-            item.artKey = ArtKey(item.entry.visual, item.badge, false);
+            item.artKey = ArtKey(item.entry.visual, item.badge, false, GrayedOut(item));
             item.root = compositor.CreateContainerVisual();
             item.root.Size(itemSize);
             item.root.Offset({SnapDip(item.cx - itemSize.x / 2), SnapDip(item.cy - itemSize.y / 2), 0});
             item.root.CenterPoint({itemSize.x / 2, itemSize.y / 2, 0});
             const D2D1_POINT_2F local{itemSize.x / 2, itemSize.y / 2};
             if (!item.plated) {
-                item.tile = MakeSprite(tileBrush, itemSize, local);
+                item.tile = MakeSprite(TileBrush(item.badge), itemSize, local);
                 item.root.Children().InsertAtTop(item.tile);
             }
-            item.art = MakeSprite(ArtBrush(item.entry.visual, item.badge, false), itemSize, local);
+            item.art = MakeSprite(ArtBrush(item.entry.visual, item.badge, false, GrayedOut(item)), itemSize, local);
             item.root.Children().InsertAtTop(item.art);
             if (HasSelectedVariant(item)) {
                 item.artSelected = MakeSprite(ArtBrush(item.entry.visual, item.badge, true), itemSize, local);
                 item.artSelected.Opacity(0);
                 item.root.Children().InsertAtTop(item.artSelected);
             }
-            item.root.Opacity(item.entry.enabled ? 1 : vi::kDisabledOpacity);
+            item.root.Opacity(RestOpacity(item));
             p.root.Children().InsertAtTop(item.root);
             p.items.push_back(std::move(item));
         }
@@ -847,15 +880,17 @@ struct OrbitRenderer::Impl {
             auto& item = p.items[i];
             item.entry = model.items[i];
             item.badge = static_cast<int>(i) == model.preferredIndex ? TileBadge::Check : model.items[i].badge;
-            const auto key = ArtKey(item.entry.visual, item.badge, false);
+            const auto key = ArtKey(item.entry.visual, item.badge, false, GrayedOut(item));
             const D2D1_POINT_2F local{itemSize.x / 2, itemSize.y / 2};
+            // A badge that comes or goes takes its ring cut out of the neutral tile with it.
+            if (item.tile) item.tile.Brush(TileBrush(item.badge));
             // A state tile can change its artwork class (Tray icon: the plated color mark, or the
             // mark alone on the neutral tile); the neutral tile comes or goes with the same crossfade.
             if (const auto artClass = ClassifyArtwork(item.entry.visual); artClass != item.artClass) {
                 item.artClass = artClass;
                 item.plated = artClass == ArtworkClass::Plated;
                 if (!item.plated && !item.tile) {
-                    item.tile = MakeSprite(tileBrush, itemSize, local);
+                    item.tile = MakeSprite(TileBrush(item.badge), itemSize, local);
                     item.root.Children().InsertAtBottom(item.tile);
                     if (animate) {
                         item.tile.Opacity(0);
@@ -877,7 +912,7 @@ struct OrbitRenderer::Impl {
             }
             if (key != item.artKey) {
                 auto previous = item.art;
-                item.art = MakeSprite(ArtBrush(item.entry.visual, item.badge, false), itemSize, local);
+                item.art = MakeSprite(ArtBrush(item.entry.visual, item.badge, false, GrayedOut(item)), itemSize, local);
                 item.root.Children().InsertAbove(item.art, previous);
                 item.artKey = key;
                 if (animate) {
@@ -903,7 +938,7 @@ struct OrbitRenderer::Impl {
                 Detach(item.root, item.artSelected);
                 item.artSelected = nullptr;
             }
-            Opacity(item.root, item.entry.enabled ? 1 : vi::kDisabledOpacity, vi::kLabelFadeMs, animate);
+            Opacity(item.root, RestOpacity(item), vi::kLabelFadeMs, animate);
         }
         // The seat follows the new state below; force its re-evaluation.
         const int seat = p.seatIndex;
@@ -1001,7 +1036,7 @@ struct OrbitRenderer::Impl {
         clone.Offset(ItemOffset(item.at));
         const D2D1_POINT_2F local{itemSize.x / 2, itemSize.y / 2};
         if (seated) clone.Children().InsertAtTop(MakeSprite(seatBrush, seatSize, local));
-        else if (item.tile) clone.Children().InsertAtTop(MakeSprite(tileBrush, itemSize, local));
+        else if (item.tile) clone.Children().InsertAtTop(MakeSprite(TileBrush(item.badge), itemSize, local));
         clone.Children().InsertAtTop(MakeSprite((seated && item.artSelected ? item.artSelected : item.art).Brush(),
             itemSize, local));
         handoffLayer.Children().InsertAtTop(clone);
@@ -1057,8 +1092,9 @@ struct OrbitRenderer::Impl {
         p.drag = p.dragSlot = index;
         p.overTrash = false;
         p.trash = trashEnabled;
-        // The seat and the name leave; the center shows the trash.
-        SetSelectionState(-1, true);
+        // The seat and the name leave; the center shows the trash. The seat clears with the lift, so
+        // no empty seat stays behind at the slot the tile leaves (P7).
+        SetSelectionState(-1, true, 0, vi::kLabelFadeMs, vi::kDragSeatClearMs);
         auto& item = p.items[index];
         // Lifted above the other items.
         p.root.Children().Remove(item.root);
@@ -1093,6 +1129,7 @@ struct OrbitRenderer::Impl {
             p.overTrash = overTrash;
             ScaleItem(lifted, overTrash ? vi::kDragOverTrashScale : vi::kDragLiftScale, vi::kDragArmMs, decelerate);
             Opacity(lifted.root, overTrash ? vi::kDragOverTrashOpacity : 1.f, vi::kDragArmMs, true);
+            centerSteps.clear();
             UpdateCenter(true);
         }
     }
@@ -1112,7 +1149,7 @@ struct OrbitRenderer::Impl {
                 MoveItem(item, SlotCenter(i, count), vi::kDragSettleMs, drill);
                 if (item.scale != 1) ScaleItem(item, 1, vi::kDragSettleMs, drill);
             }
-            Opacity(lifted.root, lifted.entry.enabled ? 1.f : vi::kDisabledOpacity, vi::kDragArmMs, true);
+            Opacity(lifted.root, RestOpacity(lifted), vi::kDragArmMs, true);
             break;
         case DragEnd::Remove:
             // The lifted item falls into the trash; the Reflow page that follows keeps it until it is gone.
@@ -1124,6 +1161,7 @@ struct OrbitRenderer::Impl {
         default:
             break;
         }
+        centerSteps.clear();
         UpdateCenter(true);
     }
 
@@ -1158,7 +1196,7 @@ struct OrbitRenderer::Impl {
                     if (!used[j] && !previous->items[j].falling &&
                         SameVisual(previous->items[j].entry.visual, item.entry.visual)) { match = j; break; }
             }
-            const float rest = item.entry.enabled ? 1.f : vi::kDisabledOpacity;
+            const float rest = RestOpacity(item);
             if (match == count) {
                 item.root.Opacity(0);
                 Opacity(item.root, rest, vi::kDragSettleMs, true, decelerate);
@@ -1223,6 +1261,13 @@ struct OrbitRenderer::Impl {
         return !page->trash ? L"disabled" : page->overTrash ? L"armed" : L"idle";
     }
 
+    // A hovered disabled item gets no seat; its name is drawn in `secondary` so it does not read as
+    // choosable (R13).
+    bool CenterDisabled() const {
+        if (!page || page->drag >= 0) return false;
+        const int selected = page->model.selection;
+        return selected >= 0 && static_cast<size_t>(selected) < page->items.size() && !page->items[selected].entry.enabled;
+    }
     std::wstring CenterText() const {
         if (!page || page->drag >= 0) return {};
         const int selected = page->model.selection;
@@ -1256,7 +1301,7 @@ struct OrbitRenderer::Impl {
         p.seatProps.InsertScalar(L"Angle", p.seatAngle);
         p.seat.Offset(SeatOffset(p.items[index]));
     }
-    // The seat travels along the orbit (shortest arc) on a lightly underdamped spring.
+    // The seat travels along the orbit (shortest arc) on a critically damped spring: it never passes its slot.
     void TravelSeat(Page& p, int index, bool animate) {
         if (!animate || !Animated()) { PlaceSeat(p, index); return; }
         p.seatAngle += std::remainder(p.items[index].angle - p.seatAngle, 2 * kPi);
@@ -1284,7 +1329,9 @@ struct OrbitRenderer::Impl {
         });
     }
 
-    void SetSelectionState(int selected, bool animate, unsigned backDelay = 0, unsigned labelMs = vi::kLabelFadeMs) {
+    void SetSelectionState(int selected, bool animate, unsigned backDelay = 0, unsigned labelMs = vi::kLabelFadeMs,
+                           unsigned seatFadeMs = vi::kSeatFadeMs) {
+        centerSteps.clear();
         if (page) {
             auto& p = *page;
             if (selected < -1 || static_cast<size_t>(selected + 1) > p.items.size()) selected = -1;
@@ -1297,7 +1344,8 @@ struct OrbitRenderer::Impl {
                 if (seat < 0) {
                     // A travel in flight stops where it is and fades there.
                     StopSeat(p);
-                    Opacity(p.seat, 0, vi::kSeatFadeMs, animate);
+                    Opacity(p.seat, 0, seatFadeMs, animate);
+                    if (animate) CenterStep(L"seat", false, seatFadeMs);
                 } else if (previous < 0) {
                     PlaceSeat(p, seat);
                     ++seatAppears;
@@ -1313,13 +1361,19 @@ struct OrbitRenderer::Impl {
             for (int side = 0; side != 2; ++side)
                 Opacity(p.chevronsActive[side], SideActive(p.model, side, selected) ? 1.f : 0.f, vi::kLabelFadeMs, animate);
         }
-        UpdateLabel(animate, labelMs);
-        UpdateCenter(animate, backDelay);
+        const bool nameLeft = UpdateLabel(animate, labelMs);
+        UpdateCenter(animate, backDelay, nameLeft);
     }
 
-    void UpdateLabel(bool animate, unsigned ms = vi::kLabelFadeMs) {
+    // The center shows one thing at a time (P7): the outgoing name clears in kCenterClearMs, and an
+    // incoming one waits until whatever held the center has cleared. Returns whether a name left.
+    bool UpdateLabel(bool animate, unsigned ms = vi::kLabelFadeMs) {
         const auto text = CenterText();
-        if (text == labelText) return;
+        const bool disabled = CenterDisabled();
+        if (text == labelText && disabled == labelDisabled) return false;
+        labelDisabled = disabled;
+        const bool hadName = !labelText.empty();
+        const bool occupied = hadName || center.ringIdle > 0 || center.back > 0 || center.trash > 0;
         labelText = text;
         auto& current = labels[activeLabel];
         if (!text.empty()) {
@@ -1327,17 +1381,22 @@ struct OrbitRenderer::Impl {
             auto& surface = labelSurfaces[next];
             const auto size = labels[next].Size();
             Paint(surface, [&](ID2D1DeviceContext* context) {
-                DrawCentered(context, text, labelStyle, {size.x / 2, size.y / 2}, vi::kLabelWidth, Color(appearance.foreground));
+                DrawCentered(context, text, labelStyle, {size.x / 2, size.y / 2}, vi::kLabelWidth, Color(!disabled ? appearance.foreground :
+                    appearance.highContrast ? appearance.disabledText : appearance.secondary));
             });
-            Opacity(labels[next], 1, ms, animate);
+            Opacity(labels[next], 1, ms, animate, linear, occupied ? vi::kCenterClearMs : 0);
+            if (animate) CenterStep(L"name", true, ms, occupied ? vi::kCenterClearMs : 0);
             activeLabel = next;
         }
-        Opacity(current, 0, ms, animate);
+        Opacity(current, 0, (std::min)(ms, vi::kCenterClearMs), animate);
+        if (animate && hadName) CenterStep(L"name", false, (std::min)(ms, vi::kCenterClearMs));
+        return hadName;
     }
 
     // The name owns the center: the ring and back chevron give way while it shows. While a tile
-    // is dragged the trash owns it alone.
-    void UpdateCenter(bool animate, unsigned backDelay = 0) {
+    // is dragged the trash owns it alone. What leaves clears in kCenterClearMs; what enters waits
+    // for it (`nameLeft`: UpdateLabel cleared a name) and for `backDelay`, then fades in.
+    void UpdateCenter(bool animate, unsigned backDelay = 0, bool nameLeft = false) {
         const bool named = !labelText.empty();
         const bool dragging = page && page->drag >= 0;
         const bool quiet = !named && !dragging;
@@ -1345,15 +1404,22 @@ struct OrbitRenderer::Impl {
             page && page->model.isSubmenu && quiet ? 1.f : 0.f,
             dragging ? (page->trash ? 1.f : vi::kDisabledOpacity) : 0.f,
             dragging && page->overTrash ? 1.f : 0.f};
-        if (next.trash != center.trash) Opacity(trash, next.trash, vi::kDragArmMs, animate);
+        const bool leaving = nameLeft || next.ringIdle < center.ringIdle || next.back < center.back || next.trash < center.trash;
+        const unsigned enter = leaving ? vi::kCenterClearMs : 0;
+        auto fade = [&](const wchar_t* what, const wc::Visual& visual, float from, float to, unsigned ms, unsigned delay = 0) {
+            if (to < from) Opacity(visual, to, vi::kCenterClearMs, animate, linear);
+            else Opacity(visual, to, ms, animate, linear, (std::max)(enter, delay));
+            if (animate && from >= 0) CenterStep(what, to > from, to < from ? vi::kCenterClearMs : ms, (std::max)(enter, delay));
+        };
+        if (next.trash != center.trash) fade(L"trash", trash, center.trash, next.trash, vi::kDragArmMs);
         if (next.armed != center.armed) {
             Opacity(trashArmed, next.armed, vi::kDragArmMs, animate);
             if (next.armed > 0 && animate && Animated())
                 trashArmed.StartAnimation(L"Scale", ScaleAnimation(vi::kDragArmScaleFrom, 1, vi::kDragArmMs, decelerate));
         }
-        if (next.ringIdle != center.ringIdle) Opacity(ringIdle, next.ringIdle, vi::kRingHideMs, animate, linear);
+        if (next.ringIdle != center.ringIdle) fade(L"ring", ringIdle, center.ringIdle, next.ringIdle, vi::kRingHideMs);
         if (next.back != center.back || (backDelay && next.back > 0))
-            Opacity(back, next.back, vi::kLabelFadeMs, animate, linear, next.back > 0 ? backDelay : 0);
+            fade(L"back", back, center.back, next.back, vi::kLabelFadeMs, next.back > 0 ? backDelay : 0);
         center = next;
     }
 
@@ -1370,7 +1436,7 @@ struct OrbitRenderer::Impl {
             p.overTrash = false;
             for (size_t i = 0; i != p.items.size(); ++i) {
                 auto& item = p.items[i];
-                Settle(item.root, item.entry.enabled ? 1 : vi::kDisabledOpacity);
+                Settle(item.root, RestOpacity(item));
                 item.root.StopAnimation(L"Offset");
                 item.at = {item.cx, item.cy};
                 item.scale = 1;
@@ -1585,6 +1651,8 @@ std::wstring OrbitRenderer::Diagnostics() const {
         L"; text=" + self.textFamily + L"; DPI=" + std::to_wstring(self.dpi) +
         L"; surface draws=" + std::to_wstring(self.surfaceDraws) +
         L"; pages built=" + std::to_wstring(self.pagesBuilt) + L"; seat appears=" + std::to_wstring(self.seatAppears) +
+        L"; center steps=" + (self.centerSteps.empty() ? std::wstring(L"none") : self.centerSteps) +
+        L"; name role=" + (self.labelText.empty() ? L"none" : self.labelDisabled ? L"secondary" : L"foreground") +
         L"; device=" + (self.softwareDevice ? L"WARP" : L"hardware") +
         (self.lastError.empty() ? L"" : L"; last error=" + self.lastError);
 }

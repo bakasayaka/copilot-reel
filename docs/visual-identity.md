@@ -32,7 +32,7 @@ The generator never writes `tokens.json`. Scenes use the token accent fallbacks;
 3. **A quiet center.** Idle Main shows only a faint ring; idle submenus show the ring and a back chevron. A hovered item shows exactly one name; the ring hides while it shows. While an app tile is dragged on Manage apps the center shows only the trash.
 4. **Selection is a seat.** A 48 DIP accent-tinted seat replaces the tile fill. Command glyphs and EN/ZH/JA stay foreground.
 5. **Marks stay true.** Vendor marks are never recolored, redrawn or distorted.
-6. **Brief motion.** 83 to 250 ms, scaled from the plate center; easing never overshoots, and only the seat's spring does, by about 0.6%; reduced motion and high contrast settle at once.
+6. **Brief motion.** 83 to 250 ms, scaled from the plate center; nothing overshoots: easing stays within its end values and the seat's spring is critically damped; reduced motion and high contrast settle at once.
 
 ## Anatomy (DIP)
 
@@ -149,17 +149,17 @@ Reel size (`geometry.sizeSteps` 0.7, 0.85, 1, 1.15; default 1) multiplies `geome
 | Close (cancel, Esc, timeout) | opacity -> 0, 83 ms linear; scale -> 0.98, 83 ms accelerate (0.4, 0, 1, 1) |
 | Commit (launch, appearance) | plate, other items and name fade in 83 ms; the choice holds 50 ms then fades 83 ms; press 1 -> 0.975 -> 1 over 100 ms; 133 ms total; the launch never waits |
 | Seat appears | opacity 0 -> 1, 83 ms; scale 0.94 -> 1, 167 ms decelerate; tile fill -> 0, 83 ms |
-| Seat travels | along the orbit, shortest arc; ScalarNaturalMotion spring, damping 0.85, period 50 ms, which overshoots by about 0.6% of its travel (observed settle about 140 ms) |
-| Name | crossfade 83 ms linear; the ring hides in 83 ms |
+| Seat travels | along the orbit, shortest arc; ScalarNaturalMotion spring, damping 1 (critically damped, so it never passes its slot), period 45 ms; settles in about 140 ms |
+| Name | one thing at a time: what leaves the center (a name, the ring, the back chevron, the trash) clears in 33 ms; what enters waits for it, then fades in over 83 ms linear |
 | Drill in / out | out 100 ms to 1.04 / 0.96 and 0; in 250 ms from 0.94 / 1.04 with (0.1, 0.9, 0.2, 1); fade 83 ms after 50 ms |
 | Handoff | the tapped tile travels to the center in 200 ms, scaling to 0.5, and fades over the last 83 ms as the back chevron appears; the outgoing name clears in 33 ms |
 | Swap (presets) | out 83 ms; in 120 ms from 0.98, decelerate |
 | Language | only the monogram crossfades (83 ms) |
-| Drag (Manage apps) | lift: the tile scales to 1.08 in 120 ms and then follows the pointer without easing; the other apps slide to their open slots in 167 ms; the trash fades in over 83 ms and arms with a 0.88 -> 1 pop |
+| Drag (Manage apps) | lift: the tile scales to 1.08 in 120 ms and then follows the pointer without easing, while the seat and the name clear in 33 ms; the other apps slide to their open slots in 167 ms; the trash then fades in over 83 ms and arms with a 0.88 -> 1 pop |
 | Drop | every app settles from where it is to its saved slot in 200 ms on the drill curve; a removed tile falls into the trash (to 0.3, transparent) in 167 ms while the trash fades; a canceled drag returns every tile in 200 ms |
 | Reduced motion, high contrast | the same path with every duration 1 ms |
 
-Never: staggered entrances, hover magnification, overshooting or elastic easing curves (the seat's spring is the one motion that overshoots, by about 0.6%), a rim notch, pointer-anchored origins, perimeter stroke animation, connector lines.
+Never: staggered entrances, hover magnification, overshooting or elastic motion, the seat's spring included, a rim notch, pointer-anchored origins, perimeter stroke animation, connector lines.
 
 ## Material and elevation
 

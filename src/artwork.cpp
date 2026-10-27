@@ -3,6 +3,7 @@
 #include "local_launch.h"
 #include "official_icons.h"
 #include "orbit_mark.h"
+#include "typography.h"
 #include "vi_tokens.h"
 
 #include <appmodel.h>
@@ -791,7 +792,7 @@ bool DrawArtwork(ID2D1DeviceContext* context, const AppTarget& item,
     }
     if (IsCommand(item)) {
         Glyph glyph{};
-        if (!CommandGlyph(item, style.dark, glyph)) return false;
+        if (!CommandGlyph(item, style.appDark.value_or(style.dark), glyph)) return false;
         DrawGlyphCore(context, glyph, center, em, style.glyph, style.dpi, style.highContrast);
         // An on switch is ToggleFilled with its knob cut out, so the tile or the seat beneath the
         // artwork shows through it. The vector fallback already draws an outlined knob.
@@ -847,5 +848,50 @@ void ReleaseArtwork(ID2D1Device* device) {
     scaled.clear();
     roundStroke = nullptr;
     strokeOwner = nullptr;
+}
+
+BadgeShape MeasureBadge(TileBadge badge, D2D1_POINT_2F itemCenter, float dpi) {
+    BadgeShape shape;
+    if (badge == TileBadge::None) return shape;
+    const bool check = badge == TileBadge::Check;
+    const float scale = dpi > 0 ? dpi / 96 : 1;
+    auto snap = [scale](float dip) { return std::round(dip * scale) / scale; };
+    shape.center = {snap(itemCenter.x + vi::kBadgeOffset), snap(itemCenter.y - vi::kBadgeOffset)};
+    shape.disc = check ? vi::kBadgeRadius : FloorDip(vi::kBadgeDotRadius, vi::kBadgeDotMinimumPx, dpi,
+        vi::kBadgeRadius / vi::kBadgeDotRadius);
+    shape.ring = shape.disc + (check ? vi::kBadgeRingRadius - vi::kBadgeRadius : vi::kBadgeDotRingRadius - vi::kBadgeDotRadius);
+    return shape;
+}
+
+void CutBadgeRing(ID2D1DeviceContext* context, const BadgeShape& shape) {
+    if (!context || !(shape.ring > 0)) return;
+    com_ptr<ID2D1SolidColorBrush> clear;
+    if (FAILED(context->CreateSolidColorBrush(D2D1::ColorF(0, 0.f), clear.put()))) return;
+    // Copy writes the transparent color in proportion to coverage, so the cut keeps an antialiased edge.
+    context->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_COPY);
+    context->FillEllipse(D2D1::Ellipse(shape.center, shape.ring, shape.ring), clear.get());
+    context->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
+}
+
+void DrawBadge(ID2D1DeviceContext* context, TileBadge badge, const BadgeShape& shape, const BadgeColors& colors,
+               const D2D1_ROUNDED_RECT* seat, float dpi) {
+    if (!context || badge == TileBadge::None) return;
+    CutBadgeRing(context, shape);
+    com_ptr<ID2D1SolidColorBrush> brush;
+    if (seat) {
+        com_ptr<ID2D1Factory> factory;
+        context->GetFactory(factory.put());
+        com_ptr<ID2D1RoundedRectangleGeometry> clip;
+        if (factory && SUCCEEDED(factory->CreateRoundedRectangleGeometry(seat, clip.put())) &&
+            SUCCEEDED(context->CreateSolidColorBrush(colors.seat, brush.put()))) {
+            context->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), clip.get()), nullptr);
+            context->FillEllipse(D2D1::Ellipse(shape.center, shape.ring, shape.ring), brush.get());
+            context->PopLayer();
+        }
+    }
+    brush = nullptr;
+    if (FAILED(context->CreateSolidColorBrush(colors.disc, brush.put()))) return;
+    context->FillEllipse(D2D1::Ellipse(shape.center, shape.disc, shape.disc), brush.get());
+    if (badge == TileBadge::Check) DrawGlyph(context, Glyph::Check, shape.center, 2 * vi::kBadgeRadius, colors.onDisc, dpi);
 }
 } // namespace reel

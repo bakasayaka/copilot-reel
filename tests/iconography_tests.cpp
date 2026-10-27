@@ -13,6 +13,7 @@
 #include <shobjidl.h>
 #include <winrt/base.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -58,7 +59,7 @@ public:
         winrt::check_hresult(factory->CreateDevice(d3d.as<IDXGIDevice>().get(),device.put()));
     }
     // Draws one item into a 64 DIP square with its 40 DIP tile at (12,12)-(52,52).
-    Raster Draw(const reel::AppTarget& app,float dpi,bool dark=true) {
+    Raster Draw(const reel::AppTarget& app,float dpi,bool dark=true,std::optional<bool> appDark={}) {
         winrt::com_ptr<ID2D1DeviceContext> context;
         winrt::check_hresult(device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,context.put()));
         const UINT edge=static_cast<UINT>(64*dpi/96);
@@ -71,7 +72,7 @@ public:
         context->SetTarget(target.get());context->SetDpi(dpi,dpi);
         context->BeginDraw();context->Clear(D2D1::ColorF(0,0.0f));
         Check(reel::DrawArtwork(context.get(),app,D2D1::RectF(12,12,52,52),
-            reel::ArtworkStyle{dpi,dark,false,D2D1::ColorF(1,1,1,1)}),"artwork draws for every non-language item");
+            reel::ArtworkStyle{dpi,dark,false,D2D1::ColorF(1,1,1,1),appDark}),"artwork draws for every non-language item");
         winrt::check_hresult(context->EndDraw());
         winrt::check_hresult(readable->CopyFromBitmap(nullptr,target.get(),nullptr));
         D2D1_MAPPED_RECT pixels{};winrt::check_hresult(readable->Map(D2D1_MAP_OPTIONS_READ,&pixels));
@@ -234,6 +235,10 @@ int main() {
         }
         Check(canvas.Draw(Target(L"reel:appearance"),dpi,false).hash!=canvas.Draw(Target(L"reel:appearance"),dpi,true).hash,
             "appearance shows the sun in light and the moon in dark");
+        // R10: a contrast theme can put a dark plate under light apps; the glyph follows the app mode.
+        Check(canvas.Draw(Target(L"reel:appearance"),dpi,true,false).hash==canvas.Draw(Target(L"reel:appearance"),dpi,false).hash &&
+              canvas.Draw(Target(L"reel:appearance"),dpi,false,true).hash==canvas.Draw(Target(L"reel:appearance"),dpi,true).hash,
+            "sun or moon follows the app mode, not the plate");
         // The hub's Tray icon shows the tray icon it chose: the reel's plated color mark, or the mark
         // alone, centered and as wide as the color mark's rings, so only the color changes.
         const auto trayColor=Target(L"reel:tray-icon:color"),trayMono=Target(L"reel:tray-icon:monochrome");
@@ -253,6 +258,47 @@ int main() {
     const auto smallest=canvas.Draw(Target(L"reel:tray-icon:monochrome"),54);
     Check(std::abs(smallest.inkWidth-vi::kTile*vi::kOrbitMarkExtent/vi::kOrbitMarkCanvas)<=96/54.f && smallest.outsideTile==0,
         "the mark alone keeps its width at the smallest step");
+    // P2, one cutout rule for every badge: a check or dot on a tile cuts its ring out of the tile, so the
+    // plate or the acrylic shows through; on a selected tile the ring takes the seat fill inside the seat
+    // and stays clear outside it (it no longer spills a seat-colored crescent onto the plate). The badge
+    // center is on the pixel grid, so the ring, the disc and the check share it.
+    for(const float dpi:{96.f,144.f,192.f})for(const auto badge:{TileBadge::Check,TileBadge::Dot})for(const bool selected:{false,true}) {
+        const float h=32,scale=dpi/96;
+        const UINT edge=static_cast<UINT>(64*scale);
+        const auto shape=MeasureBadge(badge,{h,h},dpi);
+        Check(std::abs(shape.center.x*scale-std::round(shape.center.x*scale))<1e-3f &&
+              std::abs(shape.center.y*scale-std::round(shape.center.y*scale))<1e-3f,"the badge center is on the pixel grid");
+        Check(shape.ring>shape.disc && shape.disc>=(badge==TileBadge::Check?vi::kBadgeRadius:vi::kBadgeDotRadius),"the ring surrounds the disc");
+        const D2D1_COLOR_F tileColor{1,1,1,1},disc{0,.4f,.8f,1},onDisc{1,1,1,1},seatFill{.8f,.9f,1,1};
+        const auto seat=D2D1::RoundedRect(D2D1::RectF(h-vi::kSeat/2,h-vi::kSeat/2,h+vi::kSeat/2,h+vi::kSeat/2),vi::kSeatRadius,vi::kSeatRadius);
+        const auto pixels=canvas.Surface({0,0},edge,edge,dpi,true,[&](ID2D1DeviceContext* context) {
+            winrt::com_ptr<ID2D1SolidColorBrush> brush;
+            winrt::check_hresult(context->CreateSolidColorBrush(tileColor,brush.put()));
+            context->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(h-vi::kTile/2,h-vi::kTile/2,h+vi::kTile/2,h+vi::kTile/2),
+                vi::kTileRadius,vi::kTileRadius),brush.get());
+            DrawBadge(context,badge,shape,{disc,onDisc,seatFill},selected?&seat:nullptr,dpi);
+        });
+        auto pixel=[&](float x,float y) {
+            const size_t i=(static_cast<size_t>(y*scale)*edge+static_cast<size_t>(x*scale))*4;
+            return std::array<BYTE,4>{pixels[i],pixels[i+1],pixels[i+2],pixels[i+3]};
+        };
+        // Halfway through the ring, toward the tile's center (inside the tile and the seat) and away from
+        // it (outside the tile and, at the seat's corner, outside the seat).
+        const float mid=(shape.disc+shape.ring)/2,d=mid/std::sqrt(2.f);
+        const auto inward=pixel(shape.center.x-d,shape.center.y+d),outward=pixel(shape.center.x+d,shape.center.y-d);
+        const auto discCenter=pixel(shape.center.x,shape.center.y+shape.disc/2);
+        Check(discCenter[3]==255 && std::abs(discCenter[2]-0)<=2 && std::abs(discCenter[1]-102)<=2 && std::abs(discCenter[0]-204)<=2,
+            "the disc is the accent");
+        Check(outward[3]<=40,"outside the seat the ring is clear: no crescent on the plate");
+        if(dpi<144)continue;  // below, the 1.5 DIP ring is one or two pixels and its middle is all edge
+        // Premultiplied: a pixel the ring's antialiased edge grazes keeps the seat fill's color at less alpha.
+        auto straight=[&](int channel){return inward[3]?inward[channel]*255/inward[3]:0;};
+        if(selected)
+            Check(inward[3]>=200 && std::abs(straight(2)-204)<=12 && std::abs(straight(1)-230)<=12 && std::abs(straight(0)-255)<=12,
+                "inside the seat a selected badge's ring is the seat fill");
+        else
+            Check(inward[3]<=40,"the ring is cut out of the tile, so the plate or the acrylic shows through");
+    }
     // Every reel size at 100%, 125% and 150% display scaling, at the reel's effective DPI: the stroke is
     // 1/14 of the mark and the inner ring needs two pixels of it, so the 70% and 85% steps at 100% and
     // the 70% step at 125% show the outer orbit and the dot; every other one shows both rings.

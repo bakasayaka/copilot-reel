@@ -81,7 +81,7 @@ Classes: plated: #t.iconography.classes.plated. Glyph: #t.iconography.classes.gl
   [Close], [opacity #ev.close.fadeMs ms; scale → #n(ev.close.scaleTo) in #ev.close.scaleMs ms #ev.close.scaleCurve (#ev.close.use)],
   [Commit], [#ev.commit.detail\; total #ev.commit.totalMs ms; #ev.commit.launch],
   [Selection], [#ev.selection.noneToItem. Item to item: #ev.selection.travel.path\; spring damping #n(ev.selection.travel.dampingRatio), period #ev.selection.travel.periodMs ms, overshoot #ev.selection.travel.overshoot],
-  [Name], [crossfade #ev.centerLabel.crossfadeMs ms #ev.centerLabel.curve\; the ring hides in #ev.centerLabel.ringHideMs ms],
+  [Name], [#ev.centerLabel.sequence\; clear #ev.centerLabel.clearMs ms, enter #ev.centerLabel.crossfadeMs ms #ev.centerLabel.curve],
   [Drill], [exit #ev.drill.exitMs ms; enter #ev.drill.enterMs ms #ev.drill.enterCurve\; fade #ev.drill.enterFadeMs ms after #ev.drill.enterDelayMs ms; in #n(ev.drillIn.exitScale) / #n(ev.drillIn.enterScaleFrom), out #n(ev.drillOut.exitScale) / #n(ev.drillOut.enterScaleFrom)],
   [Handoff], [#ev.handoff.detail\; #ev.handoff.travelMs ms, scale → #n(ev.handoff.scaleTo), fade #ev.handoff.fadeMs ms; name clears in #ev.handoff.labelFadeMs ms],
   [Swap], [out #ev.swap.exitMs ms; in #ev.swap.enterMs ms from #n(ev.swap.enterScaleFrom) #ev.swap.enterCurve],

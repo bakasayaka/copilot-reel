@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vi_tokens.h"
 #include <windows.h>
 #include <string>
 #include <vector>
@@ -12,10 +13,11 @@ inline constexpr UINT kAppearanceMessage = WM_APP + 2;
 inline constexpr UINT kConfigChangedMessage = WM_APP + 3;
 inline constexpr UINT kTrayMessage = WM_APP + 4;
 inline constexpr UINT kLanguageChangedMessage = WM_APP + 6;
-inline constexpr float kCanvasDip = 384.0f;
+// Hit testing uses the drawn geometry itself (design/vi/tokens.json), so a token edit moves both.
+inline constexpr float kCanvasDip = vi::kCanvas;
 inline constexpr float kCenterDip = kCanvasDip / 2.0f;
-inline constexpr float kRadiusDip = 168.0f;
-inline constexpr float kDeadZoneDip = 44.0f;
+inline constexpr float kRadiusDip = vi::kPlateRadius;
+inline constexpr float kDeadZoneDip = vi::kCenterZoneRadius;
 
 enum class TargetKind { Shell, Aumid };
 struct AppTarget {
@@ -58,6 +60,7 @@ struct Appearance {
     Rgba critical{.769f,.169f,.11f,1};        // drag trash glyph and ring
     Rgba criticalFill{.769f,.169f,.11f,1};    // armed trash disc
     Rgba textOnCritical{1,1,1,1};             // glyph on the armed trash
+    Rgba disabledText{.365f,.365f,.365f,1};   // high contrast: GRAYTEXT for disabled items and their names
     float shadowOpacity = .14f;               // 0 in high contrast
 };
 }

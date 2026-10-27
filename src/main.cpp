@@ -1351,6 +1351,8 @@ public:
         std::wstring badges;
         for(const auto& entry:menu_)
             badges+=(badges.empty()?L"":L"|")+std::wstring(entry.badge==TileBadge::Check?L"check":entry.badge==TileBadge::Dot?L"dot":L"-");
+        std::wstring enabled;
+        for(const auto& entry:menu_)enabled+=entry.enabled?L"1":L"0";
         const auto updates=CurrentUpdatePreferences();
         // The tray menu as it would open now: its items ("-" a separator), the checked ones and its theme.
         std::wstring trayMenu,trayChecked;
@@ -1358,7 +1360,7 @@ public:
             trayMenu+=(trayMenu.empty()?L"":L"|")+std::wstring(item.command?item.text:L"-");
             if(item.checked)trayChecked+=(trayChecked.empty()?L"":L"|")+std::wstring(item.text);
         }
-        text<<L"\r\nmenuBadges="<<badges<<L"\r\nautoCheck="<<updates.autoCheck<<L"\r\nautoInstall="<<updates.autoInstall
+        text<<L"\r\nmenuBadges="<<badges<<L"\r\nmenuEnabled="<<enabled<<L"\r\nautoCheck="<<updates.autoCheck<<L"\r\nautoInstall="<<updates.autoInstall
             <<L"\r\nlastUpdateCheck="<<updates.lastCheck
             // The saved choice (a test instance keeps it and shows no icon unless the seam asks for
             // a hidden one), then the icon the notification area shows: its style, size and the

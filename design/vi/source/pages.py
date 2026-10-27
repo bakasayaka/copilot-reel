@@ -35,8 +35,11 @@ def hub_state(**kw):
 
 
 def seat_overshoot():
-    """Peak overshoot of the seat's spring, exp(-pi z / sqrt(1 - z^2)) for its damping ratio z, as a percentage."""
+    """Peak overshoot of the seat's spring, exp(-pi z / sqrt(1 - z^2)) for its damping ratio z, as a percentage;
+    'none' from critical damping (z = 1) up."""
     z = MOTION['events']['selection']['travel']['dampingRatio']
+    if z >= 1:
+        return 'none'
     return f'{math.exp(-math.pi * z / math.sqrt(1 - z * z)) * 100:.1f}%'
 
 
@@ -64,7 +67,8 @@ def p01():
         ('Selection is a seat', f'A {f(SEAT)} DIP seat tinted with the system accent replaces the tile fill. Command glyphs and EN/ZH/JA stay foreground.'),
         ('Marks stay true', f'Vendor marks keep their own color and proportion. Plated marks fill the {f(TILE)} DIP tile; open marks sit on a {f(KEYLINE)} DIP keyline.'),
         ('Brief motion', f'{MOTION["events"]["open"]["fadeMs"]} to {MOTION["events"]["drill"]["enterMs"]} ms, scaled from the plate center. '
-         f'Easing never overshoots; only the seat\'s spring does, by {seat_overshoot()}. Reduced motion and high contrast settle at once.'),
+         'Nothing overshoots: easing stays within its end values and the seat\'s spring is critically damped. '
+         'Reduced motion and high contrast settle at once.'),
     ]
     cw = (CW - 2 * 40) / 3
     for i, (title, body) in enumerate(principles):
@@ -993,7 +997,8 @@ def motion_rows():
                           ('tile fill → 0', 0, se['tileFillFadeMs'], 'linear')]),
         ('Seat travels', [(f'angle: spring ζ {f(se["travel"]["dampingRatio"])}, period {se["travel"]["periodMs"]} ms, overshoot {seat_overshoot()}', 0, 140, 'spring'),
                           ('tile fills swap', 0, se['tileFillFadeMs'], 'linear')]),
-        ('Name', [('crossfade; ring hides', 0, lb['crossfadeMs'], lb['curve'])]),
+        ('Name', [('outgoing name clears', 0, lb['clearMs'], lb['curve']),
+                  ('next name, back or ring fades in', lb['clearMs'], lb['clearMs'] + lb['crossfadeMs'], lb['curve'])]),
         ('Drill in', [(f'out: scale → {f(di["exitScale"])}, → 0', 0, dr['exitMs'], 'decelerate'),
                       (f'in: scale {f(di["enterScaleFrom"])} → 1', 0, dr['enterMs'], dr['enterCurve']),
                       ('in: opacity 0 → 1', dr['enterDelayMs'], dr['enterFadeMs'], dr['enterFadeCurve'])]),

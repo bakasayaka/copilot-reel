@@ -123,13 +123,13 @@ All motion is compositor-driven with values from `tokens.motion`; interruptions 
 | Open | Opacity 0 to 1 in 83 ms linear; scale 0.96 to 1 in 167 ms decelerate, at the plate center |
 | Cancel | Opacity to 0 in 83 ms linear; scale to 0.98, accelerate |
 | Commit | Everything else fades in 83 ms; the chosen item and seat hold 50 ms with a 1 to 0.975 to 1 press, then fade (133 ms) |
-| Selection | The seat fades in (83 ms, 0.94 to 1 in 167 ms), then travels the shortest arc on a spring (damping 0.85, period 50 ms) as the tile fill crossfades with it |
-| Center | Name crossfade 83 ms; the ring gives way while a name shows, also in 83 ms |
+| Selection | The seat fades in (83 ms, 0.94 to 1 in 167 ms), then travels the shortest arc on a critically damped spring (damping 1, period 45 ms) as the tile fill crossfades with it |
+| Center | One thing at a time: a name, the ring, the back chevron or the trash that leaves clears in 33 ms, and what enters fades in over 83 ms once it has; the ring gives way while a name shows |
 | Drill in / out | The outgoing page scales to 1.04 / 0.96 and fades in 100 ms; the incoming page scales from 0.94 / 1.04 in 250 ms (0.1, 0.9, 0.2, 1) and fades in after 50 ms; the plate never moves |
 | Handoff | On drill-in the tapped tile travels to the center in 200 ms, scaling to 0.5, and hands over to the back chevron |
 | Swap | Preset paging crossfades with a 0.98 to 1 settle in 120 ms |
 
-Reduced motion and high contrast run the same path with 1 ms durations. There is no pointer tether, circular reveal, perimeter sweep, rotating artwork, staggered entrance or hover magnification; easing has no overshoot, and the seat spring (damping 0.85) overshoots by well under one percent.
+Reduced motion and high contrast run the same path with 1 ms durations. There is no pointer tether, circular reveal, perimeter sweep, rotating artwork, staggered entrance or hover magnification; easing has no overshoot, and the seat spring is critically damped (damping 1), so nothing overshoots.
 
 ## Design tokens
 

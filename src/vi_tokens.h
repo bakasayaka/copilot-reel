@@ -99,14 +99,14 @@ inline constexpr unsigned kOpenFadeMs = 83, kOpenScaleMs = 167;  inline constexp
 inline constexpr unsigned kCloseFadeMs = 83, kCloseScaleMs = 83;  inline constexpr float kCloseScaleTo = 0.98f;
 inline constexpr unsigned kCommitHoldMs = 50, kCommitFadeMs = 83, kCommitPressMs = 100, kCommitTotalMs = 133;  inline constexpr float kCommitPressScale = 0.975f;
 inline constexpr unsigned kSeatFadeMs = 83, kSeatAppearMs = 167, kTileFillFadeMs = 83;  inline constexpr float kSeatAppearScaleFrom = 0.94f;
-inline constexpr float kSeatSpringDamping = 0.85f;  inline constexpr unsigned kSeatSpringPeriodMs = 50;
-inline constexpr unsigned kLabelFadeMs = 83, kRingHideMs = 83;
+inline constexpr float kSeatSpringDamping = 1.f;  inline constexpr unsigned kSeatSpringPeriodMs = 45;
+inline constexpr unsigned kLabelFadeMs = 83, kRingHideMs = 83, kCenterClearMs = 33;
 inline constexpr unsigned kDrillExitMs = 100, kDrillEnterMs = 250, kDrillEnterFadeMs = 83, kDrillEnterDelayMs = 50;
 inline constexpr float kDrillInExitScale = 1.04f, kDrillInEnterScale = 0.94f, kDrillOutExitScale = 0.96f, kDrillOutEnterScale = 1.04f;
 inline constexpr unsigned kHandoffMs = 200, kHandoffFadeMs = 83, kHandoffLabelFadeMs = 33;  inline constexpr float kHandoffScaleTo = 0.5f;
 inline constexpr unsigned kSwapMs = 120, kSwapExitMs = 83;  inline constexpr float kSwapScaleFrom = 0.98f;
 inline constexpr unsigned kMonogramFadeMs = 83;
-inline constexpr unsigned kDragLiftMs = 120, kDragReflowMs = 167, kDragArmMs = 83, kDragSettleMs = 200, kDragRemoveMs = 167;
+inline constexpr unsigned kDragLiftMs = 120, kDragReflowMs = 167, kDragArmMs = 83, kDragSettleMs = 200, kDragRemoveMs = 167, kDragSeatClearMs = 33;
 inline constexpr float kDragLiftScale = 1.08f, kDragArmScaleFrom = 0.88f, kDragOverTrashScale = 0.7f, kDragOverTrashOpacity = 0.4f, kDragRemoveScaleTo = 0.3f;
 inline constexpr unsigned kReducedMotionMs = 1;
 inline constexpr Bezier kLinear{0.f, 0.f, 1.f, 1.f};

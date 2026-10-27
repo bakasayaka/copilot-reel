@@ -8,9 +8,15 @@
 void Check(bool condition, const char* label) {
     if (!condition) { std::cerr << "FAIL: " << label << '\n'; std::exit(1); }
 }
+// R16: hit testing uses the drawn geometry, so a token edit can never split the two.
+static_assert(reel::kCanvasDip==reel::vi::kCanvas && reel::kRadiusDip==reel::vi::kPlateRadius &&
+              reel::kDeadZoneDip==reel::vi::kCenterZoneRadius, "hit testing aliases the VI geometry");
+
 int main() {
     using namespace reel;
     Check(HitTest(0,0,6)==-1, "center cancels");
+    Check(HitTest(vi::kCenterZoneRadius-.01,0,6)==-1 && HitTest(vi::kCenterZoneRadius+.01,0,6)!=-1,
+        "the default dead zone is the center zone of the tokens");
     Check(HitTest(44,0,6)==-1, "dead zone boundary cancels");
     for (unsigned count=1; count<=12; ++count) {
         for (unsigned i=0; i<count; ++i) {

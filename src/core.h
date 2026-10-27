@@ -1,4 +1,5 @@
 #pragma once
+#include "vi_tokens.h"
 #include <cmath>
 #include <algorithm>
 #include <optional>
@@ -89,7 +90,7 @@ private:
     uint64_t pageAt_=0;
 };
 
-inline int HitTest(double dx, double dy, unsigned count, double deadZone = 44.0) {
+inline int HitTest(double dx, double dy, unsigned count, double deadZone = vi::kCenterZoneRadius) {
     if (count == 0 || count > 12 || !std::isfinite(dx) || !std::isfinite(dy) ||
         dx * dx + dy * dy <= deadZone * deadZone) return -1;
     double angle = std::atan2(dy, dx) + kPi / 2;
@@ -110,7 +111,7 @@ public:
         if (valid == selected_) return false;
         selected_ = valid; return true;
     }
-    bool ObservePointer(double dx,double dy,unsigned count,double deadZone=44.0) {
+    bool ObservePointer(double dx,double dy,unsigned count,double deadZone=vi::kCenterZoneRadius) {
         if(!active_ || !std::isfinite(dx) || !std::isfinite(dy)) return false;
         return Select(HitTest(dx,dy,count,deadZone),count);
     }
