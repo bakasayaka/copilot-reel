@@ -1,6 +1,6 @@
 # Validation status
 
-Snapshot: 2026-10-27, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.13**, updated by the reel's own updater from the release `v0.3.13`, the latest release. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-10-27, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.14**, updated by the reel's own updater from the release `v0.3.14`, the latest release. This records demonstrated behavior and its limits, not full release acceptance.
 
 ## Verified in v0.3.14
 
@@ -16,6 +16,7 @@ Snapshot: 2026-10-27, Windows 11 25H2 build `26200.9711`, x64. Installed applica
 | Canvas, `bad7802` and `f8354bf` | All 180 stills changed size (642 against 616 px at 2x). Seam group `a` held 30 DIP inside a work-area edge, now off the plate with the 32 DIP margin; it holds the margin plus 6 DIP inside since `f8354bf`. |
 | VI v1.0 (P11) | `build_vi.py` built `output/pdf/copilot-reel-vi-v1.0.pdf` (16 pages), the previews, 16 SVG masters and the review zip (45 files). `tools/gen-vi-tokens.ps1` fails on mismatched icon states, a shipped locale missing from `supportedLanguages`, a canvas that is not the plate plus two margins, or a margin smaller than the shadow; each was tried on a modified copy of the tokens. Page 12 shows the motion strips of `tools/capture-motion.py`, recorded through the seam (36, 35 and 15 kept frames). |
 | References | `output/runtime/v0.3.14`: 180 stills and three motion strips, published with `--no-reference`; the lowest name contrast is 13.97 in dark, 16.36 in light and 21 in high contrast. |
+| Update, end to end | The release `v0.3.14` (x64 and ARM64, signed and timestamped) was published as Latest and `v0.3.13` removed with its tag. The installed 0.3.13.0 found it with `--update-check` in 0.4 s; `--update-install` handed it to Windows after 1 s, and 0.3.14.0 logged Ready 3.1 s after the install started. `apps.ini`, `behavior.ini` and `parked.ini` were byte-identical to a backup taken before, and `preferences.ini` differed only in `LastCheck`. `tools/test.ps1 -Tier installed` passed (`artifacts/qa/test-20261027-215215`). Not checked by eye yet: the taskbar and Start icons at 100% and 150% scaling. |
 
 ## Verified in v0.3.13
 
