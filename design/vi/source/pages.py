@@ -426,7 +426,7 @@ def p03():
 def p04():
     ja = TYPE['japanese']
     p = Page(4, 'Typography', 'One name, centered on its cap height.',
-             f'{TYPE["preferred"]} {TYPE["weight"]} for Latin, {TYPE["cjk"]["family"]} for Chinese, {ja["family"]} for Japanese. One line, never a second.')
+             f'{TYPE["preferred"]} {TYPE["weight"]} for Latin, {TYPE["chinese"]["family"]} for Chinese, {ja["family"]} for Japanese. One line, never a second.')
     s = p.s
     k = 3.0
     lw, lh = LABEL['width'] * k, LABEL['height'] * k
@@ -434,7 +434,7 @@ def p04():
     pw, ph = 678, 132
     cap = fonts.cap_ratio()
     specimens = [('Claude', 'cjk', f'{TYPE["preferred"]}  ·  {TYPE["weight"]}  ·  {f(LABEL["size"])} DIP'),
-                 ('管理应用', 'cjk', f'{TYPE["cjk"]["family"]}  ·  Bold, the face DirectWrite picks for {TYPE["weight"]}'),
+                 ('管理应用', 'cjk', f'{TYPE["chinese"]["family"]}  ·  {TYPE["weight"]}, bundled  ·  page 16'),
                  ('アプリの管理', 'ja', f'{ja["family"]}  ·  {TYPE["weight"]}, bundled  ·  page 16')]
     for i, (text, cjk, note) in enumerate(specimens):
         y = y0 + i * (ph + 12)
@@ -1402,7 +1402,7 @@ def p16():
         s.text(x0 + c, y0, title, 12, INK3, face='small-sb')
     s.line(x0, y0 + 10, x0 + wl, y0 + 10, RULE, 1)
     rows = [('Latin', 'SF Pro', 'Segoe UI Variable', f'{TYPE["preferred"]} {TYPE["weight"]}', 'Manage apps', 'cjk'),
-            ('Chinese', 'PingFang SC', TYPE['cjk']['family'], f'{TYPE["cjk"]["family"]} Bold', '管理应用', 'cjk'),
+            ('Chinese', 'PingFang SC', TYPE['cjk']['family'], f'{TYPE["chinese"]["family"]} {TYPE["weight"]}', '管理应用', 'cjk'),
             ('Japanese', 'Hiragino Sans', ja['systemFamily'], f'{ja["family"]} {TYPE["weight"]}', 'アプリの管理', 'ja')]
     rh = 88
     for i, (script, apple, system, reel, specimen, cjk) in enumerate(rows):
@@ -1434,10 +1434,29 @@ def p16():
         s.text(x0, yy, n, 12, RED, face='small-sb')
         s.text(x0 + 18, yy, rule, 12, INK2, face='small')
 
+    # P5: Chinese weight parity. Three candidates beside the two faces they have to match, each at
+    # a display size and at the label's own 14.
+    y += 22 + 3 * 19 + 26
+    heading(s, x0, y, 'Chinese weight: C, chosen 2026-10-27', 14)
+    cw = wl / 5
+    s.rect(x0 + 2 * cw - 4, y + 12, 3 * cw + 14, BOTTOM - y - 8, fill=PANEL, r=10)
+    faces = [(f'Segoe UI Variable {TYPE["weight"]}', 'Manage apps', 'Add app', 'cjk'),
+             (f'{ja["family"]} {TYPE["weight"]}', 'アプリの管理', 'アプリを追加', 'ja'),
+             ('A  YaHei UI Bold (until 0.3.13)', '管理应用', '添加应用', 'yahei-bold'),
+             ('B  YaHei UI Regular', '管理应用', '添加应用', 'yahei'),
+             (f'C  {TYPE["chinese"]["family"]} {TYPE["weight"]}', '管理应用', '添加应用', 'cjk')]
+    for i, (name, specimen, label, cjk) in enumerate(faces):
+        x = x0 + i * cw + (8 if i >= 2 else 0)
+        caption(s, x, y + 30, name, INK if i < 2 else INK2, size=11)
+        s.text(x, y + 62, specimen, 22, INK, face='label', cjk=cjk)
+        s.text(x, y + 86, label, 14, INK, face='label', cjk=cjk)
+
     x1 = x0 + wl + 50
     w1 = W - MR - x1
     heading(s, x1, y0 + 4, ja['family'], 14)
-    facts = ['Noto Sans JP 2.004, static instances at 400 and 600',
+    facts = [f'{TYPE["chinese"]["family"]}: Noto Sans SC at 400 and 600, GB 2312 and the interface strings, 7,716 characters, '
+             '2.3 MB a weight; YaHei UI covers the rest',
+             'Noto Sans JP 2.004, static instances at 400 and 600',
              'Windows-31J, kana, CJK symbols and the interface strings: 7,617 characters, 2.4 MB a weight',
              "Segoe UI's line metrics, 1.079 / 0.251 em, so a Japanese line is as tall as an English one",
              'Renamed under the SIL Open Font License; OFL.txt ships beside it (tools/build-fonts.py)']

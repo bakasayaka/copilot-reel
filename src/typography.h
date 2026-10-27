@@ -8,11 +8,11 @@
 #include <string_view>
 
 // The reel's CJK typography (design/vi/tokens.json, typography.cjk and typography.japanese).
-// One custom font fallback serves every D2D text format, the reel's and the quick menu's, and the
+// One custom font fallback serves every D2D text format, the reel's and the editor's, and the
 // text's locale picks the mapping: ja-JP text maps Han, CJK punctuation and kana to the bundled
 // Reel Sans JP, then to Yu Gothic UI for characters outside its subset; other text maps kana
-// the same way and Han to Microsoft YaHei UI, which keeps mainland forms. The system fallback
-// follows for everything else.
+// the same way and Han to the bundled Reel Sans SC, then to Microsoft YaHei UI, both with
+// mainland forms. The system fallback follows for everything else.
 namespace reel {
 // True when the text contains kana: such a name is Japanese whatever the interface language.
 bool HasKana(std::wstring_view text) noexcept;
@@ -40,8 +40,8 @@ inline const wchar_t* TextFamilyForPx(float px) noexcept {
 // The folder of the running executable; vi::kJapaneseFontFiles are relative to it.
 std::filesystem::path ExecutableFolder();
 
-// Builds the fallback described above. Without the bundled faces under `root` (a missing or
-// unreadable file) the Japanese mappings use Yu Gothic UI alone.
+// Builds the fallback described above. Without a bundled face under `root` (a missing or
+// unreadable file) its mappings use the system face alone: Yu Gothic UI or Microsoft YaHei UI.
 HRESULT CreateCjkFallback(IDWriteFactory2* factory, const std::filesystem::path& root, IDWriteFontFallback** fallback) noexcept;
 
 // The GDI font of the app editor's text fields: Segoe UI, Yu Gothic UI in Japanese so kanji take

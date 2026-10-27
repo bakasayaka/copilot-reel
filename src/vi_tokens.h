@@ -87,6 +87,9 @@ inline constexpr UnicodeRange kCjkRanges[] = {{0x2E80, 0x2FDF}, {0x3000, 0x303F}
 inline constexpr wchar_t kJapaneseFamily[] = L"Reel Sans JP", kJapaneseSystemFamily[] = L"Yu Gothic UI", kJapaneseLocale[] = L"ja-JP";
 // The bundled Japanese faces, relative to the executable.
 inline constexpr const wchar_t* kJapaneseFontFiles[] = {L"assets/fonts/ReelSansJP-Regular.ttf", L"assets/fonts/ReelSansJP-SemiBold.ttf"};
+// The bundled Chinese face (P5), relative to the executable; kCjkFamily covers what it lacks.
+inline constexpr wchar_t kChineseFamily[] = L"Reel Sans SC";
+inline constexpr const wchar_t* kChineseFontFiles[] = {L"assets/fonts/ReelSansSC-Regular.ttf", L"assets/fonts/ReelSansSC-SemiBold.ttf"};
 inline constexpr UnicodeRange kKanaRanges[] = {{0x3040, 0x309F}, {0x30A0, 0x30FF}, {0x31F0, 0x31FF}, {0xFF65, 0xFF9F}};
 // Command glyphs (Segoe Fluent Icons code points)
 inline constexpr wchar_t kIconFamily[] = L"Segoe Fluent Icons", kIconFallbackFamily[] = L"Segoe MDL2 Assets";

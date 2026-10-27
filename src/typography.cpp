@@ -25,15 +25,17 @@ std::vector<DWRITE_UNICODE_RANGE> KanaRanges() {
     return ranges;
 }
 
-// Reel Sans JP from its files, or nullptr when any of them cannot be read.
-com_ptr<IDWriteFontCollection> BundledFonts(IDWriteFactory2* factory, const std::filesystem::path& root) {
+// A bundled family from its files, or nullptr when any of them cannot be read.
+template <std::size_t N>
+com_ptr<IDWriteFontCollection> BundledFonts(IDWriteFactory2* factory, const std::filesystem::path& root,
+                                          const wchar_t* const (&paths)[N], const wchar_t* family) {
     com_ptr<IDWriteFactory5> modern;
     if (root.empty() || FAILED(factory->QueryInterface(__uuidof(IDWriteFactory5), modern.put_void()))) return nullptr;
     com_ptr<IDWriteFontSetBuilder> builder;
     if (FAILED(modern->CreateFontSetBuilder(builder.put()))) return nullptr;
     const auto files = builder.try_as<IDWriteFontSetBuilder1>();
     if (!files) return nullptr;
-    for (const wchar_t* file : vi::kJapaneseFontFiles) {
+    for (const wchar_t* file : paths) {
         com_ptr<IDWriteFontFile> reference;
         if (FAILED(modern->CreateFontFileReference((root / file).c_str(), nullptr, reference.put())) ||
             FAILED(files->AddFontFile(reference.get()))) return nullptr;
@@ -44,7 +46,7 @@ com_ptr<IDWriteFontCollection> BundledFonts(IDWriteFactory2* factory, const std:
     BOOL exists = FALSE;
     if (FAILED(builder->CreateFontSet(set.put())) ||
         FAILED(modern->CreateFontCollectionFromFontSet(set.get(), collection.put())) ||
-        FAILED(collection->FindFamilyName(vi::kJapaneseFamily, &index, &exists)) || !exists) return nullptr;
+        FAILED(collection->FindFamilyName(family, &index, &exists)) || !exists) return nullptr;
     return collection;
 }
 }
@@ -76,14 +78,16 @@ HRESULT CreateCjkFallback(IDWriteFactory2* factory, const std::filesystem::path&
         HRESULT result = factory->CreateFontFallbackBuilder(builder.put());
         if (SUCCEEDED(result)) result = factory->GetSystemFontFallback(system.put());
         if (FAILED(result)) return result;
-        const auto bundled = BundledFonts(factory, root);
+        const auto bundled = BundledFonts(factory, root, vi::kJapaneseFontFiles, vi::kJapaneseFamily);
+        const auto bundledChinese = BundledFonts(factory, root, vi::kChineseFontFiles, vi::kChineseFamily);
         auto all = CjkRanges();
         const auto kana = KanaRanges();
         const auto cjk = CjkRanges();
         all.insert(all.end(), kana.begin(), kana.end());
         const wchar_t* japanese[] = {vi::kJapaneseFamily};
         const wchar_t* japaneseSystem[] = {vi::kJapaneseSystemFamily};
-        const wchar_t* chinese[] = {vi::kCjkFamily};
+        const wchar_t* chinese[] = {vi::kChineseFamily};
+        const wchar_t* chineseSystem[] = {vi::kCjkFamily};
         // Mappings apply in order: a character a mapping's font lacks continues to the next one.
         auto map = [&](const std::vector<DWRITE_UNICODE_RANGE>& ranges, const wchar_t** family, IDWriteFontCollection* collection,
                        const wchar_t* locale) {
@@ -94,7 +98,8 @@ HRESULT CreateCjkFallback(IDWriteFactory2* factory, const std::filesystem::path&
         map(all, japaneseSystem, nullptr, vi::kJapaneseLocale);
         if (bundled) map(kana, japanese, bundled.get(), nullptr);
         map(kana, japaneseSystem, nullptr, nullptr);
-        map(cjk, chinese, nullptr, nullptr);
+        if (bundledChinese) map(cjk, chinese, bundledChinese.get(), nullptr);
+        map(cjk, chineseSystem, nullptr, nullptr);
         if (SUCCEEDED(result)) result = builder->AddMappings(system.get());
         if (SUCCEEDED(result)) result = builder->CreateFontFallback(fallback);
         return result;

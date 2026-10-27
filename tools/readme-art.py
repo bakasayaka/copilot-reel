@@ -1,7 +1,7 @@
 """Draw the README's static art into docs/readme: language pills, the download button and step 3.
 
 Every piece comes in a dark and a light variant for GitHub's two page colors, at twice its
-displayed size, with the faces the reel itself uses: Segoe UI for Latin, Microsoft YaHei UI for
+displayed size, with the faces the reel itself uses: Segoe UI for Latin, Reel Sans SC for
 Chinese and Reel Sans JP for Japanese. Accent fills are the Windows default accents the reel
 falls back to (#60CDFF on dark, #005FB8 on light). The demo GIFs and step stills come from
 tools/record-demos.py.
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'docs/readme'
 FONTS = Path(r'C:\Windows\Fonts')
 LATIN = (str(FONTS / 'seguisb.ttf'), 0)
-CJK = {'zh': (str(FONTS / 'msyhbd.ttc'), 1), 'ja': (str(ROOT / 'assets/fonts/ReelSansJP-SemiBold.ttf'), 0)}
+CJK = {'zh': (str(ROOT / 'assets/fonts/ReelSansSC-SemiBold.ttf'), 0), 'ja': (str(ROOT / 'assets/fonts/ReelSansJP-SemiBold.ttf'), 0)}
 ICONS = str(FONTS / 'SegoeIcons.ttf')
 SCALE = 2
 THEMES = {

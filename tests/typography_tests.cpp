@@ -178,6 +178,7 @@ int main() {
     com_ptr<IDWriteFontCollection> system;
     winrt::check_hresult(factory->GetSystemFontCollection(system.put()));
     const std::wstring bundled = vi::kJapaneseFamily, yuGothic = vi::kJapaneseSystemFamily, yaHei = vi::kCjkFamily;
+    const std::wstring chinese = vi::kChineseFamily;
 
     Check(HasKana(L"メモ帳") && HasKana(L"ｱﾌﾟﾘ") && HasKana(L"ひらがな") && !HasKana(L"记事本") && !HasKana(L"設定") && !HasKana(L"Claude"),
         "kana, not Han or Latin, mark a name as Japanese");
@@ -193,11 +194,30 @@ int main() {
     }
     Check(Map(fallback.get(), system.get(), L"漢", L"ja-JP", DWRITE_FONT_WEIGHT_SEMI_BOLD).weight == DWRITE_FONT_WEIGHT_SEMI_BOLD &&
         Map(fallback.get(), system.get(), L"漢", L"ja-JP", DWRITE_FONT_WEIGHT_NORMAL).weight == DWRITE_FONT_WEIGHT_NORMAL,
-        "the reel's 600 and the quick menu's 400 each get their own face");
+        "the reel's 600 and the editor's 400 each get their own face");
+    // P5: Han outside Japanese text takes the bundled Reel Sans SC, at the reel's 600 and the editor's 400.
     for (const auto* locale : {L"zh-CN", L"en-US"}) {
-        Check(Map(fallback.get(), system.get(), L"汉", locale).family == yaHei, "Han outside Japanese text keeps YaHei UI's mainland forms");
+        for (const auto* text : {L"汉", L"管理应用", L"，"}) {
+            const auto mapped = Map(fallback.get(), system.get(), text, locale);
+            Check(mapped.family == chinese && mapped.covers, "Han and CJK punctuation outside Japanese text take Reel Sans SC");
+        }
+        Check(Map(fallback.get(), system.get(), L"汉", locale, DWRITE_FONT_WEIGHT_SEMI_BOLD).weight == DWRITE_FONT_WEIGHT_SEMI_BOLD &&
+            Map(fallback.get(), system.get(), L"汉", locale, DWRITE_FONT_WEIGHT_NORMAL).weight == DWRITE_FONT_WEIGHT_NORMAL,
+            "Reel Sans SC gives the reel's 600 and the editor's 400 their own face");
         Check(Map(fallback.get(), system.get(), L"あ", locale).family == bundled, "kana in any interface take Reel Sans JP");
     }
+    // A hanzi outside GB 2312 continues to YaHei UI instead of a missing glyph.
+    UINT32 beyond = 0;
+    for (UINT32 c = 0x4E00; c <= 0x9FFF && !beyond; ++c) {
+        if (!Has(system.get(), yaHei.c_str(), c)) continue;
+        const auto mapped = Map(fallback.get(), system.get(), std::wstring(1, static_cast<wchar_t>(c)), L"zh-CN");
+        Check(mapped.covers, "every hanzi YaHei UI has maps to a face that has it");
+        if (mapped.family != chinese) {
+            Check(mapped.family == yaHei, "a hanzi outside the subset falls through to YaHei UI");
+            beyond = c;
+        }
+    }
+    Check(beyond != 0, "a hanzi outside the subset exists to test the fall-through");
     // A kanji the subset leaves out continues to Yu Gothic UI instead of a missing glyph.
     UINT32 outside = 0;
     for (UINT32 c = 0x4E00; c <= 0x9FFF && !outside; ++c) {
@@ -214,7 +234,8 @@ int main() {
     com_ptr<IDWriteFontFallback> without;
     winrt::check_hresult(CreateCjkFallback(factory.get(), ExecutableFolder() / L"missing", without.put()));
     Check(Map(without.get(), system.get(), L"漢", L"ja-JP").family == yuGothic &&
-        Map(without.get(), system.get(), L"汉", L"zh-CN").family == yaHei, "without the bundled faces Japanese text uses Yu Gothic UI");
+        Map(without.get(), system.get(), L"汉", L"zh-CN").family == yaHei,
+        "without the bundled faces Japanese text uses Yu Gothic UI and Chinese YaHei UI");
 
     // The reel's text and the update dot scale with the reel and its size step down to a device-pixel floor.
     for (const float monitor : {96.f, 120.f, 144.f, 168.f, 192.f})

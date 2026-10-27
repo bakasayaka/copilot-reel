@@ -27,7 +27,8 @@ REPO = Path(__file__).resolve().parents[3]
 FILES = {'Segoe UI Variable': 'SegUIVar.ttf', 'Segoe UI': {400: 'segoeui.ttf', 600: 'seguisb.ttf', 700: 'segoeuib.ttf'},
          'Segoe Fluent Icons': 'SegoeIcons.ttf', 'Segoe MDL2 Assets': 'segmdl2.ttf',
          'Microsoft YaHei UI': {400: 'msyh.ttc', 700: 'msyhbd.ttc'}, 'Consolas': {400: 'consola.ttf', 700: 'consolab.ttf'},
-         TYPE['japanese']['family']: {400: REPO / TYPE['japanese']['files'][0], 600: REPO / TYPE['japanese']['files'][1]}}
+         TYPE['japanese']['family']: {400: REPO / TYPE['japanese']['files'][0], 600: REPO / TYPE['japanese']['files'][1]},
+         TYPE['chinese']['family']: {400: REPO / TYPE['chinese']['files'][0], 600: REPO / TYPE['chinese']['files'][1]}}
 
 _CSS = {}   # registered key -> (css family list, weight)
 
@@ -96,8 +97,10 @@ def face(family, weight=400):
 FACES = {
     'label': (TYPE['preferred'], TYPE['applicationLabel']['weight']),
     'monogram': (TYPE['preferred'], TYPE['iconMonogram']['weight']),
-    'cjk': (TYPE['cjk']['family'], 700 if TYPE['weight'] >= 600 else 400),   # 600 resolves to YaHei UI Bold
-    'cjk-regular': (TYPE['cjk']['family'], 400),
+    'cjk': (TYPE['chinese']['family'], TYPE['weight']),     # Reel Sans SC, chosen 2026-10-27 (P5)
+    'cjk-regular': (TYPE['chinese']['family'], 400),
+    'yahei-bold': (TYPE['cjk']['family'], 700),             # the system face, for page 16's comparison
+    'yahei': (TYPE['cjk']['family'], 400),
     'ja': (TYPE['japanese']['family'], TYPE['applicationLabel']['weight']),
     'ja-regular': (TYPE['japanese']['family'], 400),
     'display': ('Segoe UI Variable Display', 600),

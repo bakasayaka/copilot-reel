@@ -23,6 +23,7 @@ The handoff log is not part of the repository (the user's decision, 2026-10-25):
   - A quiet center: one name on hover, no titles or captions.
   - EN/ZH/JA and sun/moon show state in the icon itself.
   - Japanese text uses the bundled Reel Sans JP, a renamed Noto Sans JP subset at 400 and 600, the open face closest to Hiragino Sans; Yu Gothic UI covers what the subset lacks and the GDI controls (requested 2026-10-25, `docs/visual-identity.md`, Typography).
+  - Chinese text uses the bundled Reel Sans SC, a renamed Noto Sans SC subset (GB 2312) at 400 and 600, so it matches the 600 of Segoe UI Variable and Reel Sans JP; Microsoft YaHei UI covers what the subset lacks and the GDI controls (chosen 2026-10-27 from the comparison on VI page 16, P5).
   - The README follows direction A, Keynote: a centered hero GIF, three steps, quiet sections and pill language buttons, in English, Simplified Chinese and Japanese (chosen 2026-10-25); developer content lives in `docs/development.md`.
   - One merged `+` entry.
   - Official vendor artwork with one tile treatment.

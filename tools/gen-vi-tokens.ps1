@@ -103,6 +103,12 @@ $fontFiles = @(@($fontFiles) | ForEach-Object {
     if (-not (Test-Path -LiteralPath (Join-Path $projectRoot $_))) { throw "tokens.json: '$_' does not exist; run tools/build-fonts.py." }
     'L"' + $_ + '"'
 })
+$chineseFiles = Get-Token 'typography.chinese.files'
+$chineseFiles = @(@($chineseFiles) | ForEach-Object {
+    if ($_ -isnot [string] -or $_ -notmatch '^assets/fonts/[A-Za-z0-9._-]+\.ttf\z') { throw "tokens.json: 'typography.chinese.files' entries must be assets/fonts/<name>.ttf." }
+    if (-not (Test-Path -LiteralPath (Join-Path $projectRoot $_))) { throw "tokens.json: '$_' does not exist; run tools/build-fonts.py." }
+    'L"' + $_ + '"'
+})
 $brandLines = New-Object Collections.Generic.List[string]
 $brandKeys = @{}
 $brands = Get-Token 'iconography.brands'
@@ -209,6 +215,9 @@ $lines = @(
     "inline constexpr wchar_t kJapaneseFamily[] = $(Text 'typography.japanese.family'), kJapaneseSystemFamily[] = $(Text 'typography.japanese.systemFamily'), kJapaneseLocale[] = $(Text 'typography.japanese.locale');"
     '// The bundled Japanese faces, relative to the executable.'
     "inline constexpr const wchar_t* kJapaneseFontFiles[] = {$($fontFiles -join ', ')};"
+    '// The bundled Chinese face (P5), relative to the executable; kCjkFamily covers what it lacks.'
+    "inline constexpr wchar_t kChineseFamily[] = $(Text 'typography.chinese.family');"
+    "inline constexpr const wchar_t* kChineseFontFiles[] = {$($chineseFiles -join ', ')};"
     "inline constexpr UnicodeRange kKanaRanges[] = {$($kana -join ', ')};"
     '// Command glyphs (Segoe Fluent Icons code points)'
     "inline constexpr wchar_t kIconFamily[] = $(Text 'iconography.commandFont'), kIconFallbackFamily[] = $(Text 'iconography.commandFontFallback');"
