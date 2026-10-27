@@ -247,5 +247,5 @@ This documentation update is not an application release. When implementation pro
 - [Current validation evidence](validation.md), [architecture](architecture.md), [configuration isolation](configuration.md), [toolchain](toolchain.md).
 - [Microsoft Composition tailoring](https://learn.microsoft.com/en-us/windows/apps/develop/composition/composition-tailoring): user preferences, effect capabilities and cost.
 - [Microsoft high-contrast state](https://learn.microsoft.com/en-us/uwp/api/windows.ui.viewmanagement.accessibilitysettings.highcontrast): system preference semantics.
-- [ASUS VG27AQ3A-L guide, section 3.1.1](https://dlcdnets.asus.com/pub/ASUS/LCD%20Monitors/VG27AQ3A-L/ASUS_VG27AQ3A-L_EN.pdf?model=vg27aq3a-l): hierarchical navigation and confirmation.
+- ASUS monitor user guides, the OSD menu section: hierarchical navigation and confirmation.
 - [Apple menu tracking](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/MenuList/Articles/ViewsInMenuItems.html) and [Control Center](https://support.apple.com/guide/mac-help/quickly-change-settings-with-control-center-mchlc9d0e1f2/mac): menu tracking and distinct adjustment/expansion actions.
