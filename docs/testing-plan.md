@@ -214,7 +214,7 @@ Before any driver code runs, a static self-check refuses to start if the driver 
 
 ### What stays outside the quiet tier
 
-- Focus tier, not yet ported: the editor groups (Edit app, Custom app, a missing preset) and the native picker groups. The native editor and `GetOpenFileNameW` activate themselves. They stay out of the quiet suite until the editor can open without activation in seam mode.
+- Focus tier, not yet ported: opening the editor from the reel (Edit app, Custom app, a missing preset) and `GetOpenFileNameW`, which activate themselves. The editor's pages are checked without either: `tests/editor_tests.cpp` builds them in windows that are never shown or activated and checks their printed pixels.
 - Real-input smoke, run only with the user's explicit consent and with the installed instance stopped:
   - Raw Input wake-up and `RIDEV_INPUTSINK` delivery while another app has focus, including Escape during a hold;
   - system `WM_NCHITTEST` and `WM_MOUSEACTIVATE` routing;

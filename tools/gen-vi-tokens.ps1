@@ -134,6 +134,17 @@ if ($sizeDefault -ge $sizeSteps.Count -or [double]$sizeSteps[$sizeDefault] -ne 1
 $brandCount = $brandLines.Count
 if ($brandCount -eq 0) { $brandLines.Add('    {nullptr, false, 1.f, 0.f, 0.f, 1.f, 1.f},  // sentinel: no brands yet; kBrandCount is 0') }
 
+# The editor's lengths sit on its grid (P4).
+$e = 'editor'
+$editorGrid = [int](UInt "$e.grid")
+foreach ($name in 'width', 'height', 'margin', 'gap', 'control', 'rowPitch', 'labelToField', 'sideButton', 'row') {
+    if ([int](UInt "$e.$name") % $editorGrid) { throw "tokens.json: '$e.$name' must be a multiple of '$e.grid'." }
+}
+function EditorGlyph([string]$name) {
+    $value = Get-Token "$e.glyphs.$name"
+    if ($value -isnot [string] -or $value -notmatch '^[0-9A-Fa-f]{4}$') { throw "tokens.json: '$e.glyphs.$name' must be a 4-digit hex code point." }
+    "L'\x$($value.ToUpperInvariant())'"
+}
 $g = 'geometry'
 $m = 'motion.events'
 $f = 'systemAppearance.frosted'
@@ -169,6 +180,14 @@ $lines = @(
     "inline constexpr float kShadowBlur = $(Float 'elevation.shadowBlur'), kShadowOffsetY = $(Float 'elevation.shadowOffsetY');   // Fluent flyout elevation"
     "inline constexpr float kTrashEm = $(Float "$g.trash.em"), kTrashRingStroke = $(Float "$g.trash.ringStroke"), kTrashArmedRadius = $(Float "$g.trash.armedRadius");"
     "inline constexpr float kDisabledOpacity = $(Unit "$g.disabledOpacity");"
+    '// The app editor (editor): its grid in DIP, strokes, type ramp and command glyphs.'
+    "inline constexpr int kEditorWidth = $(UInt "$e.width"), kEditorHeight = $(UInt "$e.height"), kEditorMargin = $(UInt "$e.margin"), kEditorGap = $(UInt "$e.gap"), kEditorControl = $(UInt "$e.control");"
+    "inline constexpr int kEditorRowPitch = $(UInt "$e.rowPitch"), kEditorLabelToField = $(UInt "$e.labelToField"), kEditorSideButton = $(UInt "$e.sideButton"), kEditorButtonPadding = $(UInt "$e.buttonPadding");"
+    "inline constexpr int kEditorListRows = $(UInt "$e.listRows"), kEditorRow = $(UInt "$e.row"), kEditorGlyphSize = $(UInt "$e.glyphSize");"
+    "inline constexpr float kEditorRadius = $(Float "$e.radius"), kEditorStroke = $(Float "$e.stroke"), kEditorFocusStroke = $(Float "$e.focusStroke"), kEditorFieldStrokeContrast = $(Float "$e.fieldStrokeContrast"), kEditorDisabledOpacity = $(Unit "$e.disabledOpacity");"
+    "inline constexpr float kEditorTitleSize = $(Float "$e.type.title.size"), kEditorBodySize = $(Float "$e.type.body.size"), kEditorCaptionSize = $(Float "$e.type.caption.size");"
+    "inline constexpr unsigned kEditorTitleWeight = $(UInt "$e.type.title.weight"), kEditorBodyWeight = $(UInt "$e.type.body.weight");"
+    "inline constexpr wchar_t kEditorGlyphBack = $(EditorGlyph Back), kEditorGlyphAdvanced = $(EditorGlyph Advanced), kEditorGlyphSearch = $(EditorGlyph Search), kEditorGlyphBrowse = $(EditorGlyph Browse), kEditorGlyphExpand = $(EditorGlyph Expand);"
     '// Palettes. Alpha < 1 composites over the plate; selection = Mix(plate, accent, seatTint).'
     'struct Palette { Color plate, foreground, secondary, outline, tile, tileStroke, plateStroke, ringIdle, textOnAccent,'
     '                 critical, criticalFill, textOnCritical;'

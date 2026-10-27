@@ -10,7 +10,4 @@ bool SaveTargets(const std::vector<AppTarget>& targets, std::wstring& error);
 std::wstring ParkedPath();
 std::vector<AppTarget> LoadParked(std::wstring& error);
 bool SaveParked(const std::vector<AppTarget>& parked, std::wstring& error);
-// Modeless native window. Saving applications posts kConfigChangedMessage;
-// changing the UI language saves its preference and posts kLanguageChangedMessage.
-void ShowSettings(HWND owner);
 }

@@ -27,6 +27,14 @@ inline constexpr float kPlateStroke = 1.f, kPlateStrokeHighContrast = 2.f;
 inline constexpr float kShadowBlur = 16.f, kShadowOffsetY = 8.f;   // Fluent flyout elevation
 inline constexpr float kTrashEm = 20.f, kTrashRingStroke = 1.5f, kTrashArmedRadius = 30.f;
 inline constexpr float kDisabledOpacity = 0.36f;
+// The app editor (editor): its grid in DIP, strokes, type ramp and command glyphs.
+inline constexpr int kEditorWidth = 560, kEditorHeight = 384, kEditorMargin = 24, kEditorGap = 8, kEditorControl = 32;
+inline constexpr int kEditorRowPitch = 72, kEditorLabelToField = 24, kEditorSideButton = 128, kEditorButtonPadding = 12;
+inline constexpr int kEditorListRows = 5, kEditorRow = 48, kEditorGlyphSize = 16;
+inline constexpr float kEditorRadius = 10.f, kEditorStroke = 1.f, kEditorFocusStroke = 1.5f, kEditorFieldStrokeContrast = 3.f, kEditorDisabledOpacity = 0.36f;
+inline constexpr float kEditorTitleSize = 20.f, kEditorBodySize = 14.f, kEditorCaptionSize = 12.f;
+inline constexpr unsigned kEditorTitleWeight = 600, kEditorBodyWeight = 400;
+inline constexpr wchar_t kEditorGlyphBack = L'\xE76B', kEditorGlyphAdvanced = L'\xE76C', kEditorGlyphSearch = L'\xE721', kEditorGlyphBrowse = L'\xE838', kEditorGlyphExpand = L'\xE70D';
 // Palettes. Alpha < 1 composites over the plate; selection = Mix(plate, accent, seatTint).
 struct Palette { Color plate, foreground, secondary, outline, tile, tileStroke, plateStroke, ringIdle, textOnAccent,
                  critical, criticalFill, textOnCritical;

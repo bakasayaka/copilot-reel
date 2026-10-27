@@ -75,7 +75,7 @@ The generator never writes `tokens.json`. Scenes use the token accent fallbacks;
 | critical (trash glyph, ring) | `#C42B1C` | `#FF99A4` | COLOR_WINDOWTEXT |
 | criticalFill / textOnCritical (armed trash) | `#C42B1C` / `#FFFFFF` | `#FF99A4` / `#000000` | COLOR_HIGHLIGHT / COLOR_HIGHLIGHTTEXT |
 | selectionText | foreground | foreground | COLOR_HIGHLIGHTTEXT |
-| outline (native editor only) | `#CCCCCC` | `#4A4A4A` | COLOR_WINDOWTEXT |
+| outline (the editor's soft rims) | `#CCCCCC` | `#4A4A4A` | COLOR_WINDOWTEXT |
 | shadowOpacity | 14% | 26% | none |
 
 - The accent is a role: UISettings ramp steps, never the raw `UIColorType::Accent`. Fallbacks apply only when the ramp is unavailable. A sample ramp (Windows default blue on the capture machine) is on page 3.
@@ -94,7 +94,7 @@ The reel speaks English, Simplified Chinese and Japanese with one voice: a quiet
 
 Japanese. Hiragino Sans (SCREEN, Apple's Japanese system face) drops the uroko at stroke shoulders, keeps wide counters (futokoro) and an even stroke rhythm, centres each glyph's weight, and draws kana slightly large so solid setting does not look gappy. Fontworks' Rodin and UD families share that modern gothic build, but neither they nor Hiragino may be redistributed without a commercial licence, and Fontworks' open faces (Klee One, LINE Seed JP and the display faces) are a pencil script or geometric brand faces without a 600. Yu Gothic UI, the Windows face, is hinted but draws condensed kana (0.66 em wide on a 0.82 em advance), so Japanese names look narrow next to Segoe. The closest open face is Noto Sans JP (Source Han Sans, SIL Open Font License 1.1): the same uroko-free modern gothic, a large face (kanji 0.898 em) and full-width kana. Other open candidates fall short: IBM Plex Sans JP has a grotesque flavour and a deep descent, BIZ UDPGothic draws small universal-design kana and has no 600, M PLUS lacks part of JIS level 2, and Zen Kaku Gothic New has no 600.
 
-- Reel Sans JP is Noto Sans JP 2.004 in two static instances, 400 (the quick menu) and 600 (the reel), subset to Windows-31J (JIS X 0208 levels 1 and 2 with the NEC and IBM extensions, 7,617 characters with kana, CJK symbols and the interface strings) and renamed, as the OFL asks of a Modified Version. Its line metrics are Segoe UI's (1.079 / 0.251 em), so a Japanese line is as tall as an English one. `tools/build-fonts.py` builds it into `assets/fonts/` (2.4 MB a weight) next to `OFL.txt`.
+- Reel Sans JP is Noto Sans JP 2.004 in two static instances, 400 (the editor) and 600 (the reel), subset to Windows-31J (JIS X 0208 levels 1 and 2 with the NEC and IBM extensions, 7,617 characters with kana, CJK symbols and the interface strings) and renamed, as the OFL asks of a Modified Version. Its line metrics are Segoe UI's (1.079 / 0.251 em), so a Japanese line is as tall as an English one. `tools/build-fonts.py` builds it into `assets/fonts/` (2.4 MB a weight) next to `OFL.txt`.
 - [`design/vi/evidence/typography-ja.png`](../design/vi/evidence/typography-ja.png) compares it with Yu Gothic UI on the hub at 96, 144 and 192 DPI: wider, rounder kana; slightly softer at 96 DPI, because Noto carries no hinting and the reel draws grayscale antialiasing.
 
 Mapping. One custom DirectWrite fallback serves every D2D text format (`src/typography.cpp`); the text's locale picks the mapping, and a character a mapping's font lacks continues to the next (`tests/typography_tests.cpp` checks each rule against `MapCharacters`):
@@ -103,14 +103,14 @@ Mapping. One custom DirectWrite fallback serves every D2D text format (`src/typo
 2. Any other locale: kana to Reel Sans JP, then Yu Gothic UI; Han and CJK punctuation (U+2E80-2FDF, 3000-303F, 3400-4DBF, 4E00-9FFF, F900-FAFF, FF00-FFEF) to Microsoft YaHei UI.
 3. The system fallback for everything else.
 
-The formats carry the interface locale (en-US, zh-CN, ja-JP), and a name that contains kana is laid out as ja-JP in every interface, so "メモ帳" in the English reel takes Japanese kanji forms, not Chinese ones. A Chinese name keeps mainland forms in the Japanese reel only where it shares no kana; Han alone cannot tell the two languages apart. The native controls (GDI) use Segoe UI with the system's font linking, or Yu Gothic UI in Japanese; they never see the bundled faces.
+The formats carry the interface locale (en-US, zh-CN, ja-JP), and a name that contains kana is laid out as ja-JP in every interface, so "メモ帳" in the English reel takes Japanese kanji forms, not Chinese ones. A Chinese name keeps mainland forms in the Japanese reel only where it shares no kana; Han alone cannot tell the two languages apart. The editor's labels, buttons and lists are drawn with the same D2D formats and fallback. Its text fields are GDI controls: Segoe UI, Yu Gothic UI in Japanese and Microsoft YaHei UI in Chinese, since Segoe UI's font linking on a non-Chinese Windows reaches Meiryo UI first and would give shared Han Japanese forms; GDI never sees the bundled faces.
 
 - Center name: 14 DIP, one line in 160 x 20, character-ellipsis trimming. Baseline = center + capHeight x size / 2, using the cap height of the Latin face actually chosen (0.70 em), also for Chinese and Japanese. At the default reel size that is 11.2 px at 100% scaling.
 - Legibility floor (`typography.minimumPx`, approved 2026-10-25): the reel's geometry keeps scaling with `geometry.scale` and the size step, but the center name never draws below 10 device pixels and the monograms below 9; a raised size is at most 1.5 times its DIP size. At 100% scaling the floor holds the name at 10 px at the 70% and 85% steps, where it would be 7.9 and 9.5 px. The proposed 11 px trimmed Visual Studio Code at the 70% step, because the raised text outgrew the 160 DIP line; at 10 px it fits. Text drawn below 13 px uses Segoe UI Variable Small, the master Windows uses for captions.
 - The 160 DIP line (132 before 2026-10-25) clears every seat that reaches the name's band, even with the band grown 1.5 times (`tests/typography_tests.cpp`).
 - Measured at 14 DIP in the Text master: Visual Studio Code 119.7, Windows Settings 114.1, IntelliJ IDEA Ultimate 134.2 and DeepSeek Harness (DSH) 158.6, all within 160 (the last two were trimmed at 132). The Small master sets a little wider, so the longest can still trim at caption sizes, as can long names at the 70% step, where the floor raises the size in DIP.
 - The tightest case is the 70% step at 100% display scaling: the name draws at 10 px, 17.8 DIP, so a name fits only if it is under about 126 DIP at 14 DIP. `tests/typography_tests.cpp` lays out every name the reel itself gives a tile, in every language, at every size step and display scaling from 100 to 200%, and fails on any that would trim. That is why About's switches are Auto-check and Auto-install (Auto-check updates measured 131 DIP), a failed update names only what failed, and the Japanese update tile reads 更新 0.3.12 rather than インストール 0.3.12 (about 127). About's first tile is named by the version alone and GitHub's by the author, since `0.3.12 · baka_sayaka` (about 128 DIP) would trim there. The test also reports, without failing, the product names in the Add catalog wherever they trim, since the reel cannot shorten them.
-- EN / ZH / JA monogram: 16 DIP / 600 (never below 9 device pixels), centered on the cap height, foreground.
+- EN / ZH / JA monogram: 16 DIP / 600 (never below 9 device pixels), centered on the cap height, foreground. The Reel size tile shares its cap height: the digits at 16 DIP and a 10 DIP % on their baseline, centered together; the % rises to the 9 px floor but never past its digits.
 - Japanese wording follows Microsoft's Japanese Windows terms and prefers kanji where a natural kanji word exists (簡易メニュー, 既定, 最新版, 大きさ, 個人用設定); system nouns Windows writes in katakana stay katakana (アプリ, インストール, テーマ, ダーク モード), with Microsoft's half-width space between katakana words.
 - Never drawn: page titles, captions, helper copy, A/D hints, "Move here", a second label line.
 
@@ -135,11 +135,26 @@ Idle (neutral tiles, faint ring); selected (the seat replaces the tile fill, one
 - At 8 apps the hub and Manage keep their Add slot, disabled, without reflow.
 - Main (depth 0) -> + hub (1) -> Manage apps or About (2) -> Presets / App actions (3) -> focused native editor for names and targets. Language (choosing its tile, its chevrons, A/D, or Left/Right while it is selected), Reel size, Tray icon, About's switches and its update check act in place; Appearance closes the reel and opens Windows' color settings (`ms-settings:colors`). On Manage apps a dragged tile reorders the reel in place, and the center trash takes an app out of it; App actions has no reorder control. The center or Esc returns one level.
 
+## Editor
+
+The focused editor (`src/osd.cpp`, tokens `editor`) names an app and its launch target. It is a native task sheet on the Soft Orbit plate (P4 of the first audit):
+
+- One plate: the caption takes the plate color and the rim, and carries the title and Close; the sheet starts with its first row. It stays solid, because its text fields are GDI controls whose text would lose its alpha over a system backdrop.
+- An 8 DIP grid: 560 x 384, margins of 24, controls 32 high with radius 10, side and footer buttons 128 wide, label rows every 72, picker rows 48 high with the 40 DIP tile. Strokes cover whole pixels on the control's own edges, so a row's fields and buttons share their top and bottom.
+- Accent means one thing, as on the plate: focus and selection are the seat (the selection fill and a 1.5 DIP accent outline), and the primary action (Save, Done, Choose) is accent-filled with no stroke at rest; a focused primary action takes a ring in its own text color inside the fill. Under a contrast theme focus is a WINDOWTEXT ring outside the fill and disabled words are GRAYTEXT.
+- Fields keep the soft outline rim and add a 1 px bottom stroke in `secondary`, at least 3:1 against the field (WCAG 1.4.11).
+- Type: 20/600 for the leave question, 14/400 for labels, fields and buttons, 12/400 for counts and kinds.
+- Segoe Fluent Icons for Back (E76B), Advanced (E76C), the search field (E721), Browse (E838) and the launch-method list (E70D).
+- Choose app shows each app on the tile it will get: a Start icon with its own plate fills the tile shape, any other sits at the 28 DIP keyline on the neutral tile. The selected row is the seat whether or not the list has focus, so Enter never picks a row the user cannot see; the kind column is as wide as its widest label in the current language.
+- Enter clicks the focused button; anywhere else it runs the page's primary action. Unsaved changes are asked about in the sheet itself (Save, Don't save, Cancel) rather than in a message box that is always light.
+
+`tests/editor_tests.cpp` opens the editor in windows that are never shown, focused or activated, prints every page in English, Chinese and Japanese under light, dark, frosted and contrast appearances at 100, 125, 150 and 175% into `build/Release/editor-captures`, and checks these rules on the pixels.
+
 ## Placement
 
 The pointer is the plate center whenever the 384 DIP canvas fits (offset 0). At an edge or corner the whole canvas moves inward by the minimum needed; order, angles, radius and icon size are unchanged. Wherever that leaves the pointer, on the plate or outside it (168 DIP), it selects by direction as soon as it moves; there is no center entry and no gate visual (removed in 0.3.11). The opening position itself never selects. No cursor warp, no line from the pointer.
 
-Reel size (`geometry.sizeSteps` 0.7, 0.85, 1, 1.15; default 1) multiplies `geometry.scale` into the same whole effective DPI, so the canvas, the clamp and the work-area shrink above apply unchanged at every step. The hub's Reel size tile shows its step as a 12 DIP monogram, never below 9 device pixels (70%, 85%, 100%, 115%); a confirm moves to the next step and the open reel is placed again around the point it opened at.
+Reel size (`geometry.sizeSteps` 0.7, 0.85, 1, 1.15; default 1) multiplies `geometry.scale` into the same whole effective DPI, so the canvas, the clamp and the work-area shrink above apply unchanged at every step. The hub's Reel size tile shows its step in the icon itself, the digits at the language monogram's 16 DIP and a smaller % on their baseline, never below 9 device pixels (70%, 85%, 100%, 115%); a confirm moves to the next step and the open reel is placed again around the point it opened at.
 
 ## Motion (Full tier, Windows.UI.Composition)
 
@@ -155,7 +170,7 @@ Reel size (`geometry.sizeSteps` 0.7, 0.85, 1, 1.15; default 1) multiplies `geome
 | Handoff | the tapped tile travels to the center in 200 ms, scaling to 0.5, and fades over the last 83 ms as the back chevron appears; the outgoing name clears in 33 ms |
 | Swap (presets) | out 83 ms; in 120 ms from 0.98, decelerate |
 | Language | only the monogram crossfades (83 ms) |
-| Drag (Manage apps) | lift: the tile scales to 1.08 in 120 ms and then follows the pointer without easing, while the seat and the name clear in 33 ms; the other apps slide to their open slots in 167 ms; the trash then fades in over 83 ms and arms with a 0.88 -> 1 pop |
+| Drag (Manage apps) | lift: the tile is redrawn at 1.08 over a small shadow (4 DIP blur, 2 DIP down), so it reads as raised rather than enlarged, scales up in 120 ms and then follows the pointer without easing, while the seat and the name clear in 33 ms; the other apps slide to their open slots in 167 ms; the trash then fades in over 83 ms and arms with a 0.88 -> 1 pop |
 | Drop | every app settles from where it is to its saved slot in 200 ms on the drill curve; a removed tile falls into the trash (to 0.3, transparent) in 167 ms while the trash fades; a canceled drag returns every tile in 200 ms |
 | Reduced motion, high contrast | the same path with every duration 1 ms |
 

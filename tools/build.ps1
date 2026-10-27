@@ -76,7 +76,7 @@ try {
     # installed-package check (tools/test.ps1 -Tier installed) survives a rebuild.
     $reproducible = @()
     if($Configuration -eq 'Debug') { $flags+=@('/Od','/Zi') } else { $flags+=@('/O2','/DNDEBUG','/Brepro'); $reproducible += '/Brepro' }
-    $sources=@('main.cpp','appearance.cpp','renderer.cpp','settings.cpp','localization.cpp','iconography.cpp','osd.cpp','behavior.cpp','presets.cpp','official_icons.cpp','local_launch.cpp','installed_apps.cpp','list_viewport.cpp','updates.cpp','artwork.cpp','acrylic.cpp','test_input.cpp','tray_menu.cpp','typography.cpp') | ForEach-Object {Join-Path $projectRoot "src\$_"}
+    $sources=@('main.cpp','appearance.cpp','renderer.cpp','settings.cpp','localization.cpp','iconography.cpp','osd.cpp','behavior.cpp','presets.cpp','official_icons.cpp','local_launch.cpp','installed_apps.cpp','list_viewport.cpp','updates.cpp','artwork.cpp','acrylic.cpp','test_input.cpp','tray_menu.cpp','typography.cpp','editor_layout.cpp') | ForEach-Object {Join-Path $projectRoot "src\$_"}
     $libraries=@('d3d11.lib','d2d1.lib','dwrite.lib','dxgi.lib','dxguid.lib','dwmapi.lib','windowsapp.lib','CoreMessaging.lib','user32.lib','gdi32.lib','shell32.lib','ole32.lib','oleaut32.lib','propsys.lib','shlwapi.lib','comdlg32.lib','comctl32.lib','advapi32.lib','wtsapi32.lib','windowscodecs.lib','uuid.lib','imm32.lib','uxtheme.lib','shcore.lib','wintrust.lib','crypt32.lib','bcrypt.lib','version.lib')
     Push-Location $buildRoot
     try {
@@ -124,6 +124,11 @@ try {
         & $compiler @flags "$projectRoot\tests\tray_icon_tests.cpp" "$projectRoot\src\tray_menu.cpp" app.res /Fe:tray_icon_tests.exe /link /MANIFEST:NO @machineLink d2d1.lib shcore.lib comctl32.lib uxtheme.lib user32.lib gdi32.lib advapi32.lib
         if($LASTEXITCODE -ne 0) {throw 'Tray icon tests compilation failed.'}
         Invoke-CompiledTest 'tray_icon_tests.exe'
+        # The app editor in hidden windows: it needs the package's icon and common-controls 6 manifest too.
+        $editorSources=@('osd.cpp','editor_layout.cpp','appearance.cpp','artwork.cpp','official_icons.cpp','iconography.cpp','localization.cpp','installed_apps.cpp','local_launch.cpp','list_viewport.cpp','settings.cpp','typography.cpp') | ForEach-Object {Join-Path $projectRoot "src\$_"}
+        & $compiler @flags "$projectRoot\tests\editor_tests.cpp" @editorSources app.res /Fe:editor_tests.exe /link /MANIFEST:NO @machineLink @libraries
+        if($LASTEXITCODE -ne 0) {throw 'Editor tests compilation failed.'}
+        Invoke-CompiledTest 'editor_tests.exe'
         & $compiler @flags "$projectRoot\tests\launch_probe.cpp" /Fe:launch_probe.exe /link /SUBSYSTEM:WINDOWS @machineLink user32.lib
         if($LASTEXITCODE -ne 0) {throw 'Launch probe compilation failed.'}
         Assert-PeMachine (Join-Path $buildRoot 'launch_probe.exe')

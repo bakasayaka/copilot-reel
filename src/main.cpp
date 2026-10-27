@@ -234,7 +234,7 @@ HRESULT Activate(const AppTarget& target) {
 void ReportLaunchFailure(const AppTarget& target,HRESULT hr) {
     wchar_t number[40]{};swprintf_s(number,L"0x%08X",static_cast<unsigned>(hr));
     Log(L"Launch failed "+std::wstring(number));
-    MessageBoxW(nullptr,(std::wstring(Tr(L"Could not open: ",L"无法打开：",L"開けませんでした: "))+AppDisplayName(target)+Tr(L"\nCheck the target and arguments in App settings.\n\n",L"\n请检查应用设置中的目标与参数。\n\n",L"\nアプリ設定で対象と引数を確認してください。\n\n")+number).c_str(),kAppName,MB_OK|MB_ICONERROR);
+    MessageBoxW(nullptr,(std::wstring(Tr(L"Could not open: ",L"无法打开：",L"開けませんでした: "))+AppDisplayName(target)+Tr(L"\nCheck its target and arguments in + › Manage apps › Edit app.\n\n",L"\n请在 + › 管理应用 › 编辑应用 中检查它的目标与参数。\n\n",L"\n+ › アプリの管理 › アプリを編集 で対象と引数を確認してください。\n\n")+number).c_str(),kAppName,MB_OK|MB_ICONERROR);
 }
 struct LaunchFailure { AppTarget target; HRESULT hr=S_OK; };
 std::atomic<int> launchesInFlight{0};
@@ -1204,7 +1204,7 @@ public:
             // Never block initialization in a modal message loop. Settings shows the full error.
             auto notice=TrayData(NIF_INFO);
             wcscpy_s(notice.szInfoTitle,Tr(L"Copilot Reel configuration needs attention",L"Copilot Reel 配置需要检查",L"Copilot Reel の構成を確認してください"));
-            wcscpy_s(notice.szInfo,Tr(L"The original file is preserved. Default targets are temporarily loaded. Open App settings to review the error.",L"原配置已保留，暂时使用默认入口。请从托盘打开应用设置查看错误。",L"元のファイルは保持されています。一時的に既定の項目を読み込みました。アプリ設定を開いて問題を確認してください。"));
+            wcscpy_s(notice.szInfo,Tr(L"The original file is preserved. Default targets are temporarily loaded. Review your apps in + › Manage apps › Edit app.",L"原配置已保留，暂时使用默认入口。请在 + › 管理应用 › 编辑应用 中检查你的应用。",L"元のファイルは保持されています。一時的に既定の項目を読み込みました。+ › アプリの管理 › アプリを編集 でアプリを確認してください。"));
             notice.dwInfoFlags=NIIF_WARNING;
             // A test instance's hidden icon takes the notice as its tooltip: the same call on the same
             // icon, which fails as the notice would when the icon is missing, with nothing shown.

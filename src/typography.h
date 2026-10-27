@@ -44,10 +44,12 @@ std::filesystem::path ExecutableFolder();
 // unreadable file) the Japanese mappings use Yu Gothic UI alone.
 HRESULT CreateCjkFallback(IDWriteFactory2* factory, const std::filesystem::path& root, IDWriteFontFallback** fallback) noexcept;
 
-// The GDI font of native controls (the quick menu's controls and the application settings
-// dialog): Segoe UI with the system's font linking, or Yu Gothic UI in Japanese so kanji take
-// Japanese forms. GDI does not see the bundled faces.
+// The GDI font of the app editor's text fields: Segoe UI, Yu Gothic UI in Japanese so kanji take
+// Japanese forms, and Microsoft YaHei UI in Chinese, since Segoe UI's font linking on a
+// non-Chinese Windows reaches Meiryo UI first and gives shared Han Japanese forms (E8). GDI does
+// not see the bundled faces.
 inline const wchar_t* ControlFamily(Language language) {
-    return language == Language::Japanese ? vi::kJapaneseSystemFamily : L"Segoe UI";
+    return language == Language::Japanese ? vi::kJapaneseSystemFamily :
+           language == Language::SimplifiedChinese ? vi::kCjkFamily : L"Segoe UI";
 }
 }
