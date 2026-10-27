@@ -1,19 +1,19 @@
 # Visual identity v1.0: Soft Orbit
 
-Normative visual summary for the native **Copilot Reel 0.3.13** build. Every value below comes from [`design/vi/tokens.json`](../design/vi/tokens.json) (schema 0.9, hand-edited); if this page and the tokens ever disagree, the tokens win. `src/vi_tokens.h` is generated from the same file.
+Normative visual summary for the native **Copilot Reel 0.3.14** build. Every value below comes from [`design/vi/tokens.json`](../design/vi/tokens.json) (schema 1.0, hand-edited); if this page and the tokens ever disagree, the tokens win. `src/vi_tokens.h` is generated from the same file.
 
-The illustrated specification (VI v0.9, 16 pages), its previews, the SVG masters and the review bundle were rebuilt for 0.3.13: they draw the seven-item hub and the About page. Where the PDF differs from this page, this page holds.
+The illustrated specification (VI v1.0, 16 pages), its previews, the SVG masters and the review bundle were rebuilt for 0.3.14: they add the dragged state and the trash, the update dot, Reel size's digits, the critical roles, fallback and live-ramp contrast, Reel Sans SC with the comparison it was chosen from, and motion strips recorded through the seam. Where the PDF differs from this page, this page holds.
 
 ## Deliverables
 
 | Item | Location |
 | --- | --- |
-| Illustrated specification, 16 pages (built for 0.3.13) | [output/pdf/copilot-reel-vi-v1.0.pdf](../output/pdf/copilot-reel-vi-v1.0.pdf) |
-| Page previews at 2x (1920 x 1200, built for 0.3.13) | [output/previews/v1.0/](../output/previews/v1.0) |
-| Editable SVG masters (400 DIP canvas, built for 0.3.13) | [design/vi/vectors/](../design/vi/vectors): `radial-{main,hub,language,about,manage,presets}-{light,dark}.svg`, `radial-{main,hub}-contrast.svg`, `radial-main-{light,dark}-frosted.svg`; the retired 0.3.4 `radial-preferred-*` ones are deleted |
+| Illustrated specification, 16 pages (built for 0.3.14) | [output/pdf/copilot-reel-vi-v1.0.pdf](../output/pdf/copilot-reel-vi-v1.0.pdf) |
+| Page previews at 2x (1920 x 1200, built for 0.3.14) | [output/previews/v1.0/](../output/previews/v1.0) |
+| Editable SVG masters (400 DIP canvas, built for 0.3.14) | [design/vi/vectors/](../design/vi/vectors): `radial-{main,hub,language,about,manage,presets}-{light,dark}.svg`, `radial-{main,hub}-contrast.svg`, `radial-main-{light,dark}-frosted.svg`; the retired 0.3.4 `radial-preferred-*` ones are deleted |
 | Token sheet (Typst, reads tokens.json) | [design/vi/stylesheet.typ](../design/vi/stylesheet.typ) |
 | Generator sources | [design/vi/source/](../design/vi/source): `build_vi.py`, `pages.py`, `reel.py` (mirror of `src/renderer.cpp`), `scene.py`, `art.py`, `fonts.py`, `tokens.py`, `layout.py`, `masters.py` |
-| Runtime evidence | [output/runtime/v0.3.13/](../output/runtime/v0.3.13) (the current reference stills; the motion strips are in [output/runtime/v0.3.4/](../output/runtime/v0.3.4)) and [validation](validation.md) |
+| Runtime evidence | [output/runtime/v0.3.14/](../output/runtime/v0.3.14) (the current reference stills of `tools/capture-seam.py` and the motion strips of `tools/capture-motion.py`, both recorded through the test seam) and [validation](validation.md) |
 | Review bundle | `output/copilot-reel-vi-v1.0.zip` (PDF, SVG masters, tokens, sources, previews; built with the PDF) |
 | Artwork provenance | [assets/brands/provenance.json](../assets/brands/provenance.json) |
 
@@ -190,7 +190,7 @@ One plate (no plate inside the plate); the name owns the center (never over the 
 
 ## Evidence
 
-Runtime-verified in 0.3.4 (native window captures in `output/runtime/v0.3.4/`, see [validation](validation.md)), and from 0.3.5 through the test seam (`tools/capture-seam.py`), whose current reference set is `output/runtime/v0.3.13/`:
+Runtime-verified in 0.3.4 (native window captures in `output/runtime/v0.3.4/`, see [validation](validation.md)), and from 0.3.5 through the test seam (`tools/capture-seam.py`), whose current reference set is `output/runtime/v0.3.14/`:
 
 - Dark and light solid plates: tiles, seat, badge, chevrons, name, ring, and the edge gate that 0.3.11 removed.
 - The high-contrast code path (seat in COLOR_HIGHLIGHT) with the machine's current, non-high-contrast system colors.
@@ -205,7 +205,8 @@ Runtime-verified in 0.3.4 (native window captures in `output/runtime/v0.3.4/`, s
 - Generic glyph (0.3.10): in `output/runtime/v0.3.10/` the probe apps, executables without an icon of their own, show GenericApp on the neutral tile.
 - Tray icon and no center entry (0.3.11): `output/runtime/v0.3.11/` shows the seven-item hub, adds `hub-tray` (the monochrome mark seated, named Tray icon) and replaces `gated` with `edge` (a top-left corner hold moved 10 DIP inward, selecting + without the center).
 - Per-surface painting (0.3.12): `output/runtime/v0.3.12/` has 105 stills named `<variant>-<state>.png`: seven variants (dark and light, solid and frosted; the high-contrast code path; dark solid at 100% and 150%) of fifteen states each. 94 differ from 0.3.11 at half-pixel ties that no longer depend on where the composition atlas keeps a surface.
-- Second audit (0.3.13): `output/runtime/v0.3.13/` is the current reference set, 180 stills: twelve variants of fifteen states each. It adds light solid at 100% and 150%, dark solid at the 70% size step on a 100% display (the name at its 10 px floor) and dark solid at 100% in Chinese and Japanese, and records each name's WCAG contrast against the plate (13.97 in dark, 16.36 in light, 21 in high contrast). Against v0.3.12 only `hub-tray`, `about-author` and `about-switch` change: the monochrome mark's rings sit on whole pixels, About's first tile is named by the version (pinned to 0.0.0 in the captures) and the first switch is named Auto-check.
+- VI v1.0 (0.3.14): `output/runtime/v0.3.14/` is the current reference set, the same 180 stills: the canvas is 400 DIP, every badge cuts its ring out of what lies beneath, the idle ring is inset, the seat's stroke is heavier at small sizes, Shell icons draw from their native frames, Reel size draws 16 DIP digits with a 10 DIP %, and Chinese names are set in Reel Sans SC. The three motion strips (`motion-open-select.png`, `motion-drill.png`, `motion-commit.png`) were recorded with `tools/capture-motion.py` through the seam; page 12 shows them.
+- Second audit (0.3.13): `output/runtime/v0.3.13/` was the reference set, 180 stills: twelve variants of fifteen states each. It adds light solid at 100% and 150%, dark solid at the 70% size step on a 100% display (the name at its 10 px floor) and dark solid at 100% in Chinese and Japanese, and records each name's WCAG contrast against the plate (13.97 in dark, 16.36 in light, 21 in high contrast). Against v0.3.12 only `hub-tray`, `about-author` and `about-switch` change: the monochrome mark's rings sit on whole pixels, About's first tile is named by the version (pinned to 0.0.0 in the captures) and the first switch is named Auto-check.
 - Placement: zero interior offset, minimal clamp at eight edge and corner positions, no cursor warp; from 0.3.11 the seam shows at all eight edges and corners that a pointer left off the plate selects by direction and the opening position selects nothing.
 
 Not verified:
@@ -224,4 +225,4 @@ Known limit (0.3.4): retargeting the seat twice within one spring settle measure
 - [Windows materials](https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/materials)
 - [Brand asset policy](brand-assets.md)
 
-Specification date: 2026-10-20 (VI v0.9); revised for 0.3.13 on 2026-10-27. Development documentation, tokens and sources are English; product localization (English, Simplified Chinese, Japanese) is separate.
+Specification date: 2026-10-20 (VI v0.9); VI v1.0 for 0.3.14 on 2026-10-27. Development documentation, tokens and sources are English; product localization (English, Simplified Chinese, Japanese) is separate.

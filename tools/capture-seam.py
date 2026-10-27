@@ -19,7 +19,10 @@ and widens the name line, 0.3.10 draws the probe apps, which carry no icon, as t
 adds Tray icon to the hub and drops the center gate, 0.3.12 paints every surface in its own bitmap, so
 half-pixel ties no longer depend on the composition atlas, and 0.3.13 sets the monochrome mark's rings on
 whole pixels, names About's first tile by the version (pinned to 0.0.0 here) and its switches Auto-check and
-Auto-install: the reference set is output/runtime/v0.3.13, published with --no-reference. Frosted stills show
+Auto-install, and 0.3.14 cuts every badge's ring out of what lies beneath, insets the idle ring, thickens the
+seat's stroke, draws Reel size's digits at the monogram's size, sets Chinese in Reel Sans SC and grows the
+canvas to 400 DIP so its margin holds the whole shadow: the reference set is output/runtime/v0.3.14,
+published with --no-reference. Frosted stills show
 what lies behind the window, so they match only while that stays the same.
 
 Last, each variant opens Add from the hub once agent discovery has completed and captures every Add page
@@ -35,7 +38,7 @@ tolerance or has another size, when a reference state has no reference image, wh
 their identities, or when a variant cannot be captured. --no-reference records every still without a
 comparison, to publish a new reference set after a deliberate visual change.
 
-    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.13]
+    uv run --python 3.14 --with pillow python tools/capture-seam.py [--reference output/runtime/v0.3.14]
         [--output output/runtime/vX.Y.Z] [--variants dark-solid,light-solid,...] [--tolerance 2] [--no-reference]
 
 Without --output the stills go to the run's evidence directory under artifacts/qa.
@@ -387,7 +390,7 @@ def describe(comparison):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--reference', default='output/runtime/v0.3.13')
+    parser.add_argument('--reference', default='output/runtime/v0.3.14')
     parser.add_argument('--no-reference', action='store_true',
                         help='Record every still without comparing it, to publish a new reference set.')
     # Routine runs write to the evidence directory; publishing a version's stills to

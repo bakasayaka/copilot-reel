@@ -1047,8 +1047,10 @@ def _progress(curve, u):
         return 1 - abs(1 - 2 * bezier('decelerate', u))
     if curve == 'spring':
         z, wn = MOTION['events']['selection']['travel']['dampingRatio'], 4.4
-        wd = wn * math.sqrt(1 - z * z)
         t = u * 1.0
+        if z >= 1:   # critically damped (P9): 1 - (1 + wn t) e^(-wn t), never past its slot
+            return 1 - (1 + wn * t) * math.exp(-wn * t)
+        wd = wn * math.sqrt(1 - z * z)
         return 1 - math.exp(-z * wn * t) * (math.cos(wd * t) + z / math.sqrt(1 - z * z) * math.sin(wd * t))
     return bezier(curve, u)
 
@@ -1107,9 +1109,9 @@ def p11():
 
 # 12 Motion: native stills ---------------------------------------------------------------------
 
-# Native evidence: the reference stills of tools/capture-seam.py, named <variant>-<state>.png, and the motion
-# strips, which only the 0.3.4 capture recorded (tools/capture-v034.py); the motion tokens they show are unchanged since.
-STILLS_VERSION, MOTION_VERSION = '0.3.13', '0.3.4'
+# Native evidence, both recorded through the test seam: the reference stills of tools/capture-seam.py, named
+# <variant>-<state>.png, and the motion strips of tools/capture-motion.py, motion-<name>.png.
+STILLS_VERSION, MOTION_VERSION = '0.3.14', '0.3.14'
 STILLS_DIR = ROOT / 'output' / 'runtime' / f'v{STILLS_VERSION}'
 MOTION_DIR = ROOT / 'output' / 'runtime' / f'v{MOTION_VERSION}'
 
@@ -1127,21 +1129,19 @@ def strip_frame(name, row, col):
 
 
 MOTION_STILLS = [
-    ('Open', 'motion-open-select.png', 'open requested at 300 ms', [(0, 6, '354'), (0, 7, '375'), (1, 0, '396'), (1, 1, '417'), (1, 2, '437'), (1, 5, '500')]),
-    ('Close', 'motion-open-select.png', 'cancel at 51 ms', [(0, 0, '0'), (0, 1, '83'), (0, 2, '104'), (0, 3, '125'), (0, 4, '146'), (0, 5, '167')]),
-    ('Seat', 'motion-open-select.png', 'appears on Claude, then travels to Gemini', [(1, 6, '785'), (1, 7, '805'), (2, 1, '847'), (2, 7, '1104'),
-                                                                                  (3, 0, '1125'), (3, 2, '1166'), (3, 4, '1208'), (3, 6, '1250')]),
-    ('Drill in', 'motion-drill.png', '+ clicked at 300 ms: handoff to the back chevron', [(1, 6, '361'), (1, 7, '382'), (2, 0, '403'), (2, 1, '424'),
-                                                                                       (2, 2, '444'), (2, 4, '486'), (2, 7, '549')]),
-    ('Drill out', 'motion-drill.png', 'Esc at 850 ms', [(3, 2, '889'), (3, 4, '930'), (3, 5, '951'), (3, 6, '972'), (4, 1, '1035')]),
-    ('Commit', 'motion-commit.png', 'click at 300 ms', [(1, 7, '389'), (2, 0, '410'), (2, 1, '431'), (2, 2, '451'), (2, 3, '472')]),
+    ('Open', 'motion-open-select.png', 'open requested at 300 ms', [(0, 4, '326'), (0, 5, '347'), (0, 6, '368'), (0, 7, '389'), (1, 0, '410'), (1, 2, '451')]),
+    ('Close', 'motion-open-select.png', 'cancel at 50 ms', [(0, 0, '0'), (0, 1, '97'), (0, 2, '118'), (0, 3, '139')]),
+    ('Seat', 'motion-open-select.png', 'appears on Claude at 750 ms, then travels to Gemini at 1050 ms', [(1, 5, '792'), (1, 6, '812'), (1, 7, '833'), (2, 0, '854'), (2, 5, '1090'), (2, 6, '1111'), (2, 7, '1132'), (3, 1, '1173')]),
+    ('Drill in', 'motion-drill.png', '+ clicked at 300 ms: handoff to the back chevron', [(1, 5, '326'), (1, 6, '347'), (1, 7, '368'), (2, 0, '389'), (2, 1, '410'), (2, 3, '451'), (2, 6, '514')]),
+    ('Drill out', 'motion-drill.png', 'Esc at 850 ms', [(3, 0, '875'), (3, 1, '896'), (3, 2, '916'), (3, 4, '958'), (3, 7, '1021')]),
+    ('Commit', 'motion-commit.png', 'click at 300 ms', [(1, 1, '333'), (1, 2, '354'), (1, 3, '375'), (1, 4, '396'), (1, 5, '417')]),
 ]
 
 
 def p12():
     p = Page(12, 'Motion', 'The same motion, captured.',
-             f'Frames from Windows Graphics Capture of the native {MOTION_VERSION} window (dark, solid), whose timings '
-             f'{STILLS_VERSION} keeps. Times are capture timestamps.')
+             f'Frames from Windows Graphics Capture of the native {MOTION_VERSION} test instance (dark, solid), driven '
+             'through the seam. Times are capture timestamps.')
     s = p.s
     fs = 92
     y = TOP + 6
@@ -1166,9 +1166,9 @@ def p12():
         i += len(pair)
     w = tag(s, ML, y + 8, 'native')
     caption(s, ML + w + 8, y + 8, f'output/runtime/v{MOTION_VERSION}/motion-open-select.png, motion-drill.png, motion-commit.png '
-            '(frame strips at about 48 fps).', INK2, size=11.5)
-    caption(s, ML + w + 8, y + 25, f'No later build recorded motion strips, so these frames show {MOTION_VERSION}\'s five-item hub, '
-            f'drawn before the {f(G["scale"])} reel scale.', INK2, size=11.5)
+            '(frame strips from tools/capture-motion.py).', INK2, size=11.5)
+    caption(s, ML + w + 8, y + 25, 'The seam drives a separate test instance: no real pointer, input or focus. Identical '
+            'consecutive frames are dropped, so each strip shows change.', INK2, size=11.5)
     return p
 
 
@@ -1390,8 +1390,9 @@ def p15():
                 'badge, switches, chevrons, name and ring',
                 'The high-contrast code path (seat in COLOR_HIGHLIGHT) with current system colors',
                 'Rendering at 100, 150 and 200 % through the DPI override',
-                f'Motion strips ({MOTION_VERSION}): open, cancel, seat appear and travel, drill in with handoff, drill out, commit',
-                f'EN / ZH ({MOTION_VERSION}): idle Main pixel-identical; the hub differs only inside the monogram',
+                f'Motion strips ({MOTION_VERSION}, through the seam): open, cancel, seat appear and travel, drill in with handoff, '
+                'drill out, commit',
+                'EN / ZH (0.3.4): idle Main pixel-identical; the hub differs only inside the monogram',
                 'Placement: zero interior offset, minimal clamp at eight edge and corner positions, no cursor warp; off the '
                 'plate, selection by direction']
     yy = y2 + 26
@@ -1408,8 +1409,9 @@ def p15():
     for line in pending:
         yy = para(s, x4, yy, '–  ' + line, w3, 12, 17) + 8
     caption(s, ML, y2 + 30 + zs + 40, f'Evidence folder: output/runtime/v{STILLS_VERSION}, the reference set of tools/capture-seam.py '
-            f'({len(list(folder.glob("*.png")))} stills).', INK3, size=11)
-    caption(s, ML, y2 + 30 + zs + 55, f'Motion strips: output/runtime/v{MOTION_VERSION}. Validation log: docs/validation.md.', INK3, size=11)
+            f'({len([png for png in folder.glob("*.png") if not png.name.startswith("motion-")])} stills).', INK3, size=11)
+    caption(s, ML, y2 + 30 + zs + 55, f'Motion strips: output/runtime/v{MOTION_VERSION} (tools/capture-motion.py). '
+            'Validation log: docs/validation.md.', INK3, size=11)
     return p
 
 
