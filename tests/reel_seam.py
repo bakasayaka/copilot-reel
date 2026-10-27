@@ -11,8 +11,8 @@ only through messages sent to that window:
 - TestPackets (WM_COPYDATA 'RTST') for the synthetic pointer, clicks, presses, releases and keys.
 
 It never moves the real pointer, never sends input to the system and never activates a
-window. user32 is bound through an explicit allowlist, and assert_no_input_injection()
-refuses any source that names an input-injection API.
+window. user32 is bound through an explicit allowlist, shell32 only for reading where a tray
+icon is, and assert_no_input_injection() refuses any source that names an input-injection API.
 """
 import ctypes
 from ctypes import wintypes as w
@@ -144,8 +144,26 @@ class _Bound:
             setattr(self, name, function)
 
 
+class Guid(ctypes.Structure):
+    _fields_ = [('Data1', w.DWORD), ('Data2', w.WORD), ('Data3', w.WORD), ('Data4', ctypes.c_ubyte * 8)]
+
+    @classmethod
+    def of(cls, value):
+        data = value.bytes
+        return cls(int.from_bytes(data[0:4], 'big'), int.from_bytes(data[4:6], 'big'), int.from_bytes(data[6:8], 'big'),
+                   (ctypes.c_ubyte * 8)(*data[8:]))
+
+
+class NotifyIconIdentifier(ctypes.Structure):
+    _fields_ = [('cbSize', w.DWORD), ('hWnd', w.HWND), ('uID', w.UINT), ('guidItem', Guid)]
+
+
 user32 = _Bound('user32', _USER32)
 kernel32 = _Bound('kernel32', {'GetSystemTimePreciseAsFileTime': ([ctypes.POINTER(ctypes.c_uint64)], None)})
+# Only reads where the Shell keeps a notification-area icon; nothing is added, changed or shown.
+shell32 = _Bound('shell32', {'Shell_NotifyIconGetRect': ([ctypes.POINTER(NotifyIconIdentifier), ctypes.POINTER(w.RECT)], ctypes.c_long)})
+# The installed reel's notification-area icon (kTrayGuid in src/main.cpp).
+TRAY_GUID = uuid.UUID('55f5d570-3345-477e-89fc-bc7a2e773133')
 # Physical pixels, like the per-monitor-aware reel.
 user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
 
@@ -247,6 +265,20 @@ def work_area(point):
     return work.left, work.top, work.right, work.bottom
 
 
+def tray_icon_rect(guid=None, hwnd=None, uid=1):
+    """The screen rectangle of a notification-area icon, by its GUID or its window and uID; None when
+    the Shell has no such icon. The installed reel's icon is found by TRAY_GUID from any process."""
+    identifier = NotifyIconIdentifier(cbSize=ctypes.sizeof(NotifyIconIdentifier))
+    if guid:
+        identifier.guidItem = Guid.of(guid)
+    else:
+        identifier.hWnd, identifier.uID = hwnd, uid
+    bounds = w.RECT()
+    if shell32.Shell_NotifyIconGetRect(ctypes.byref(identifier), ctypes.byref(bounds)) != 0:
+        return None
+    return bounds.left, bounds.top, bounds.right, bounds.bottom
+
+
 def primary_work_area():
     info = MonitorInfo(cbSize=ctypes.sizeof(MonitorInfo))
     assert user32.GetMonitorInfoW(user32.MonitorFromPoint(w.POINT(0, 0), MONITOR_DEFAULTTOPRIMARY), ctypes.byref(info))
@@ -319,6 +351,12 @@ class Diagnostics:
     @property
     def surface_draws(self):
         return int(re.search(r'surface draws=(\d+)', self.text).group(1))
+
+    @property
+    def rebuilds(self):
+        """(pages built, seats that appeared): an update in place adds to neither."""
+        return (int(re.search(r'pages built=(\d+)', self.text).group(1)),
+                int(re.search(r'seat appears=(\d+)', self.text).group(1)))
 
     def flag(self, key):
         return self.values.get(key) == '1'

@@ -18,13 +18,6 @@ enum class PreferredAppMode { Default, AllowDark, ForceDark, ForceLight };
 using SetPreferredAppModeFn = PreferredAppMode(WINAPI*)(PreferredAppMode);
 using FlushMenuThemesFn = void(WINAPI*)();
 
-// The Windows mode, which the taskbar and its notification area follow; the app mode may differ.
-bool TaskbarUsesLightTheme() {
-    DWORD value = 0, bytes = sizeof(value);
-    return RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-        L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr, &value, &bytes) == ERROR_SUCCESS && value != 0;
-}
-
 COLORREF ToColorRef(const Rgba& color) {
     auto channel = [](float value) { return static_cast<BYTE>(std::clamp(value, 0.f, 1.f) * 255.f + .5f); };
     return RGB(channel(color.r), channel(color.g), channel(color.b));
@@ -82,6 +75,20 @@ HBITMAP GlyphBitmap(wchar_t glyph, COLORREF color, int size) {
     if (!font) { DeleteObject(bitmap); return nullptr; }
     return bitmap;
 }
+
+UINT TrackFromNotificationArea(HMENU menu, UINT flags, POINT anchor, HWND owner) {
+    // A notification-area menu closes on an outside click only while its owner is in front.
+    SetForegroundWindow(owner);
+    const UINT choice = TrackPopupMenu(menu, flags, anchor.x, anchor.y, 0, owner, nullptr);
+    PostMessageW(owner, WM_NULL, 0, 0);
+    return choice;
+}
+}
+
+bool TaskbarUsesLightTheme() {
+    DWORD value = 0, bytes = sizeof(value);
+    return RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr, &value, &bytes) == ERROR_SUCCESS && value != 0;
 }
 
 void ApplyMenuTheme(const Appearance& appearance) {
@@ -100,12 +107,17 @@ void ApplyMenuTheme(const Appearance& appearance) {
     flush();
 }
 
-UINT ShowTrayMenu(HWND owner, POINT anchor, const Appearance& appearance,
-                  std::initializer_list<TrayMenuItem> items) {
+Appearance TrayMenuAppearance(const Appearance& appearance, bool taskbarLight) {
     // Windows' own notification-area menus follow the Windows mode, as the taskbar and the
     // monochrome icon do, so a light menu never opens beside a white icon on a dark taskbar.
-    Appearance taskbar = appearance;
-    taskbar.dark = !TaskbarUsesLightTheme();
+    Appearance menu = appearance;
+    menu.dark = !taskbarLight;
+    return menu;
+}
+
+UINT ShowTrayMenu(HWND owner, POINT anchor, const Appearance& appearance, bool taskbarLight,
+                  std::span<const TrayMenuItem> items, TrackTrayMenuFn track) {
+    const Appearance taskbar = TrayMenuAppearance(appearance, taskbarLight);
     ApplyMenuTheme(taskbar);
     const HMONITOR monitor = MonitorFromPoint(anchor, MONITOR_DEFAULTTONEAREST);
     UINT dpi = 96, dpiY = 96;
@@ -149,10 +161,7 @@ UINT ShowTrayMenu(HWND owner, POINT anchor, const Appearance& appearance,
     UINT flags = TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY;
     flags |= anchor.y > (bounds.rcMonitor.top + bounds.rcMonitor.bottom) / 2 ? TPM_BOTTOMALIGN : TPM_TOPALIGN;
     flags |= anchor.x > (bounds.rcMonitor.left + bounds.rcMonitor.right) / 2 ? TPM_RIGHTALIGN : TPM_LEFTALIGN;
-    // A notification-area menu closes on an outside click only while its owner is in front.
-    SetForegroundWindow(owner);
-    const UINT choice = TrackPopupMenu(menu, flags, anchor.x, anchor.y, 0, owner, nullptr);
-    PostMessageW(owner, WM_NULL, 0, 0);
+    const UINT choice = (track ? track : TrackFromNotificationArea)(menu, flags, anchor, owner);
     DestroyMenu(menu);
     for (HBITMAP bitmap : bitmaps) DeleteObject(bitmap);
     // The process' other menus, the editor's, keep the app mode.
@@ -204,23 +213,26 @@ std::vector<DWORD> MarkCoverage(int size) {
 
 }
 
-TrayIconStyle CurrentTrayIconStyle(bool monochrome) {
+TrayIconStyle TrayIconStyleFor(bool monochrome, UINT dpi, bool taskbarLight, std::optional<COLORREF> contrastText) {
     TrayIconStyle style;
     style.monochrome = monochrome;
+    style.size = GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+    // The taskbar follows the Windows mode, not the app mode the reel draws in.
+    if (monochrome) style.color = contrastText ? *contrastText : taskbarLight ? RGB(0, 0, 0) : RGB(255, 255, 255);
+    return style;
+}
+
+TrayIconStyle CurrentTrayIconStyle(bool monochrome, bool taskbarLight) {
     // The notification area is on the primary monitor: its current DPI, which can differ from the
     // system DPI fixed at sign-in.
     UINT dpi = 0, dpiY = 0;
     if (FAILED(GetDpiForMonitor(MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY), MDT_EFFECTIVE_DPI, &dpi, &dpiY)) || !dpi)
         dpi = GetDpiForSystem();
-    style.size = GetSystemMetricsForDpi(SM_CXSMICON, dpi);
-    if (monochrome) {
-        HIGHCONTRASTW contrast{sizeof(contrast)};
-        const bool highContrast = SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0) &&
-            (contrast.dwFlags & HCF_HIGHCONTRASTON);
-        // The taskbar follows the Windows mode, not the app mode the reel draws in.
-        style.color = highContrast ? GetSysColor(COLOR_WINDOWTEXT) : TaskbarUsesLightTheme() ? RGB(0, 0, 0) : RGB(255, 255, 255);
-    }
-    return style;
+    HIGHCONTRASTW contrast{sizeof(contrast)};
+    const bool highContrast = SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0) &&
+        (contrast.dwFlags & HCF_HIGHCONTRASTON);
+    return TrayIconStyleFor(monochrome, dpi, taskbarLight,
+        highContrast ? std::optional<COLORREF>(GetSysColor(COLOR_WINDOWTEXT)) : std::nullopt);
 }
 
 HICON CreateTrayIcon(const TrayIconStyle& style) {

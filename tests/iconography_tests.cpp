@@ -29,7 +29,23 @@ reel::AppTarget Target(const wchar_t* target,const wchar_t* name=L"Renamed entry
     return {name,kind,target,L"",L""};
 }
 
-struct Raster { uint64_t hash=0; unsigned visible=0,outsideTile=0,inCorners=0; float centerX=0,centerY=0,inkWidth=0,inkHeight=0; };
+struct Raster { uint64_t hash=0; unsigned visible=0,outsideTile=0,inCorners=0; float centerX=0,centerY=0,inkWidth=0,inkHeight=0;
+                UINT edge=0; std::vector<BYTE> alpha; };
+
+// Solid runs (alpha 128 or more) from the ink's center to the right edge, on the ink's middle row:
+// one for the outer orbit alone, two when the inner ring runs inside it.
+unsigned RunsRightOfCenter(const Raster& raster) {
+    UINT left=raster.edge,top=raster.edge,right=0,bottom=0;
+    for(UINT y=0;y<raster.edge;++y)for(UINT x=0;x<raster.edge;++x)if(raster.alpha[y*raster.edge+x]>=8) {
+        left=std::min(left,x);right=std::max(right,x);top=std::min(top,y);bottom=std::max(bottom,y);
+    }
+    unsigned runs=0;bool inside=false;
+    for(UINT x=(left+right)/2,y=(top+bottom)/2;x<raster.edge;++x) {
+        const bool solid=raster.alpha[y*raster.edge+x]>=128;
+        runs+=solid && !inside;inside=solid;
+    }
+    return runs;
+}
 
 // Headless WARP device context, so the production DrawArtwork path (per-DPI prescale,
 // tile clip, Segoe Fluent Icons) is exercised without a window.
@@ -60,11 +76,13 @@ public:
         winrt::check_hresult(readable->CopyFromBitmap(nullptr,target.get(),nullptr));
         D2D1_MAPPED_RECT pixels{};winrt::check_hresult(readable->Map(D2D1_MAP_OPTIONS_READ,&pixels));
         Raster result;result.hash=14695981039346656037ull;
+        result.edge=edge;result.alpha.resize(static_cast<size_t>(edge)*edge);
         const float scale=dpi/96,tileLeft=12*scale,tileRight=52*scale,radius=reel::vi::kTileRadius*scale;
         double sumX=0,sumY=0;
         UINT left=edge,top=edge,right=0,bottom=0;
         for(UINT y=0;y<edge;++y)for(UINT x=0;x<edge;++x) {
             const BYTE* pixel=pixels.bits+y*pixels.pitch+x*4;
+            result.alpha[static_cast<size_t>(y)*edge+x]=pixel[3];
             for(unsigned channel=0;channel<4;++channel){result.hash^=pixel[channel];result.hash*=1099511628211ull;}
             if(pixel[3]<8)continue;
             ++result.visible;sumX+=x+.5;sumY+=y+.5;
@@ -235,6 +253,18 @@ int main() {
     const auto smallest=canvas.Draw(Target(L"reel:tray-icon:monochrome"),54);
     Check(std::abs(smallest.inkWidth-vi::kTile*vi::kOrbitMarkExtent/vi::kOrbitMarkCanvas)<=96/54.f && smallest.outsideTile==0,
         "the mark alone keeps its width at the smallest step");
+    // Every reel size at 100%, 125% and 150% display scaling, at the reel's effective DPI: the stroke is
+    // 1/14 of the mark and the inner ring needs two pixels of it, so the 70% and 85% steps at 100% and
+    // the 70% step at 125% show the outer orbit and the dot; every other one shows both rings.
+    for(const float monitor:{96.f,120.f,144.f})for(const float step:vi::kReelSizeSteps) {
+        const float dpi=static_cast<float>(std::lround(monitor*vi::kReelScale*step));
+        const auto mark=canvas.Draw(Target(L"reel:tray-icon:monochrome"),dpi);
+        const bool outerOnly=(monitor==96 && step<1) || (monitor==120 && step<.8f);
+        Check(RunsRightOfCenter(mark)==(outerOnly?1u:2u),
+            outerOnly?"the hub's small monochrome mark is the outer orbit and the dot":"the hub's monochrome mark has both rings");
+        Check(std::abs(mark.inkWidth-vi::kTile*vi::kOrbitMarkExtent/vi::kOrbitMarkCanvas)<=96/dpi && mark.outsideTile==0,
+            "the hub's monochrome mark keeps the color mark's width at every size");
+    }
     // Catalog entries that still need a target all have an empty one; their catalog name picks the
     // mark, so they must never share artwork (0.3.5 drew Antigravity's for JetBrains IDE and Junie).
     const std::vector<AppTarget> pending{Target(L"",L"Antigravity"),Target(L"",L"JetBrains IDE"),Target(L"",L"Junie"),

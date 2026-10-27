@@ -100,4 +100,8 @@ POINT CursorPosition();
 void SetSyntheticCursor(POINT screen);
 // ".Test.<run id>" for the instance mutex and ready event when active, otherwise empty.
 std::wstring TestInstanceSuffix();
+// COPILOT_REEL_TEST_TRAY=hidden gives an active test instance a hidden notification-area icon
+// without the GUID, so the seam can check the tray paths (tests/run-reel-seam.py, group tray).
+// Nothing shows: the icon is hidden and a notice on it changes only its tooltip.
+bool TestTrayIcon();
 }

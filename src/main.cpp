@@ -368,8 +368,9 @@ public:
         PreloadOfficialIconAssets();
         RefreshAppearance();
         // The icon comes first, so a configuration error found by Reload has an icon to show its notice on.
-        // A test instance is invisible to the Shell, the tray and the user's hotkey.
-        if(!CurrentTestInput().active)AddTray();
+        // A test instance is invisible to the Shell, the tray and the user's hotkey, unless the seam
+        // asks for its hidden tray icon (TestTrayIcon).
+        if(HasTray())AddTray();
         Reload();
         // A cold start serves a Copilot key press; discovery waits on a worker unless Reload needed it.
         RefreshPresets();
@@ -1204,7 +1205,11 @@ public:
             auto notice=TrayData(NIF_INFO);
             wcscpy_s(notice.szInfoTitle,Tr(L"Copilot Reel configuration needs attention",L"Copilot Reel 配置需要检查",L"Copilot Reel の構成を確認してください"));
             wcscpy_s(notice.szInfo,Tr(L"The original file is preserved. Default targets are temporarily loaded. Open App settings to review the error.",L"原配置已保留，暂时使用默认入口。请从托盘打开应用设置查看错误。",L"元のファイルは保持されています。一時的に既定の項目を読み込みました。アプリ設定を開いて問題を確認してください。"));
-            notice.dwInfoFlags=NIIF_WARNING;Shell_NotifyIconW(NIM_MODIFY,&notice);
+            notice.dwInfoFlags=NIIF_WARNING;
+            // A test instance's hidden icon takes the notice as its tooltip: the same call on the same
+            // icon, which fails as the notice would when the icon is missing, with nothing shown.
+            if(CurrentTestInput().active) {notice.uFlags=(notice.uFlags&~NIF_INFO)|NIF_TIP|NIF_SHOWTIP;wcscpy_s(notice.szTip,notice.szInfoTitle);}
+            Log(Shell_NotifyIconW(NIM_MODIFY,&notice)?L"Configuration notice sent":L"Configuration notice could not be sent");
         }
     }
     void RegisterRawInput(bool enable) {
@@ -1230,24 +1235,32 @@ public:
     // package version runs from its own folder. A GUID-identified icon keeps one key and only
     // moves its path on an update, signed executable or not (docs/validation.md). Should Windows
     // refuse the GUID, the icon goes by the window and uID, so it always shows. Only the default
-    // instance carries the GUID: a smoke instance's icon goes by its window from the start, so
-    // neither its add nor its stale-icon delete can reach the installed reel's icon.
+    // instance carries the GUID: a smoke or test instance's icon goes by its window from the start,
+    // so neither its add nor its stale-icon delete can reach the installed reel's icon.
     static constexpr GUID kTrayGuid{0x55f5d570,0x3345,0x477e,{0x89,0xfc,0xbc,0x7a,0x2e,0x77,0x31,0x33}};
     NOTIFYICONDATAW TrayData(UINT flags) const {
         NOTIFYICONDATAW data{sizeof(data)};data.hWnd=window;data.uID=1;data.uFlags=flags;
         if(trayGuid_) {data.uFlags|=NIF_GUID;data.guidItem=kTrayGuid;}
         return data;
     }
+    bool HasTray() const {return !CurrentTestInput().active || TestTrayIcon();}
+    // The Windows mode, which the tray icon and the tray menu follow; a capture override stands in for it.
+    bool TaskbarLight() const {
+        const auto& visual=CurrentVisualOverride();
+        return visual.taskbarLight?*visual.taskbarLight:TaskbarUsesLightTheme();
+    }
     void AddTray() {
         auto add=[&] {
             auto data=TrayData(NIF_MESSAGE|NIF_ICON|NIF_TIP|NIF_SHOWTIP);data.uCallbackMessage=kTrayMessage;
             data.hIcon=TrayIcon();
             wcscpy_s(data.szTip,kAppName);
+            if(CurrentTestInput().active) {data.uFlags|=NIF_STATE;data.dwState=data.dwStateMask=NIS_HIDDEN;}
             if(!Shell_NotifyIconW(NIM_ADD,&data))return false;
             data.uVersion=NOTIFYICON_VERSION_4;Shell_NotifyIconW(NIM_SETVERSION,&data);
+            Log(trayGuid_?L"Tray icon added by its GUID":L"Tray icon added by its window and uID");
             return true;
         };
-        trayGuid_=!smoke;
+        trayGuid_=!smoke && !CurrentTestInput().active;
         if(add())return;
         // An icon this window added before (a lost TaskbarCreated race) blocks a second add.
         auto stale=TrayData(0);Shell_NotifyIconW(NIM_DELETE,&stale);
@@ -1261,7 +1274,7 @@ public:
     }
     // The icon for the current style, created again only when the style changes.
     HICON TrayIcon() {
-        const auto style=CurrentTrayIconStyle(CurrentTrayMonochrome());
+        const auto style=CurrentTrayIconStyle(CurrentTrayMonochrome(),TaskbarLight());
         if(!trayIcon_ || !(style==trayIconStyle_)) {
             if(HICON icon=CreateTrayIcon(style)) {
                 if(trayIcon_)DestroyIcon(trayIcon_);
@@ -1272,7 +1285,7 @@ public:
     }
     // Follows the taskbar's light or dark mode and the user's choice; unchanged icons stay as they are.
     void UpdateTrayIcon() {
-        if(CurrentTestInput().active)return;
+        if(!HasTray())return;
         const HICON previous=trayIcon_;
         const auto previousStyle=trayIconStyle_;
         const HICON icon=TrayIcon();
@@ -1293,15 +1306,20 @@ public:
         if(trayIcon_) {DestroyIcon(trayIcon_);trayIcon_=nullptr;}
     }
     // `anchor` is the icon's anchor point, so a menu opened from the keyboard sits beside it too.
-    void TrayMenu(POINT anchor) {
-        const UINT choice=ShowTrayMenu(window,anchor,currentAppearance_,{
+    // The tray menu in the current language; diagnostics list it too.
+    std::array<TrayMenuItem,7> TrayMenuItems() const {
+        return {{
             {kCommandPreview,Tr(L"Preview reel (click to open)",L"预览轮盘（点击打开）",L"リールを表示 (クリックで開く)"),vi::kGlyphTrayPreview,true},
             {kCommandSettings,Tr(L"Quick menu...",L"快捷菜单…",L"簡易メニュー…"),vi::kGlyphTraySettings},
             {kCommandDiagnostics,Tr(L"Write diagnostics",L"写出诊断信息",L"診断情報を書き出す"),vi::kGlyphTrayDiagnostics},
             {},
             {kCommandTrayIcon,Tr(L"Monochrome icon",L"单色图标",L"モノクロ アイコン"),0,false,CurrentTrayMonochrome()},
             {},
-            {kCommandExit,Tr(L"Exit",L"退出",L"終了"),vi::kGlyphTrayExit}});
+            {kCommandExit,Tr(L"Exit",L"退出",L"終了"),vi::kGlyphTrayExit}}};
+    }
+    void TrayMenu(POINT anchor) {
+        const auto items=TrayMenuItems();
+        const UINT choice=ShowTrayMenu(window,anchor,currentAppearance_,TaskbarLight(),items);
         if(choice) PostMessageW(window,WM_COMMAND,choice,0);
     }
     void SaveDiagnostics() {
@@ -1334,13 +1352,22 @@ public:
         for(const auto& entry:menu_)
             badges+=(badges.empty()?L"":L"|")+std::wstring(entry.badge==TileBadge::Check?L"check":entry.badge==TileBadge::Dot?L"dot":L"-");
         const auto updates=CurrentUpdatePreferences();
+        // The tray menu as it would open now: its items ("-" a separator), the checked ones and its theme.
+        std::wstring trayMenu,trayChecked;
+        for(const auto& item:TrayMenuItems()) {
+            trayMenu+=(trayMenu.empty()?L"":L"|")+std::wstring(item.command?item.text:L"-");
+            if(item.checked)trayChecked+=(trayChecked.empty()?L"":L"|")+std::wstring(item.text);
+        }
         text<<L"\r\nmenuBadges="<<badges<<L"\r\nautoCheck="<<updates.autoCheck<<L"\r\nautoInstall="<<updates.autoInstall
             <<L"\r\nlastUpdateCheck="<<updates.lastCheck
-            // The saved choice (a test instance keeps it but shows no icon), then the icon the
-            // notification area shows: its style, size and the monochrome mark's COLORREF.
+            // The saved choice (a test instance keeps it and shows no icon unless the seam asks for
+            // a hidden one), then the icon the notification area shows: its style, size and the
+            // monochrome mark's COLORREF.
             <<L"\r\ntrayIconChoice="<<(CurrentTrayMonochrome()?L"monochrome":L"color")
             <<L"\r\ntrayIcon="<<(trayIconStyle_.monochrome?L"monochrome":L"color")<<L"\r\ntrayIconGuid="<<trayGuid_<<L"\r\ntrayIconSize="<<trayIconStyle_.size
             <<L"\r\ntrayIconColor="<<std::hex<<std::setw(6)<<std::setfill(L'0')<<trayIconStyle_.color<<std::dec<<std::setfill(L' ')
+            <<L"\r\ntrayTaskbar="<<(TaskbarLight()?L"light":L"dark")<<L"\r\ntrayMenu="<<trayMenu<<L"\r\ntrayMenuChecked="<<trayChecked
+            <<L"\r\ntrayMenuTheme="<<(TrayMenuAppearance(currentAppearance_,TaskbarLight()).dark?L"dark":L"light")
             <<L"\r\n"<<updater_->Diagnostics();
         if(CurrentTestInput().active)
             text<<L"\r\ntestInput=on\r\ntestRun="<<CurrentTestInput().runId<<L"\r\nrealInputIgnored="<<realInputIgnored_
@@ -1485,7 +1512,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd,UINT message,WPARAM wParam,LPARAM lPa
     if(!self) return DefWindowProcW(hwnd,message,wParam,lParam);
     try {
         static const UINT taskbarCreated=RegisterWindowMessageW(L"TaskbarCreated");
-        if(message==taskbarCreated) {if(!CurrentTestInput().active)self->AddTray();return 0;}
+        if(message==taskbarCreated) {if(self->HasTray())self->AddTray();return 0;}
         if(CurrentTestInput().active) switch(message) {
             case WM_INPUT:case WM_MOUSEMOVE:case WM_LBUTTONDOWN:case WM_LBUTTONUP:case WM_RBUTTONUP:case WM_KEYDOWN:
                 self->RealInputIgnored();return 0;

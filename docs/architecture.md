@@ -95,7 +95,7 @@ Material precedence:
 2. Transparency disabled, energy saver active, or effects unavailable: opaque light/dark neutral surface.
 3. Transparency enabled and supported: frosted host backdrop.
 
-The base follows app light/dark appearance with Windows neutrals (`#F9F9F9` / `#2C2C2C`). Selection uses the live accent ramp, never the raw accent: `AccentDark1` in light and `AccentLight2` in dark for fills and strokes, `AccentDark2` / `AccentLight3` for accent text. Solid surfaces have alpha `1` and no background sampling. High contrast uses `GetSysColor` window, text, highlight, and highlighted-text colors. `COPILOT_REEL_VISUAL_OVERRIDE` (theme, material, contrast, motion, DPI) exists only for native captures and is never persisted.
+The base follows app light/dark appearance with Windows neutrals (`#F9F9F9` / `#2C2C2C`). Selection uses the live accent ramp, never the raw accent: `AccentDark1` in light and `AccentLight2` in dark for fills and strokes, `AccentDark2` / `AccentLight3` for accent text. Solid surfaces have alpha `1` and no background sampling. High contrast uses `GetSysColor` window, text, highlight, and highlighted-text colors. `COPILOT_REEL_VISUAL_OVERRIDE` (theme, material, contrast, motion, DPI, and the taskbar's Windows mode, which the tray icon and the tray menu follow) exists only for native captures and is never persisted.
 
 `UISettings` supplies effects/animation preferences and foreground/accent colors. Its change events and energy-saver events post to the UI thread, where updates are coalesced. Win32 setting/theme/color messages also refresh the snapshot; `SPI_GETHIGHCONTRAST` checks high contrast. Exit revokes subscriptions and clears callback access to the HWND. There is no per-frame registry polling.
 

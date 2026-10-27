@@ -51,6 +51,10 @@ LANGUAGE, APPEARANCE, SIZE, TRAY, MANAGE, ADD, ABOUT = \
 HUB = [LANGUAGE, APPEARANCE, SIZE, TRAY, MANAGE, ADD, ABOUT]
 HUB_ZH = ['语言', '外观', '轮盘大小', '托盘图标', '管理应用', '添加应用', '关于']
 HUB_JA = ['言語', '外観', 'リールの大きさ', 'トレイ アイコン', 'アプリの管理', 'アプリを追加', 'バージョン情報']
+# The tray menu as diagnostics list it ('-' is a separator), and its Monochrome icon item.
+TRAY_MENU = ['Preview reel (click to open)', 'Quick menu...', 'Write diagnostics', '-', 'Monochrome icon', '-', 'Exit']
+TRAY_MENU_ZH = ['预览轮盘（点击打开）', '快捷菜单…', '写出诊断信息', '-', '单色图标', '-', '退出']
+TRAY_MENU_JA = ['リールを表示 (クリックで開く)', '簡易メニュー…', '診断情報を書き出す', '-', 'モノクロ アイコン', '-', '終了']
 CUSTOM, PREVIOUS, NEXT = 'Custom app', 'Previous', 'Next'
 EDIT, SET_PREFERRED, REMOVE = 'Edit app', 'Set as preferred', 'Remove from reel'
 
@@ -1059,10 +1063,15 @@ def group_hub(g):
     g.passed('both chevrons and the language icon step and persist the language; the app profile is shared')
 
     # Tray icon turns the notification-area icon over in place and shows the choice in its icon.
-    # A test instance shows no tray icon, so diagnostics report the saved choice.
+    # A test instance shows no tray icon, so diagnostics report the saved choice. The seat already
+    # rests on the tile; turning it over neither builds a page nor makes the seat appear again,
+    # which would fade it in and scale it up.
     tray = HUB.index(TRAY)
+    reel.pointer(reel.sector_of(TRAY))
     state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
     assert state['trayIconChoice'] == 'color' and state.art[tray] == 'source|copilot-reel', state.art
+    assert state.selected == tray, state.text
+    rebuilds = state.rebuilds
     reel.choose(TRAY)
     seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'monochrome', 'monochrome tray icon')
     state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
@@ -1073,10 +1082,11 @@ def group_hub(g):
     seam.wait(lambda: reel.diagnostics()['trayIconChoice'] == 'color', 'color tray icon')
     state = assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
     assert state.art[tray] == 'source|copilot-reel' and 'transition=in-place' in state.text, state.text
+    assert state.rebuilds == rebuilds, f'Turning the tile over built a page or made the seat appear again: {rebuilds} -> {state.rebuilds}'
     assert 'TrayIcon=color' in language(g)
     assert_no_launch(g, 0)
     g.passed('Tray icon switches the tray icon between color and monochrome in place, saves it, stays selected '
-             'and shows the reel mark or the mark alone')
+             'and shows the reel mark or the mark alone; no page is built and the seat never appears again')
     close_menu(g, 2)
     assert_quiet(g)
     reel.stop()
@@ -1274,6 +1284,8 @@ def group_about(g):
         assert state['menuBadges'] == '-|-|-|-|-', 'A switch shows its state in its icon, not with a badge.'
         g.passed('About lists the reel mark named by its version, GitHub named by the author, two switches and Check for updates')
 
+        reel.pointer(reel.sector_of('Auto-install'))
+        rebuilds = reel.diagnostics().rebuilds
         reel.choose('Auto-install')
         seam.wait(lambda: reel.diagnostics()['autoInstall'] == '1', 'automatic installs on')
         state = assert_page(g, seam.PAGE_ABOUT)
@@ -1281,8 +1293,10 @@ def group_about(g):
         assert 'AutoInstall=1' in (g.data / 'preferences.ini').read_text(encoding='utf-16')
         reel.choose('Auto-install')
         seam.wait(lambda: reel.diagnostics()['autoInstall'] == '0', 'automatic installs off')
+        state = reel.diagnostics()
+        assert state.rebuilds == rebuilds, f'The switch built a page or made the seat appear again: {rebuilds} -> {state.rebuilds}'
         assert_no_launch(g, 0)
-        g.passed('a switch turns over in place, is saved and stays on About')
+        g.passed('a switch turns over in place, is saved and stays on About; no page is built and the seat never appears again')
 
         reel.choose('Check for updates')
         if not package:
@@ -1327,10 +1341,108 @@ def group_about(g):
         feed.close()
 
 
+def tray_state(g, menu, checked, taskbar, icon, color):
+    """Diagnostics once the tray menu lists `menu` with `checked` and the icon is `icon` in `color`."""
+    def ready():
+        state = g.reel.diagnostics()
+        return state if state['trayMenu'] == '|'.join(menu) and state['trayIcon'] == icon else None
+    state = seam.wait(ready, 'the tray menu ' + '|'.join(menu))
+    assert state['trayMenuChecked'] == checked and state['trayTaskbar'] == taskbar and state['trayIconColor'] == color, state.text
+    return state
+
+
+def group_tray(g):
+    """The tray paths on a hidden test icon: a broken profile's notice, the menu in three languages and both
+    Windows modes, the monochrome icon, the version, and a smoke instance beside the installed reel."""
+    reel = g.reel
+    version = re.search(r'project\(CopilotReel VERSION ([\d.]+)', (ROOT / 'CMakeLists.txt').read_text(encoding='utf-8')).group(1)
+    # The icon comes before Reload, so a profile found broken at start has an icon for its notice.
+    (g.data / 'apps.ini').write_text('broken', encoding='ascii')
+    reel.extra = {'COPILOT_REEL_TEST_TRAY': 'hidden'}
+    reel.visual = 'theme=light;taskbar=dark'
+    reel.start()
+    log = reel.read_log()
+    added, failed, sent = (log.find(text) for text in ('Tray icon added by its window and uID', 'Configuration validation failed',
+                                                         'Configuration notice sent'))
+    assert 0 <= added < failed < sent and 'Configuration notice could not be sent' not in log, log
+    assert (g.data / 'apps.ini').read_text(encoding='ascii') == 'broken', 'The broken profile is preserved.'
+    state = reel.diagnostics()
+    assert state['trayIconGuid'] == '0', "A test instance's icon goes by its window and never by the installed reel's GUID."
+    g.passed('a profile broken at start sends its notice to the tray icon added before it, which has no GUID')
+
+    # Dark Windows, light apps: the tray menu and the monochrome mark follow the Windows mode, the reel
+    # and the editor's menus the app mode.
+    state = tray_state(g, TRAY_MENU, '', 'dark', 'color', '000000')
+    assert state['trayMenuTheme'] == 'dark' and state['dark'] == '0', state.text
+    assert state.text.splitlines()[0] == f'Copilot Reel {version}', state.text.splitlines()[0]
+    open_preview(g, ANCHOR)
+    reel.choose(PLUS)
+    assert_page(g, seam.PAGE_SETTINGS, 'Settings', HUB)
+    reel.choose(TRAY)
+    state = tray_state(g, TRAY_MENU, 'Monochrome icon', 'dark', 'monochrome', 'ffffff')
+    g.passed('with dark Windows and light apps the tray menu opens dark and the reel stays light; the monochrome '
+             'mark is white and the menu checks Monochrome icon')
+    reel.choose(LANGUAGE)
+    wait_language(g, 'zh-CN')
+    tray_state(g, TRAY_MENU_ZH, '单色图标', 'dark', 'monochrome', 'ffffff')
+    reel.choose(HUB_ZH[0])
+    wait_language(g, 'ja-JP')
+    tray_state(g, TRAY_MENU_JA, 'モノクロ アイコン', 'dark', 'monochrome', 'ffffff')
+    reel.choose(HUB_JA[0])
+    wait_language(g, 'en-US')
+    tray_state(g, TRAY_MENU, 'Monochrome icon', 'dark', 'monochrome', 'ffffff')
+    g.passed('the tray menu reads 单色图标 in Chinese and モノクロ アイコン in Japanese, checked while it is chosen')
+    reel.choose(ABOUT)
+    state = assert_page(g, seam.PAGE_ABOUT, 'About')
+    assert state.names[0] == version, f'About names the reel mark by the executable version {version}: {state.names}'
+    g.passed(f'diagnostics open with Copilot Reel {version} and About names its first tile {version}, the executable version')
+    close_menu(g, 3)
+    assert_quiet(g)
+    reel.stop()
+
+    # Light Windows, dark apps; the monochrome choice was saved.
+    reel.visual = 'theme=dark;taskbar=light'
+    offset = reel.start()
+    assert 'Configuration notice sent' in reel.read_log()[offset:]
+    state = tray_state(g, TRAY_MENU, 'Monochrome icon', 'light', 'monochrome', '000000')
+    assert state['trayMenuTheme'] == 'light' and state['dark'] == '1', state.text
+    g.passed('with light Windows and dark apps the tray menu opens light, the reel stays dark and the mark is black')
+    reel.stop()
+
+    # A smoke instance beside the installed reel: its icon goes by its window, so neither its add nor its
+    # delete at exit reaches the installed reel's GUID icon, which stays where it is throughout.
+    installed = seam.installed_window()
+    before = seam.tray_icon_rect(guid=seam.TRAY_GUID) if installed else None
+    smoke = g.data / 'smoke'
+    smoke.mkdir()
+    process = subprocess.Popen([str(reel.exe), '--smoke-test'], env=reel.environment(run_id=g.run_id + '-smoke', data=smoke),
+                               creationflags=seam.CREATE_NO_WINDOW)
+    samples = []
+    while process.poll() is None:
+        if installed:
+            samples.append(seam.tray_icon_rect(guid=seam.TRAY_GUID))
+        time.sleep(.1)
+    assert process.returncode == 0, f'The smoke instance exited with {process.returncode}.'
+    smoke_log = (smoke / 'run.log').read_text(encoding='utf-8', errors='replace')
+    assert 'Tray icon added by its window and uID' in smoke_log and 'Smoke test completed' in smoke_log, smoke_log
+    assert seam.Diagnostics((smoke / 'diagnostics.txt').read_text(encoding='utf-8'))['trayIconGuid'] == '0'
+    if not installed:
+        g.passed('a smoke instance adds its icon by its window and uID (trayIconGuid=0)')
+        g.note('the installed reel is not running: its icon could not be watched during a smoke run')
+        return
+    after = seam.tray_icon_rect(guid=seam.TRAY_GUID)
+    assert before and after and len(samples) >= 30 and all(samples), (
+        f"The installed reel's icon must stay through a smoke run: before {before}, after {after}, "
+        f'{sum(1 for s in samples if not s)} of {len(samples)} samples missing')
+    g.passed(f'a smoke instance adds its icon by its window and uID; the installed reel\'s GUID icon stayed in all '
+             f'{len(samples)} samples during the run and after it')
+
+
 GROUPS = {
     'a': group_a, 'b': group_b, 'c': group_c, 'd': group_d, 'e': group_e,
     'fast-path': group_fast_path, 'interior': group_interior, 'hub': group_hub,
     'preferred': group_preferred, 'draws': group_draws, 'cold': group_cold, 'about': group_about,
+    'tray': group_tray,
 }
 
 

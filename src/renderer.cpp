@@ -119,6 +119,9 @@ struct OrbitRenderer::Impl {
     bool ready = false, visible = false, closing = false, backdrop = false, softwareDevice = false;
     bool contentDirty = true, appearanceSet = false;
     unsigned surfaceDraws = 0;
+    // Pages built and seats that appeared (faded in and scaled up when animated), so diagnostics
+    // show that an update in place rebuilt nothing and left the seat as it was.
+    unsigned pagesBuilt = 0, seatAppears = 0;
     PaintScratch scratch;  // PaintLocal's bitmap, reused while sizes repeat
     Appearance appearance;
     Language language = Language::English;
@@ -745,6 +748,7 @@ struct OrbitRenderer::Impl {
     // ---- Pages.
 
     std::shared_ptr<Page> BuildPage(const PageModel& model) {
+        ++pagesBuilt;
         auto result = std::make_shared<Page>();
         auto& p = *result;
         p.model = model;
@@ -1296,6 +1300,7 @@ struct OrbitRenderer::Impl {
                     Opacity(p.seat, 0, vi::kSeatFadeMs, animate);
                 } else if (previous < 0) {
                     PlaceSeat(p, seat);
+                    ++seatAppears;
                     if (animate) {
                         p.seat.StartAnimation(L"Opacity", ScalarAnimation(0.f, 1, vi::kSeatFadeMs, linear));
                         p.seat.StartAnimation(L"Scale", ScaleAnimation(vi::kSeatAppearScaleFrom, 1, vi::kSeatAppearMs, decelerate));
@@ -1579,6 +1584,7 @@ std::wstring OrbitRenderer::Diagnostics() const {
         L"; animation=open-fade83-scale167/close83/commit133/seat-spring/drill250/handoff200; center=quiet; perimeter=neutral" +
         L"; text=" + self.textFamily + L"; DPI=" + std::to_wstring(self.dpi) +
         L"; surface draws=" + std::to_wstring(self.surfaceDraws) +
+        L"; pages built=" + std::to_wstring(self.pagesBuilt) + L"; seat appears=" + std::to_wstring(self.seatAppears) +
         L"; device=" + (self.softwareDevice ? L"WARP" : L"hardware") +
         (self.lastError.empty() ? L"" : L"; last error=" + self.lastError);
 }

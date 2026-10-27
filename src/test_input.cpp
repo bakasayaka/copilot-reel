@@ -47,4 +47,8 @@ void SetSyntheticCursor(POINT screen) {
 std::wstring TestInstanceSuffix() {
     return CurrentTestInput().active?L".Test."+CurrentTestInput().runId:std::wstring();
 }
+bool TestTrayIcon() {
+    static const bool value=CurrentTestInput().active && EnvironmentValue(L"COPILOT_REEL_TEST_TRAY")==L"hidden";
+    return value;
+}
 }

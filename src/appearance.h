@@ -8,11 +8,12 @@
 namespace reel {
 // Capture-only override from COPILOT_REEL_VISUAL_OVERRIDE, applied after the system
 // values are read and never persisted:
-// "theme=light|dark;material=solid|frosted;contrast=on|off;motion=on|off;dpi=<96..384>".
-// Every key is optional; unknown keys and invalid values are ignored.
+// "theme=light|dark;material=solid|frosted;contrast=on|off;motion=on|off;dpi=<96..384>;taskbar=light|dark".
+// Every key is optional; unknown keys and invalid values are ignored. `taskbar` stands in for the
+// Windows mode, which the tray icon and the tray menu follow, as `theme` does for the app mode.
 struct VisualOverride {
     std::wstring raw;   // empty when the variable is unset
-    std::optional<bool> dark, frosted, highContrast, animations;
+    std::optional<bool> dark, frosted, highContrast, animations, taskbarLight;
     UINT dpi = 0;       // 0 follows the monitor
 };
 
@@ -44,6 +45,7 @@ inline VisualOverride ParseVisualOverride(std::wstring_view text) {
         else if (key == L"material") { if (auto v = flag(L"frosted", L"solid")) result.frosted = v; }
         else if (key == L"contrast") { if (auto v = flag(L"on", L"off")) result.highContrast = v; }
         else if (key == L"motion") { if (auto v = flag(L"on", L"off")) result.animations = v; }
+        else if (key == L"taskbar") { if (auto v = flag(L"light", L"dark")) result.taskbarLight = v; }
         else if (key == L"dpi" && !value.empty() && value.size() <= 3 &&
                  value.find_first_not_of(L"0123456789") == value.npos) {
             const UINT dpi = static_cast<UINT>(std::stoul(value));

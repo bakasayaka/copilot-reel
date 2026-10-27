@@ -54,7 +54,16 @@ inline void DrawOrbitMark(ID2D1RenderTarget* target, D2D1_POINT_2F center, const
                 D2D1_SWEEP_DIRECTION_CLOCKWISE, ring.to - ring.from > 180 ? D2D1_ARC_SIZE_LARGE : D2D1_ARC_SIZE_SMALL));
             sink->EndFigure(D2D1_FIGURE_END_OPEN);
             sink->Close();
-            target->DrawGeometry(path.Get(), brush, mark.stroke * pixel);
+            // Direct2D flattens an arc it strokes to a quarter of a pixel, with chords inside the
+            // circle, which pulls a one- or two-pixel ring about an eighth of a pixel off the grid
+            // (223 instead of 255 on the ring's row at 16 px). The ring is widened at a thousandth of a
+            // pixel and filled instead, so its edges land on the pixel boundaries.
+            Microsoft::WRL::ComPtr<ID2D1PathGeometry> outline;
+            Microsoft::WRL::ComPtr<ID2D1GeometrySink> outlineSink;
+            if (SUCCEEDED(factory->CreatePathGeometry(outline.GetAddressOf())) && SUCCEEDED(outline->Open(outlineSink.GetAddressOf())) &&
+                SUCCEEDED(path->Widen(mark.stroke * pixel, nullptr, nullptr, pixel / 1000, outlineSink.Get())) &&
+                SUCCEEDED(outlineSink->Close()))
+                target->FillGeometry(outline.Get(), brush);
         }
     }
     target->FillEllipse(D2D1::Ellipse(point(mark.outer, vi::kOrbitMarkDotAngle), mark.dot * pixel, mark.dot * pixel), brush);
