@@ -105,7 +105,7 @@ The fixes were built and tested on Windows 11 x64 for 0.3.13; `docs/validation.m
 - N8: the tray menu takes the Windows mode while it is open and the app mode returns once it closes (`tray_icon_tests`; seam group `tray` with dark Windows and light apps and the reverse). The premise, that Windows' own notification-area menus follow the Windows mode, was not checked: it needs a real right-click beside the volume or network icon, and stays open.
 - N9: seam group `tray`: a smoke test instance adds its icon without the GUID, and the installed reel's GUID icon stays through the whole run (`Shell_NotifyIconGetRect`). By hand, smoke instances beside the installed reel reported `trayIconGuid=0` and left its icon in place.
 - N11, N12: `output/runtime/v0.3.13` has 180 stills in twelve variants, the five new ones included; the lowest name contrast is 13.97 (dark), 16.36 (light) and 21 (high contrast). the README GIFs were recorded again in all three languages and both themes, and About shows 0.3.13 and offers 0.3.14.
-- N13: the eight copies agree at 0.3.13, and an unpinned test instance shows 0.3.13 in diagnostics and on About's first tile. The installed 0.3.13: pending the update. The quick menu's own About cannot be reached, since nothing calls `ShowOsd`.
+- N13: the eight copies agree at 0.3.13, and an unpinned test instance shows 0.3.13 in diagnostics and on About's first tile. The installed reel, updated from 0.3.12 to 0.3.13 through its own updater, reports 0.3.13 in its diagnostics. The quick menu's own About cannot be reached, since nothing calls `ShowOsd`.
 - N14, N15: the unit tests pass; `tools/generate-assets.py` was not run on Windows.
 
 ## Contradictions in the design contract
