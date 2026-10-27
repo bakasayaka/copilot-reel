@@ -283,3 +283,20 @@ All binary metadata was clean: the PDFs name the author "anonymous", and the cap
 4. **Email setting.** The owner keeps the address public on the GitHub profile, which the "Keep my email addresses private" setting would hide too. A merge made on the GitHub website therefore records that address again, and the owner accepts this. The rewritten merge commit stays as it is.
 5. **The fork.** `CreeperUX/copilot-reel` has its own copy of the history from before the merge. Only its owner can rewrite it.
 6. **Old clones.** A clone made before the rewrite shares no commits with the new history. Copy the old `AGENTS.md` aside before `git fetch` and `git reset --hard origin/main`: the reset replaces it with the rules-only version. Its handoff log goes into `AGENTS.local.md`.
+
+## Status after 0.3.14 (2026-10-27)
+
+VI v1.0 and 0.3.14 carry every proposal of this audit; `docs/validation.md` (Verified in v0.3.14) records the evidence.
+
+| Proposal | Findings | Done in 0.3.14 |
+| --- | --- | --- |
+| P2 | R2-R4, R7 | One cutout rule for every badge: the ring is cut out of what lies beneath, inside the seat it takes the seat's fill, and the check inverts on a contrast theme's seat. |
+| P3 | D1, D2, E12 | The ICO's small frames follow the hub tile's small-size rule with every ring edge on the grid; the MSIX carries target sizes 16-256 (with unplated variants) and scales 100-400, indexed in `resources.pri` with makepri; ja-JP is listed, the editor class has its small icon and the tray menu reads Quick menu…. |
+| P4 | E1-E11 | The editor is a Soft Orbit sheet with an `editor` token block; Enter clicks the focused button, the selected row is the seat without focus, the viewport holds whole rows, and every page is checked in hidden windows (`tests/editor_tests.cpp`). The dead quick-menu pages and the settings window are gone. |
+| P5 | D3 | Reel Sans SC (Noto Sans SC 400 and 600, GB 2312) was chosen from page 16's comparison and ships beside Reel Sans JP. |
+| P6 | — | Reel size draws its digits at 16 DIP with a 10 DIP % on their baseline. |
+| P7, P9 | R11, R14 | The center shows one thing at a time; the seat's spring is critically damped. |
+| P8 | A1, A2 | Plated means a tile-shaped plate; Shell icons draw from their native frame; the lifted tile is a raster at the lift scale with a small shadow. |
+| P10 | D4-D6 | One accent per theme, language-neutral 240 px steps cropped to the plate, step 3 and the hold's finale from the commit frame, reduced-motion stills for every GIF. |
+| P11 | VI | VI v1.0: the dragged state and the trash, the update dot, Reel size, the critical roles, fallback and live-ramp contrast side by side, motion strips recorded through the seam, and a drift guard in `tools/gen-vi-tokens.ps1`. |
+| — | R5, R8, R9, R10, R12, R13, R15, R16 | The frosted rim's knockout, the inset idle ring, grayed disabled art, the sun and moon from the app mode, a seat stroke above the tile's, the disabled name in secondary, color fonts and one source for the canvas and center-zone sizes. The canvas grew to 400 DIP so its 32 DIP margin holds the whole shadow. |
