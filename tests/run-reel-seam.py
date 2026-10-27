@@ -227,10 +227,14 @@ def edge_points():
             (left + 2, top + 2), (right - 3, top + 2), (left + 2, bottom - 3), (right - 3, bottom - 3)]
 
 
+# A hold this far inside a work-area edge lies 6 DIP inside the plate once the canvas is clamped there.
+ON_PLATE_INSET_DIP = seam.CANVAS_DIP / 2 - seam.PLATE_RADIUS_DIP + 6
+
+
 def on_plate_points(scale):
-    """30 DIP inside the right and the top edge: the clamp moves the plate, but the pointer stays on it."""
+    """ON_PLATE_INSET_DIP inside the right and the top edge: the clamp moves the plate, but the pointer stays on it."""
     left, top, right, bottom = seam.work_area(ANCHOR)
-    inset = round(30 * scale)
+    inset = round(ON_PLATE_INSET_DIP * scale)
     return [('right', (right - inset, ANCHOR[1])), ('top', (ANCHOR[0], top + inset))]
 
 
@@ -252,7 +256,7 @@ def on_plate_hold(g, side, point, launched):
     """A hold clamped at an edge with the pointer still on the plate. Returns the launch count."""
     reel = g.reel
     offset = len(reel.read_log())
-    assert not open_hold(g, point), f'A {side}-edge hold 30 DIP inside the edge stays on the plate.'
+    assert not open_hold(g, point), f'A {side}-edge hold {ON_PLATE_INSET_DIP:g} DIP inside the edge stays on the plate.'
     center = reel.center()
     scale = reel.scale()
     distance = math.hypot(point[0] - center[0], point[1] - center[1]) / scale
@@ -509,7 +513,7 @@ def group_a(g):
     launched = 3
     for side, point in on_plate_points(reel.scale()):
         launched, name = on_plate_hold(g, side, point, launched)
-        g.passed(f'a hold 30 DIP inside the {side} edge clamps minimally and stays on the plate; '
+        g.passed(f'a hold {ON_PLATE_INSET_DIP:g} DIP inside the {side} edge clamps minimally and stays on the plate; '
                  f'neither the opening point nor a 3 DIP move selects and the release cancels; '
                  f'10 DIP of movement selects {name!r} at once and its release launches it once')
     assert_quiet(g)
