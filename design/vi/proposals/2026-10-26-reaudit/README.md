@@ -1,6 +1,6 @@
 # Second design audit (2026-10-26, 0.3.12)
 
-A second pass over `main` at `3bfc279` (0.3.12), against the first audit at 0.3.8 ([`../2026-10-25-audit/README.md`](../2026-10-25-audit/README.md)). Since then main shipped 0.3.9 to 0.3.12:
+A second pass over `main` at `99c24be` (0.3.12), against the first audit at 0.3.8 ([`../2026-10-25-audit/README.md`](../2026-10-25-audit/README.md)). Since then main shipped 0.3.9 to 0.3.12:
 
 - the P1 legibility floor, with the name floor at 10 px;
 - Japanese;
@@ -15,7 +15,7 @@ Method:
 - Three review subagents read the renderer, the tray and editor, and the VI, docs and assets. The medium findings below were checked again in the source; the low findings and the contract table were then verified adversarially, two independent readers per item and a third where they disagreed, and corrected where a part did not hold.
 - The 0.3.12 reference stills and the README GIFs were measured with Pillow.
 - Nothing was built or run: the review ran in a Linux container. Items marked *hand check* need one look on Windows.
-- Line numbers refer to `3bfc279`.
+- Line numbers refer to `99c24be`.
 
 ## What holds up
 
@@ -134,7 +134,7 @@ Scanned: every commit, blob and tag reachable from `main` and `v0.3.12`, all 427
 
 **Left in history or on GitHub, none of it on the current tree:**
 
-1. **The contributor's PC model.** It is in his own commit `2a6bdc2` (pull request #2), which `main` carries. 0.3.10 removed it from `docs/validation.md`; removing it from history would mean rewriting his merged commits.
+1. **The contributor's PC model.** It was in his own commits for pull requests #2 and #3, which `main` carried until its history was rewritten on 2026-10-27 to remove it (0.3.10 had removed it from `docs/validation.md`). The old commits are still served under those pull requests and in his fork.
 2. **The old merge commit `0ae667e`.** It is still served by hash with the owner's personal address. The owner keeps that address public, so this is accepted.
 3. **`refs/pull/1/head`.** It keeps the contributor's first commits with the old `AGENTS.md`, which includes his Windows user name. Only GitHub Support can remove it, together with the cached commit above.
 
