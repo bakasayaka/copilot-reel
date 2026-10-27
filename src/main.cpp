@@ -1310,7 +1310,7 @@ public:
     std::array<TrayMenuItem,7> TrayMenuItems() const {
         return {{
             {kCommandPreview,Tr(L"Preview reel (click to open)",L"预览轮盘（点击打开）",L"リールを表示 (クリックで開く)"),vi::kGlyphTrayPreview,true},
-            {kCommandSettings,Tr(L"Quick menu...",L"快捷菜单…",L"簡易メニュー…"),vi::kGlyphTraySettings},
+            {kCommandSettings,Tr(L"Quick menu…",L"快捷菜单…",L"簡易メニュー…"),vi::kGlyphTraySettings},
             {kCommandDiagnostics,Tr(L"Write diagnostics",L"写出诊断信息",L"診断情報を書き出す"),vi::kGlyphTrayDiagnostics},
             {},
             {kCommandTrayIcon,Tr(L"Monochrome icon",L"单色图标",L"モノクロ アイコン"),0,false,CurrentTrayMonochrome()},

@@ -88,6 +88,7 @@ $required = @(
     (Join-Path $sdkRoot "bin\$($manifest.sdkVersion)\x64\rc.exe"),
     (Join-Path $sdkRoot "bin\$($manifest.sdkVersion)\x64\makeappx.exe"),
     (Join-Path $sdkRoot "bin\$($manifest.sdkVersion)\x64\signtool.exe"),
+    (Join-Path $sdkRoot "bin\$($manifest.sdkVersion)\x64\makepri.exe"),
     (Join-Path $localRoot 'sdk-x64\c\um\x64\kernel32.lib'),
     (Join-Path $localRoot 'sdk-x64\c\ucrt\x64\libucrt.lib'),
     (Join-Path $localRoot 'sdk-arm64\c\um\arm64\kernel32.lib'),

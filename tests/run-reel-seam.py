@@ -52,7 +52,7 @@ HUB = [LANGUAGE, APPEARANCE, SIZE, TRAY, MANAGE, ADD, ABOUT]
 HUB_ZH = ['语言', '外观', '轮盘大小', '托盘图标', '管理应用', '添加应用', '关于']
 HUB_JA = ['言語', '外観', 'リールの大きさ', 'トレイ アイコン', 'アプリの管理', 'アプリを追加', 'バージョン情報']
 # The tray menu as diagnostics list it ('-' is a separator), and its Monochrome icon item.
-TRAY_MENU = ['Preview reel (click to open)', 'Quick menu...', 'Write diagnostics', '-', 'Monochrome icon', '-', 'Exit']
+TRAY_MENU = ['Preview reel (click to open)', 'Quick menu…', 'Write diagnostics', '-', 'Monochrome icon', '-', 'Exit']
 TRAY_MENU_ZH = ['预览轮盘（点击打开）', '快捷菜单…', '写出诊断信息', '-', '单色图标', '-', '退出']
 TRAY_MENU_JA = ['リールを表示 (クリックで開く)', '簡易メニュー…', '診断情報を書き出す', '-', 'モノクロ アイコン', '-', '終了']
 CUSTOM, PREVIOUS, NEXT = 'Custom app', 'Previous', 'Next'

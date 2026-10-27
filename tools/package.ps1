@@ -60,6 +60,22 @@ if(('{0}.{1}.{2}.{3}' -f $fileVersion.FileMajorPart,$fileVersion.FileMinorPart,$
     throw "$binary is not version $version; build it again."
 }
 if($manifest.Package.Identity.ProcessorArchitecture -ne $Architecture) {throw 'Staged manifest architecture does not match the requested package.'}
+# The logos carry scale and target-size qualifiers (tools/generate-assets.py); Windows picks among
+# them only through resources.pri. The configuration stays outside the layout, so it is not packed.
+$makepri=Join-Path $sdkBin 'makepri.exe'
+if(-not (Test-Path -LiteralPath $makepri)) {throw 'Windows SDK resource indexer not found; run tools/bootstrap-toolchain.ps1.'}
+$priConfig=Join-Path ([System.IO.Path]::GetTempPath()) "copilot-reel-priconfig-$Architecture.xml"
+& $makepri createconfig /cf $priConfig /dq en-US /pv 10.0.0 /o | Out-Null
+if($LASTEXITCODE -ne 0) {throw 'makepri createconfig failed.'}
+# One package carries every scale: the default configuration splits scales and languages into
+# resource packages for a bundle, which would leave this package only the scale-100 logos.
+[xml]$config=Get-Content -LiteralPath $priConfig
+$splitting=$config.resources.SelectSingleNode('packaging')
+if($splitting) {[void]$config.resources.RemoveChild($splitting)}
+$config.Save($priConfig)
+& $makepri new /pr $stage /cf $priConfig /mn $manifestPath /of (Join-Path $stage 'resources.pri') /o | Out-Null
+if($LASTEXITCODE -ne 0) {throw 'makepri new failed to index the package resources.'}
+Remove-Item -LiteralPath $priConfig
 $package=Join-Path $projectRoot "artifacts\CopilotReel_${version}_${Architecture}.msix"
 & $makeappx pack /d $stage /p $package /o
 if($LASTEXITCODE -ne 0) {throw 'MSIX validation/packing failed.'}

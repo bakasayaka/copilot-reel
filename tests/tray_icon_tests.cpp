@@ -197,6 +197,26 @@ int main() {
         Check(icon && pixels.size == size, std::to_string(size) + " px color: the package icon loads at the small-icon size");
         DestroyIcon(icon);
     }
+    // P3: the package ICO's frames to 40 px follow the hub tile's rule, so its rings sit on whole
+    // pixels: up to 24 px the outer orbit and the dot (one white run from the center to the edge of
+    // the middle row), from 32 px both rings (two runs).
+    for (const int size : {16, 20, 24, 32, 40}) {
+        reel::TrayIconStyle color;
+        color.size = size;
+        HICON icon = reel::CreateTrayIcon(color);
+        const auto pixels = Read(icon);
+        int runs = 0;
+        bool inside = false;
+        for (int x = size / 2; x < size; ++x) {
+            const DWORD p = pixels.bgra[static_cast<size_t>(size / 2) * size + x];
+            const bool white = (p >> 24) == 255 && (p >> 16 & 0xFF) >= 200 && (p >> 8 & 0xFF) >= 200 && (p & 0xFF) >= 200;
+            runs += white && !inside;
+            inside = white;
+        }
+        Check(runs == (size <= 24 ? 1 : 2), std::to_string(size) + " px package icon: " +
+            (size <= 24 ? "the outer orbit alone" : "both rings") + ", each a crisp white run on the plate");
+        DestroyIcon(icon);
+    }
     const bool taskbarLight = reel::TaskbarUsesLightTheme();
     const auto color = reel::CurrentTrayIconStyle(false, taskbarLight), mono = reel::CurrentTrayIconStyle(true, taskbarLight);
     Check(!color.monochrome && mono.monochrome && color.size == mono.size && color.size >= 16,
