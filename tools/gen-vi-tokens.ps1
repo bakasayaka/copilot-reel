@@ -160,7 +160,7 @@ $lines = @(
     "inline constexpr float kGlyphFallbackStroke = $(Float "$g.glyph.fallbackStroke"), kGlyphFallbackStrokeHighContrast = $(Float "$g.glyph.fallbackStrokeHighContrast");  // vector fallback"
     "inline constexpr float kArtworkKeyline = $(Float "$g.artwork.keyline");       // glyph-class vendor/system marks: optical box"
     "inline constexpr float kBadgeRadius = $(Float "$g.badge.radius"), kBadgeOffset = $(Float "$g.badge.offset"), kBadgeRing = $(Float "$g.badge.ring"), kBadgeRingRadius = $(Float "$g.badge.ringRadius"), kBadgeCheckStroke = $(Float "$g.badge.checkStroke"), kBadgeDotRadius = $(Float "$g.badge.dotRadius"), kBadgeDotRingRadius = $(Float "$g.badge.dotRingRadius"), kBadgeDotMinimumPx = $(Float "$g.badge.dotMinimumPx");"
-    "inline constexpr float kLabelSize = $(Float "$label.size"), kLabelWidth = $(Float "$label.width"), kLabelHeight = $(Float "$label.height"), kMonogramSize = $(Float 'typography.iconMonogram.size'), kSizeMonogramSize = $(Float 'typography.iconMonogram.sizeStep.size');"
+    "inline constexpr float kLabelSize = $(Float "$label.size"), kLabelWidth = $(Float "$label.width"), kLabelHeight = $(Float "$label.height"), kMonogramSize = $(Float 'typography.iconMonogram.size'), kSizeMonogramSize = $(Float 'typography.iconMonogram.sizeStep.size'), kSizePercentSize = $(Float 'typography.iconMonogram.sizeStep.percentSize');"
     '// Device-pixel floors: text keeps scaling with the reel down to these sizes, raised at most kTextFloorMaxGrowth times.'
     "inline constexpr float kLabelMinimumPx = $(Float 'typography.minimumPx.label'), kMonogramMinimumPx = $(Float 'typography.minimumPx.monogram'), kTextFloorMaxGrowth = $(Float 'typography.minimumPx.maxGrowth');"
     "inline constexpr float kChevronOffset = $(Float "$g.chevrons.offset"), kChevronEm = $(Float "$g.chevrons.em"), kChevronHit = $(Float "$g.chevrons.hit"), kBackChevronEm = $(Float "$g.chevrons.backEm");"
@@ -218,7 +218,7 @@ $lines = @(
     "inline constexpr unsigned kSwapMs = $(UInt "$m.swap.enterMs"), kSwapExitMs = $(UInt "$m.swap.exitMs");  inline constexpr float kSwapScaleFrom = $(Float "$m.swap.enterScaleFrom");"
     "inline constexpr unsigned kMonogramFadeMs = $(UInt "$m.language.monogramCrossfadeMs");"
     "inline constexpr unsigned kDragLiftMs = $(UInt "$m.drag.liftMs"), kDragReflowMs = $(UInt "$m.drag.reflowMs"), kDragArmMs = $(UInt "$m.drag.armMs"), kDragSettleMs = $(UInt "$m.drag.settleMs"), kDragRemoveMs = $(UInt "$m.drag.removeMs"), kDragSeatClearMs = $(UInt "$m.drag.seatClearMs");"
-    "inline constexpr float kDragLiftScale = $(Float "$m.drag.liftScale"), kDragArmScaleFrom = $(Float "$m.drag.armScaleFrom"), kDragOverTrashScale = $(Float "$m.drag.overTrashScale"), kDragOverTrashOpacity = $(Unit "$m.drag.overTrashOpacity"), kDragRemoveScaleTo = $(Float "$m.drag.removeScaleTo");"
+    "inline constexpr float kDragLiftScale = $(Float "$m.drag.liftScale"), kDragArmScaleFrom = $(Float "$m.drag.armScaleFrom"), kDragOverTrashScale = $(Float "$m.drag.overTrashScale"), kDragOverTrashOpacity = $(Unit "$m.drag.overTrashOpacity"), kDragRemoveScaleTo = $(Float "$m.drag.removeScaleTo"), kDragLiftShadowBlur = $(Float "$m.drag.liftShadowBlur"), kDragLiftShadowOffsetY = $(Float "$m.drag.liftShadowOffsetY");"
     "inline constexpr unsigned kReducedMotionMs = $(UInt "$m.reducedMotion.durationMs");"
     "inline constexpr Bezier kLinear$(Curve linear);"
     "inline constexpr Bezier kDecelerate$(Curve decelerate);   // Fluent FastOutSlowIn"

@@ -684,6 +684,7 @@ def group_c(g):
     target, lifted, trash, state = drag_state(g)
     assert target == 'slot:2' and lifted == 0 and trash == 'idle', state.text
     assert state['centerLabel'] == '' and state.selected == -1, 'While a tile is dragged the trash owns the center alone.'
+    assert 'lifted=raster' in state.text, 'The lifted tile is drawn at its lifted size, not enlarged (P8): ' + state.text
     assert (g.data / 'apps.ini').read_bytes() == saved, 'Nothing is saved before the drop.'
     step = reel.release_button(reel.sector(2, count))
     assert step['drag'] == -1 and step['page'] == seam.PAGE_MANAGE, step

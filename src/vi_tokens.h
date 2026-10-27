@@ -18,7 +18,7 @@ inline constexpr float kGlyphEm = 24.f;              // Segoe Fluent Icons em in
 inline constexpr float kGlyphFallbackStroke = 1.75f, kGlyphFallbackStrokeHighContrast = 2.f;  // vector fallback
 inline constexpr float kArtworkKeyline = 28.f;       // glyph-class vendor/system marks: optical box
 inline constexpr float kBadgeRadius = 6.f, kBadgeOffset = 17.f, kBadgeRing = 1.5f, kBadgeRingRadius = 7.5f, kBadgeCheckStroke = 1.5f, kBadgeDotRadius = 4.f, kBadgeDotRingRadius = 5.5f, kBadgeDotMinimumPx = 3.f;
-inline constexpr float kLabelSize = 14.f, kLabelWidth = 160.f, kLabelHeight = 20.f, kMonogramSize = 16.f, kSizeMonogramSize = 12.f;
+inline constexpr float kLabelSize = 14.f, kLabelWidth = 160.f, kLabelHeight = 20.f, kMonogramSize = 16.f, kSizeMonogramSize = 16.f, kSizePercentSize = 10.f;
 // Device-pixel floors: text keeps scaling with the reel down to these sizes, raised at most kTextFloorMaxGrowth times.
 inline constexpr float kLabelMinimumPx = 10.f, kMonogramMinimumPx = 9.f, kTextFloorMaxGrowth = 1.5f;
 inline constexpr float kChevronOffset = 40.f, kChevronEm = 14.f, kChevronHit = 40.f, kBackChevronEm = 14.f;
@@ -107,7 +107,7 @@ inline constexpr unsigned kHandoffMs = 200, kHandoffFadeMs = 83, kHandoffLabelFa
 inline constexpr unsigned kSwapMs = 120, kSwapExitMs = 83;  inline constexpr float kSwapScaleFrom = 0.98f;
 inline constexpr unsigned kMonogramFadeMs = 83;
 inline constexpr unsigned kDragLiftMs = 120, kDragReflowMs = 167, kDragArmMs = 83, kDragSettleMs = 200, kDragRemoveMs = 167, kDragSeatClearMs = 33;
-inline constexpr float kDragLiftScale = 1.08f, kDragArmScaleFrom = 0.88f, kDragOverTrashScale = 0.7f, kDragOverTrashOpacity = 0.4f, kDragRemoveScaleTo = 0.3f;
+inline constexpr float kDragLiftScale = 1.08f, kDragArmScaleFrom = 0.88f, kDragOverTrashScale = 0.7f, kDragOverTrashOpacity = 0.4f, kDragRemoveScaleTo = 0.3f, kDragLiftShadowBlur = 4.f, kDragLiftShadowOffsetY = 2.f;
 inline constexpr unsigned kReducedMotionMs = 1;
 inline constexpr Bezier kLinear{0.f, 0.f, 1.f, 1.f};
 inline constexpr Bezier kDecelerate{0.f, 0.f, 0.f, 1.f};   // Fluent FastOutSlowIn

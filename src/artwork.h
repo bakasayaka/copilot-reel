@@ -79,6 +79,13 @@ void CutBadgeRing(ID2D1DeviceContext* context, const BadgeShape& shape);
 void DrawBadge(ID2D1DeviceContext* context, TileBadge badge, const BadgeShape& shape, const BadgeColors& colors,
                const D2D1_ROUNDED_RECT* seat, float dpi);
 
+// Whether premultiplied BGRA `pixels` carry their own plate: a near-square, rounded tile that
+// fills its bounds (the test a custom app's Shell icon goes through; A1).
+bool LooksPlated(const BYTE* pixels, UINT width, UINT height);
+// The size of the Shell icon's own frame that draws `item` at `dpi` (A2), or 0 when it draws from
+// another source or from the 256 px image. PrepareArtwork at that DPI asks the Shell for it.
+UINT ShellFrameFor(const AppTarget& item, float dpi);
+
 // Releases device-dependent caches after device loss. nullptr releases all.
 void ReleaseArtwork(ID2D1Device* device = nullptr);
 }

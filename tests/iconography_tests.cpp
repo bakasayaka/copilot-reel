@@ -210,6 +210,29 @@ int main() {
         "an executable without an icon of its own takes the generic glyph, not Windows' stock icon");
     Check(ClassifyArtwork(noIconLink)==ArtworkClass::Generic,"a shortcut to an executable without an icon takes the generic glyph");
     Check(ClassifyArtwork(withIcon)!=ArtworkClass::Generic,"an executable with its own icon keeps its Shell icon");
+    // A1: a plate is a tile. A filled rounded square passes; a window with square corners, which fills
+    // a rounded rectangle just as well, and a wide plate do not.
+    auto plate=[](UINT width,UINT height,float radius) {
+        std::vector<BYTE> pixels(256*256*4,0);
+        const float left=(256-width)/2.f,top=(256-height)/2.f;
+        for(UINT y=0;y<256;++y)for(UINT x=0;x<256;++x) {
+            const float px=x+.5f,py=y+.5f;
+            if(px<left || px>left+width || py<top || py>top+height)continue;
+            const float cx=std::clamp(px,left+radius,left+width-radius),cy=std::clamp(py,top+radius,top+height-radius);
+            if((px-cx)*(px-cx)+(py-cy)*(py-cy)>radius*radius)continue;
+            BYTE* p=&pixels[(static_cast<size_t>(y)*256+x)*4];p[0]=p[1]=p[2]=200;p[3]=255;
+        }
+        return pixels;
+    };
+    Check(LooksPlated(plate(224,224,48).data(),256,256),"a filled rounded square is a plate");
+    Check(!LooksPlated(plate(224,224,4).data(),256,256),"a window with nearly square corners is no plate");
+    Check(!LooksPlated(plate(240,176,40).data(),256,256),"a wide rounded rectangle is no plate");
+    // A2: a Shell icon draws from its own frame for the target, not from the 256 px one shrunk.
+    PrepareArtwork({withIcon},96);
+    const UINT frame96=ShellFrameFor(withIcon,96);
+    PrepareArtwork({withIcon},192);
+    const UINT frame192=ShellFrameFor(withIcon,192);
+    Check(frame96>0 && frame96<256 && frame192>frame96,"Windows' own small icon frames draw at 100% and larger ones at 200%");
     DeleteFileW(shortcut.c_str());
 
     Canvas canvas;

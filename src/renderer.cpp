@@ -90,6 +90,8 @@ struct OrbitRenderer::Impl {
         std::wstring artKey;
         wc::ContainerVisual root{nullptr};
         wc::SpriteVisual tile{nullptr}, art{nullptr}, artSelected{nullptr};
+        // While dragged: the tile and its art drawn at the lift scale with a small shadow (P8).
+        wc::SpriteVisual lifted{nullptr};
     };
     // One orbit's contents. The plate, ring and label never belong to a page, so
     // page transitions move only these visuals.
@@ -152,7 +154,7 @@ struct OrbitRenderer::Impl {
     // A text role at the current DPI: its size after the device-pixel floor, the optical master
     // that size resolves to, and that face's cap height.
     struct TextStyle { com_ptr<IDWriteTextFormat> format; std::wstring family; float size = 0, capRatio = .7f; };
-    TextStyle labelStyle, monogramStyle, sizeMonogramStyle;
+    TextStyle labelStyle, monogramStyle, sizeMonogramStyle, sizePercentStyle;
 
     wc::CompositionEasingFunction linear{nullptr}, decelerate{nullptr}, accelerate{nullptr}, drill{nullptr};
     wc::ContainerVisual pixelRoot{nullptr}, dpiRoot{nullptr}, root{nullptr}, pagesLayer{nullptr}, handoffLayer{nullptr};
@@ -345,15 +347,17 @@ struct OrbitRenderer::Impl {
         labelStyle = MakeTextStyle(fonts.get(), vi::kLabelSize, vi::kLabelMinimumPx);
         monogramStyle = MakeTextStyle(fonts.get(), vi::kMonogramSize, vi::kMonogramMinimumPx);
         sizeMonogramStyle = MakeTextStyle(fonts.get(), vi::kSizeMonogramSize, vi::kMonogramMinimumPx);
+        // The % grows to the floor too, but never past the digits it follows.
+        sizePercentStyle = MakeTextStyle(fonts.get(), vi::kSizePercentSize, vi::kMonogramMinimumPx, vi::kSizeMonogramSize / vi::kSizePercentSize);
         textFamily = labelStyle.family;
     }
 
     // Text keeps scaling with the reel down to `minimumPx` device pixels (typography.minimumPx).
     // The WWS family of the Windows 11 variable face at the optical size of the drawn pixels, Small
     // or Text; static Segoe UI where the variable face is missing.
-    TextStyle MakeTextStyle(IDWriteFontCollection* fonts, float dip, float minimumPx) {
+    TextStyle MakeTextStyle(IDWriteFontCollection* fonts, float dip, float minimumPx, float maxGrowth = vi::kTextFloorMaxGrowth) {
         TextStyle style;
-        style.size = FloorDip(dip, minimumPx, static_cast<float>(dpi));
+        style.size = FloorDip(dip, minimumPx, static_cast<float>(dpi), maxGrowth);
         style.family = vi::kTextFallbackFamily;
         com_ptr<IDWriteFontFamily> family;
         com_ptr<IDWriteFont> font;
@@ -560,6 +564,36 @@ struct OrbitRenderer::Impl {
             SolidBrush(context, color).get(), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
     }
 
+    // The Reel size step (P6): its digits at the language monogram's size and a smaller % on their
+    // baseline, centered together, so both state-in-icon tiles share one cap height.
+    void DrawSizeLabel(ID2D1DeviceContext* context, D2D1_POINT_2F centerDip, const D2D1_COLOR_F& color) {
+        if (sizeLabel.empty() || !sizeMonogramStyle.format || !sizePercentStyle.format) return;
+        const bool percent = sizeLabel.back() == L'%';
+        const std::wstring parts[2]{percent ? sizeLabel.substr(0, sizeLabel.size() - 1) : sizeLabel, percent ? L"%" : L""};
+        const TextStyle* styles[2]{&sizeMonogramStyle, &sizePercentStyle};
+        com_ptr<IDWriteTextLayout> layouts[2];
+        DWRITE_TEXT_METRICS metrics[2]{};
+        DWRITE_LINE_METRICS lines[2]{};
+        float total = 0;
+        for (int i = 0; i != 2; ++i) {
+            if (parts[i].empty()) continue;
+            winrt::check_hresult(dwrite->CreateTextLayout(parts[i].c_str(), static_cast<UINT32>(parts[i].size()), styles[i]->format.get(),
+                vi::kTile, styles[i]->size * 4, layouts[i].put()));
+            layouts[i]->GetMetrics(&metrics[i]);
+            UINT32 count = 0;
+            layouts[i]->GetLineMetrics(&lines[i], 1, &count);
+            total += metrics[i].width;
+        }
+        const float baseline = SnapDip(centerDip.y + sizeMonogramStyle.capRatio * sizeMonogramStyle.size / 2);
+        float x = centerDip.x - total / 2;
+        for (int i = 0; i != 2; ++i) {
+            if (!layouts[i]) continue;
+            context->DrawTextLayout({x - metrics[i].left, baseline - lines[i].baseline}, layouts[i].get(),
+                SolidBrush(context, color).get(), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+            x += metrics[i].width;
+        }
+    }
+
     void DrawBase(ID2D1DeviceContext* context, wn::float2 size) {
         const D2D1_POINT_2F c{size.x / 2, size.y / 2};
         const float radius = vi::kPlateRadius;
@@ -644,7 +678,7 @@ struct OrbitRenderer::Impl {
         if (visual.target == kLanguageTarget) {
             DrawCentered(context, Monogram(language), monogramStyle, {h, h}, vi::kTile, glyph);
         } else if (visual.target == kSizeTarget) {
-            DrawCentered(context, sizeLabel, sizeMonogramStyle, {h, h}, vi::kTile, glyph);
+            DrawSizeLabel(context, {h, h}, glyph);
         } else {
             DrawArtwork(context, visual, tile, ArtworkStyle{static_cast<float>(dpi), darkPlate,
                 appearance.highContrast, glyph, appearance.dark});
@@ -1100,6 +1134,63 @@ struct OrbitRenderer::Impl {
         p.root.Children().Remove(item.root);
         p.root.Children().InsertAtTop(item.root);
         ScaleItem(item, vi::kDragLiftScale, vi::kDragLiftMs, decelerate);
+        LiftRaster(item);
+    }
+
+    // The lifted tile reads as elevation, not enlargement (P8): its tile and art are drawn at the
+    // lift scale over a small shadow, and the sprite is scaled back by the same factor, so under the
+    // root's lift scale it maps one raster pixel to one device pixel at rest. It starts exactly as
+    // large as the tile it covers, which hides beneath it until the drag ends.
+    void LiftRaster(Item& item) {
+        const float lift = vi::kDragLiftScale, h = itemSize.x / 2;
+        const auto canvas = MakeCanvas(h * lift + 2 * vi::kDragLiftShadowBlur, h * lift + 2 * vi::kDragLiftShadowBlur);
+        Paint(canvas.surface, [&](ID2D1DeviceContext* context) {
+            const D2D1_POINT_2F c{canvas.size.x / 2, canvas.size.y / 2};
+            D2D1_MATRIX_3X2_F base{};
+            context->GetTransform(&base);
+            const auto lifted = D2D1::Matrix3x2F::Translation(c.x - h, c.y - h) * D2D1::Matrix3x2F::Scale(lift, lift, c) * base;
+            if (appearance.shadowOpacity > 0) {
+                com_ptr<ID2D1CommandList> shape;
+                winrt::check_hresult(context->CreateCommandList(shape.put()));
+                com_ptr<ID2D1Image> target;
+                context->GetTarget(target.put());
+                context->SetTarget(shape.get());
+                context->SetTransform(lifted);
+                const float t = SnapDip(vi::kTile / 2);
+                context->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(h - t, h - t, h + t, h + t), vi::kTileRadius, vi::kTileRadius),
+                    SolidBrush(context, D2D1::ColorF(0, 1.f)).get());
+                context->SetTarget(target.get());
+                context->SetTransform(base);
+                winrt::check_hresult(shape->Close());
+                com_ptr<ID2D1Effect> shadow;
+                winrt::check_hresult(context->CreateEffect(CLSID_D2D1Shadow, shadow.put()));
+                shadow->SetInput(0, shape.get());
+                winrt::check_hresult(shadow->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, vi::kDragLiftShadowBlur / 2));
+                winrt::check_hresult(shadow->SetValue(D2D1_SHADOW_PROP_COLOR, D2D1::Vector4F(0, 0, 0, appearance.shadowOpacity)));
+                const auto offset = D2D1::Point2F(0, vi::kDragLiftShadowOffsetY);
+                context->DrawImage(shadow.get(), &offset);
+            }
+            context->SetTransform(lifted);
+            if (item.tile) {
+                DrawTile(context, itemSize, true);
+                if (item.badge != TileBadge::None) CutBadgeRing(context, MeasureBadge(item.badge, {h, h}, static_cast<float>(dpi)));
+            }
+            DrawItemArt(context, itemSize, item.entry.visual, item.badge, false, GrayedOut(item));
+            context->SetTransform(base);
+        });
+        if (item.lifted) Detach(item.root, item.lifted);
+        item.lifted = MakeSprite(compositor.CreateSurfaceBrush(canvas.surface), canvas.size, {h, h});
+        item.lifted.CenterPoint({canvas.size.x / 2, canvas.size.y / 2, 0});
+        item.lifted.Scale({1 / lift, 1 / lift, 1});
+        item.root.Children().InsertAtTop(item.lifted);
+        for (const auto& visual : {item.tile, item.art, item.artSelected}) Settle(visual, 0);
+    }
+    // The tile goes back to its own sprites, as ItemSelected leaves them unselected.
+    void DropRaster(Item& item) {
+        if (!item.lifted) return;
+        Detach(item.root, item.lifted);
+        item.lifted = nullptr;
+        ItemSelected(item, false, false);
     }
 
     void DragTo(D2D1_POINT_2F point, int slot, bool overTrash) {
@@ -1144,6 +1235,7 @@ struct OrbitRenderer::Impl {
         switch (end) {
         case DragEnd::Cancel:
             // Everything returns to its own slot.
+            DropRaster(lifted);
             for (size_t i = 0; i != count; ++i) {
                 auto& item = p.items[i];
                 MoveItem(item, SlotCenter(i, count), vi::kDragSettleMs, drill);
@@ -1404,8 +1496,8 @@ struct OrbitRenderer::Impl {
             page && page->model.isSubmenu && quiet ? 1.f : 0.f,
             dragging ? (page->trash ? 1.f : vi::kDisabledOpacity) : 0.f,
             dragging && page->overTrash ? 1.f : 0.f};
-        const bool leaving = nameLeft || next.ringIdle < center.ringIdle || next.back < center.back || next.trash < center.trash;
-        const unsigned enter = leaving ? vi::kCenterClearMs : 0;
+        const bool clearing = nameLeft || next.ringIdle < center.ringIdle || next.back < center.back || next.trash < center.trash;
+        const unsigned enter = clearing ? vi::kCenterClearMs : 0;
         auto fade = [&](const wchar_t* what, const wc::Visual& visual, float from, float to, unsigned ms, unsigned delay = 0) {
             if (to < from) Opacity(visual, to, vi::kCenterClearMs, animate, linear);
             else Opacity(visual, to, ms, animate, linear, (std::max)(enter, delay));
@@ -1436,6 +1528,7 @@ struct OrbitRenderer::Impl {
             p.overTrash = false;
             for (size_t i = 0; i != p.items.size(); ++i) {
                 auto& item = p.items[i];
+                DropRaster(item);
                 Settle(item.root, RestOpacity(item));
                 item.root.StopAnimation(L"Offset");
                 item.at = {item.cx, item.cy};
@@ -1653,6 +1746,7 @@ std::wstring OrbitRenderer::Diagnostics() const {
         L"; pages built=" + std::to_wstring(self.pagesBuilt) + L"; seat appears=" + std::to_wstring(self.seatAppears) +
         L"; center steps=" + (self.centerSteps.empty() ? std::wstring(L"none") : self.centerSteps) +
         L"; name role=" + (self.labelText.empty() ? L"none" : self.labelDisabled ? L"secondary" : L"foreground") +
+        L"; lifted=" + (page && page->drag >= 0 && page->items[page->drag].lifted ? L"raster" : L"none") +
         L"; device=" + (self.softwareDevice ? L"WARP" : L"hardware") +
         (self.lastError.empty() ? L"" : L"; last error=" + self.lastError);
 }

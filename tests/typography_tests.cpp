@@ -225,6 +225,9 @@ int main() {
             Check(label == vi::kLabelSize || label * px <= vi::kLabelMinimumPx + 1e-3f, "a raised name stops at its floor");
             for (const float size : {vi::kMonogramSize, vi::kSizeMonogramSize})
                 Check(FloorDip(size, vi::kMonogramMinimumPx, dpi) * px >= vi::kMonogramMinimumPx - 1e-3f, "monograms never draw below their floor");
+            const float percentSize = FloorDip(vi::kSizePercentSize, vi::kMonogramMinimumPx, dpi, vi::kSizeMonogramSize / vi::kSizePercentSize);
+            Check(percentSize * px >= vi::kMonogramMinimumPx - 1e-3f && percentSize <= FloorDip(vi::kSizeMonogramSize, vi::kMonogramMinimumPx, dpi),
+                "the size step's % keeps the floor and never outgrows its digits");
             const float dot = FloorDip(vi::kBadgeDotRadius, vi::kBadgeDotMinimumPx, dpi, vi::kBadgeRadius / vi::kBadgeDotRadius);
             Check(dot * px >= vi::kBadgeDotMinimumPx - 1e-3f && dot <= vi::kBadgeRadius, "the update dot keeps its floor under the check's disc");
         }
@@ -272,10 +275,14 @@ int main() {
                 for (const auto* text : {L"EN", L"ZH", L"JA"})
                     Check(Width(factory.get(), system.get(), fallback.get(), text, language, monogram, dpi) <= vi::kTile,
                         "the language monograms fit their tile");
-                // The Reel size tile shows the step the reel is drawn at.
-                const float sizeMonogram = FloorDip(vi::kSizeMonogramSize, vi::kMonogramMinimumPx, dpi);
-                Check(Width(factory.get(), system.get(), fallback.get(), std::to_wstring(ReelSizePercent(step)) + L"%", language,
-                    sizeMonogram, dpi) <= vi::kTile, "the size step monogram fits its tile");
+                // The Reel size tile shows the step the reel is drawn at (P6): its digits as large as the
+                // language monogram and a smaller % on their baseline, together inside the tile.
+                const float digits = FloorDip(vi::kSizeMonogramSize, vi::kMonogramMinimumPx, dpi);
+                const float percent = FloorDip(vi::kSizePercentSize, vi::kMonogramMinimumPx, dpi, vi::kSizeMonogramSize / vi::kSizePercentSize);
+                Check(digits == monogram, "the size step's digits are as large as the language monogram");
+                Check(Width(factory.get(), system.get(), fallback.get(), std::to_wstring(ReelSizePercent(step)), language, digits, dpi) +
+                      Width(factory.get(), system.get(), fallback.get(), L"%", language, percent, dpi) <= vi::kTile,
+                    "the size step's digits and % fit their tile");
                 std::vector<std::wstring> reported;
                 for (const auto& entry : catalog::kEntries) reported.emplace_back(entry.name);
                 for (const auto& rule : catalog::kRules) reported.emplace_back(catalog::RowName(rule));

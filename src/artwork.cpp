@@ -285,6 +285,9 @@ struct Source {
     std::vector<BYTE> pixels;                // Shell icon, premultiplied BGRA, top-down
     UINT width = 0, height = 0;
     Treatment treatment;
+    // A Shell icon's own smaller frames (A2), square, by size, and where to ask the Shell for more.
+    std::map<UINT, std::vector<BYTE>> frames;
+    std::wstring parsing;
 };
 
 using ScaledKey = std::tuple<std::wstring, UINT, UINT>;  // (source, device pixel width, height)
@@ -414,7 +417,12 @@ Treatment Analyze(const BYTE* pixels, UINT width, UINT height) {
         both += ideal && actual;
         either += ideal || actual;
     }
-    if (coverage >= .90 && either && static_cast<double>(both) / either >= .97) {
+    // A plate is a tile: near square, its corners rounded by at least 8% of its side. Windows'
+    // stock executable icon, a window with nearly square corners, fills a rounded rectangle too
+    // but is no plate (A1).
+    const double aspect = static_cast<double>(plateWidth) / plateHeight;
+    const bool tileShaped = aspect >= .9 && aspect <= 1.1 && radius >= .08 * (std::min)(plateWidth, plateHeight);
+    if (coverage >= .90 && tileShaped && either && static_cast<double>(both) / either >= .97) {
         result.plated = true;
         result.content = normalized(plate);
     }
@@ -499,9 +507,53 @@ Placement Place(const Source& source, const D2D1_RECT_F& tile, float dpi) {
     return place;
 }
 
+// The Shell's icon for a parsing name at `size` px, premultiplied BGRA, top-down.
+bool ShellImage(const std::wstring& parsing, std::vector<BYTE>& pixels, UINT& width, UINT& height, UINT size = 256);
+// The standard icon frame sizes a Shell icon may carry below its 256 px one.
+constexpr UINT kShellFrames[] = {16, 20, 24, 32, 40, 48, 64, 96, 128};
+// The frame size, among those `source` holds, that covers `width` x `height` device pixels of its
+// content with the fewest pixels; 0 when none does and the 256 px image draws.
+UINT NativeFrame(const Source& source, UINT width, UINT height) {
+    const float contentWidth = source.treatment.content.right - source.treatment.content.left;
+    const float contentHeight = source.treatment.content.bottom - source.treatment.content.top;
+    if (!(contentWidth > 0) || !(contentHeight > 0)) return 0;
+    const float needed = (std::max)(width / contentWidth, height / contentHeight);
+    for (const auto& [size, pixels] : source.frames)
+        if (size >= needed && !pixels.empty()) return size;
+    return 0;
+}
+// Asks the Shell for the frame that covers `width` x `height` device pixels of the content.
+void PrepareFrame(Source& source, UINT width, UINT height) {
+    const float contentWidth = source.treatment.content.right - source.treatment.content.left;
+    const float contentHeight = source.treatment.content.bottom - source.treatment.content.top;
+    if (source.png || source.parsing.empty() || !(contentWidth > 0) || !(contentHeight > 0)) return;
+    const float needed = (std::max)(width / contentWidth, height / contentHeight);
+    for (const UINT size : kShellFrames) {
+        if (size < needed) continue;
+        if (source.frames.contains(size)) return;
+        std::vector<BYTE> pixels;
+        UINT frameWidth = 0, frameHeight = 0;
+        // A frame the Shell cannot give at that size stays empty, so the 256 px image draws.
+        if (!ShellImage(source.parsing, pixels, frameWidth, frameHeight, size) || frameWidth != size || frameHeight != size)
+            pixels.clear();
+        source.frames.emplace(size, std::move(pixels));
+        return;
+    }
+}
+
 // WIC crop + high-quality cubic scale to exactly width x height device pixels.
-bool Prescale(const Source& source, UINT width, UINT height, std::vector<BYTE>& out) {
+bool Prescale(const Source& original, UINT width, UINT height, std::vector<BYTE>& out) {
     auto* factory = Imaging();
+    // A Shell icon draws from its smallest native frame that still covers the target (A2), so the
+    // frames Windows tuned by hand for 24, 32 or 48 px are used instead of the 256 px one shrunk.
+    Source framed;
+    const UINT frame = NativeFrame(original, width, height);
+    if (frame) {
+        framed.pixels = original.frames.at(frame);
+        framed.width = framed.height = frame;
+        framed.treatment = original.treatment;
+    }
+    const Source& source = frame ? framed : original;
     const auto input = Decode(source);
     com_ptr<IWICBitmapClipper> clipper;
     com_ptr<IWICBitmapScaler> scaler;
@@ -659,11 +711,12 @@ std::pair<std::wstring, std::wstring> ShellName(const AppTarget& item) {
 }
 
 // IShellItemImageFactory returns straight-alpha BGRA; the cache keeps premultiplied pixels.
-bool ShellImage(const std::wstring& parsing, std::vector<BYTE>& pixels, UINT& width, UINT& height) {
+bool ShellImage(const std::wstring& parsing, std::vector<BYTE>& pixels, UINT& width, UINT& height, UINT size) {
     com_ptr<IShellItemImageFactory> factory;
     HBITMAP bitmap = nullptr;
+    const SIZE request{static_cast<LONG>(size), static_cast<LONG>(size)};
     if (FAILED(SHCreateItemFromParsingName(parsing.c_str(), nullptr, IID_PPV_ARGS(factory.put()))) ||
-        FAILED(factory->GetImage(SIZE{256, 256}, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK, &bitmap)) || !bitmap) return false;
+        FAILED(factory->GetImage(request, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK, &bitmap)) || !bitmap) return false;
     DIBSECTION dib{};
     bool copied = false;
     if (GetObjectW(bitmap, sizeof(dib), &dib) == sizeof(dib) && dib.dsBm.bmBitsPixel == 32 && dib.dsBm.bmBits &&
@@ -711,6 +764,7 @@ void PrepareShell(const AppTarget& item) {
     if (!sources.contains(identity)) {
         Source source;
         if (!ShellImage(parsing, source.pixels, source.width, source.height)) return;
+        source.parsing = parsing;
         source.treatment = Analyze(source.pixels.data(), source.width, source.height);
         if (const auto* brand = FindTreatment(identity)) {
             const bool measured = source.treatment.plated;
@@ -740,6 +794,18 @@ void PrepareLink(const AppTarget& item) {
 }
 } // namespace
 
+bool LooksPlated(const BYTE* pixels, UINT width, UINT height) {
+    return pixels && width && height && Analyze(pixels, width, height).plated;
+}
+
+UINT ShellFrameFor(const AppTarget& item, float dpi) {
+    const auto key = SourceKey(item, false);
+    const auto* source = key.empty() ? nullptr : FindSource(key);
+    if (!source || source->png || !(dpi > 0)) return 0;
+    const auto place = Place(*source, D2D1_RECT_F{0, 0, vi::kTile, vi::kTile}, dpi);
+    return NativeFrame(*source, place.width, place.height);
+}
+
 void PrepareArtwork(const std::vector<AppTarget>& items, float dpi) {
     PreloadOfficialIconAssets();
     // Caches are keyed by pixel size, so moving between monitors keeps both scales.
@@ -750,8 +816,11 @@ void PrepareArtwork(const std::vector<AppTarget>& items, float dpi) {
         if (VendorKey(item, false).empty()) PrepareShell(item);
         for (const bool dark : {false, true}) {
             const auto key = SourceKey(item, dark);
-            if (const auto* source = key.empty() ? nullptr : FindSource(key); source && dpi > 0)
-                Scaled(key, *source, Place(*source, tile, dpi));
+            if (auto* source = key.empty() ? nullptr : FindSource(key); source && dpi > 0) {
+                const auto place = Place(*source, tile, dpi);
+                PrepareFrame(*source, place.width, place.height);
+                Scaled(key, *source, place);
+            }
         }
     }
 }
