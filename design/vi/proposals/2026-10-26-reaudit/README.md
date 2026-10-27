@@ -74,7 +74,7 @@ The first audit's own wrong predictions are now corrected:
 
 ## Fixes
 
-All fifteen findings are fixed in code, at the user's request on 2026-10-26. They were checked in the container only (a syntax check against the Windows SDK headers, the token generator, a Python rasterization of the new mark); `docs/validation.md` lists what each still needs on Windows.
+All fifteen findings are fixed in code, at the user's request on 2026-10-26. They were first checked in the container (a syntax check against the Windows SDK headers, the token generator, a Python rasterization of the new mark), then built and tested on Windows for 0.3.13 (below).
 
 | # | Fix | Where it differs from the proposal |
 | --- | --- | --- |
@@ -91,6 +91,22 @@ All fifteen findings are fixed in code, at the user's request on 2026-10-26. The
 | N13 | About, the quick menu and diagnostics read the version at run time; `app.manifest` says 0.3.12.0; `tools/check-versions.ps1` checks the seven copies in `tools/test.ps1` and `tools/package.ps1`, and packaging refuses an executable of another version. | The copies are checked rather than generated, since `tools/build.ps1` and CMake would each need their own generator. |
 | N14 | `PrepareShell` skips a local shortcut whose target or icon is on a share. | |
 | N15 | The orbit mark's token feeds `orbit_mark.h`, `generate-assets.py` (byte-identical output) and the tray tests; the clearance test counts the badge ring and a pixel of snapping (0.24 DIP to spare); `PaintLocal` reuses its bitmap while the size repeats; the stale comment is gone. | This report's mockup keeps its own copy, as a record of the shipped mark. |
+
+### On Windows (2026-10-27)
+
+The fixes were built and tested on Windows 11 x64 for 0.3.13; `docs/validation.md` (Verified in v0.3.13) has the evidence. At the user's request the checks by hand became automated checks that need no real input.
+
+- N1: seam groups `hub` and `about` turn Tray icon and Auto-install over twice with `transition=in-place`, and the renderer's `pages built` and `seat appears` counts stay as they were: no page is built and the seat never fades in or scales again.
+- N2: `typography_tests` passes; the only catalog name it reports trimming is DeepSeek Harness (DSH), at the 70% step on a 100% display.
+- N3, N5, N10: `tray_icon_tests` failed first. Direct2D flattens a stroked arc to a quarter of a pixel with chords inside the circle, which pulled the rings an eighth of a pixel inward (alpha 223 on the 16 px ring's row, 32 inside it). `DrawOrbitMark` now widens each ring at a thousandth of a pixel and fills it, which gives 251 to 255 on the ring and 4 to 8 beside it, as the Python rasterization predicted; every size passes, with 16, 20 and 24 px at 100%, 125% and 150% display scaling.
+- N4: seam group `tray`: with `apps.ini` broken at start, the icon is added first and the notice reaches it. By hand, a smoke instance with a broken profile showed the balloon beside the installed reel.
+- N6: the hub's mark keeps 28.75 DIP at every size step at 100%, 125% and 150%, and shows the outer orbit alone exactly at the 70% and 85% steps on a 100% display and the 70% step at 125%.
+- N7: seam group `tray`: the tray menu reads 单色图标 in Chinese and モノクロ アイコン in Japanese.
+- N8: the tray menu takes the Windows mode while it is open and the app mode returns once it closes (`tray_icon_tests`; seam group `tray` with dark Windows and light apps and the reverse). The premise, that Windows' own notification-area menus follow the Windows mode, was not checked: it needs a real right-click beside the volume or network icon, and stays open.
+- N9: seam group `tray`: a smoke test instance adds its icon without the GUID, and the installed reel's GUID icon stays through the whole run (`Shell_NotifyIconGetRect`). By hand, smoke instances beside the installed reel reported `trayIconGuid=0` and left its icon in place.
+- N11, N12: `output/runtime/v0.3.13` has 180 stills in twelve variants, the five new ones included; the lowest name contrast is 13.97 (dark), 16.36 (light) and 21 (high contrast). the README GIFs were recorded again in all three languages and both themes, and About shows 0.3.13 and offers 0.3.14.
+- N13: the eight copies agree at 0.3.13, and an unpinned test instance shows 0.3.13 in diagnostics and on About's first tile. The installed 0.3.13: pending the update. The quick menu's own About cannot be reached, since nothing calls `ShowOsd`.
+- N14, N15: the unit tests pass; `tools/generate-assets.py` was not run on Windows.
 
 ## Contradictions in the design contract
 

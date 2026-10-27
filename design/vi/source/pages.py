@@ -1075,7 +1075,7 @@ def p11():
 
 # Native evidence: the reference stills of tools/capture-seam.py, named <variant>-<state>.png, and the motion
 # strips, which only the 0.3.4 capture recorded (tools/capture-v034.py); the motion tokens they show are unchanged since.
-STILLS_VERSION, MOTION_VERSION = '0.3.12', '0.3.4'
+STILLS_VERSION, MOTION_VERSION = '0.3.13', '0.3.4'
 STILLS_DIR = ROOT / 'output' / 'runtime' / f'v{STILLS_VERSION}'
 MOTION_DIR = ROOT / 'output' / 'runtime' / f'v{MOTION_VERSION}'
 
