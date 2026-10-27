@@ -1,4 +1,4 @@
-"""Build Copilot Reel VI v0.9: PDF, 2x PNG previews, SVG masters and the review zip.
+"""Build Copilot Reel VI v1.0: PDF, 2x PNG previews, SVG masters and the review zip.
 
     uv run --python 3.14 --with reportlab --with pillow --with fonttools --with numpy \
         python design/vi/source/build_vi.py [--pages 1,2] [--no-zip]

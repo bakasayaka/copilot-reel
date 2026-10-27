@@ -1,4 +1,4 @@
-# VI source package v0.9
+# VI source package v1.0
 
 Soft Orbit for Copilot Reel 0.3.13: a Windows-neutral plate with one flyout shadow, a concentric selection seat that replaces the tile fill and travels along the orbit, official artwork in one tile system (plated marks fill the tile; open marks share one optical size; system apps use their Shell icons), Segoe Fluent Icons commands, and drill-in/out page transitions in which the tapped tile becomes the back chevron. The center stays quiet: one name on hover, never a caption or helper copy.
 
@@ -9,7 +9,7 @@ The sources here are current for 0.3.13: they draw the seven-item hub and the Ab
 - `stylesheet.typ`: Typst token sheet that reads `tokens.json`; it repeats no values.
 - `source/build_vi.py`: builds the PDF, the SVG masters, the 2x previews and the review zip.
 - `source/pages.py`: the 16 specification pages (page 4 sets the label in all three scripts; page 16 compares them with Apple's pairing and the Windows faces); `source/reel.py`: vector mirror of `src/renderer.cpp`; `source/scene.py`, `art.py`, `fonts.py`, `tokens.py`, `layout.py`, `masters.py`: drawing, artwork, font, token, layout and master helpers.
-- [Review PDF](../../output/pdf/copilot-reel-vi-v0.9.pdf) and [normative summary](../../docs/visual-identity.md).
+- [Review PDF](../../output/pdf/copilot-reel-vi-v1.0.pdf) and [normative summary](../../docs/visual-identity.md).
 
 ## Rebuild
 

@@ -5,7 +5,7 @@
 namespace reel::vi {
 struct Color { float r, g, b, a; };
 struct Bezier { float x1, y1, x2, y2; };
-inline constexpr wchar_t kSchemaVersion[] = L"0.9";
+inline constexpr wchar_t kSchemaVersion[] = L"1.0";
 // Geometry (DIP). The reel draws at kReelScale: its effective DPI is round(monitor DPI * kReelScale).
 inline constexpr float kReelScale = 0.8f;
 // The user's reel size steps multiply kReelScale; kReelSizeDefault indexes the step 1.

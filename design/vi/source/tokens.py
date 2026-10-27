@@ -95,7 +95,7 @@ def contrast(a, b):
 
 
 ROLES = ['plate', 'foreground', 'secondary', 'outline', 'tile', 'tileStroke', 'plateStroke', 'ringIdle',
-         'accent', 'accentText', 'textOnAccent', 'selection', 'selectionText']
+         'accent', 'accentText', 'textOnAccent', 'selection', 'selectionText', 'critical', 'criticalFill', 'textOnCritical']
 
 
 @dataclass(frozen=True)
@@ -115,6 +115,9 @@ class Theme:
     textOnAccent: tuple
     selection: tuple
     selectionText: tuple
+    critical: tuple          # the drag trash's glyph and ring
+    criticalFill: tuple      # the armed trash's disc
+    textOnCritical: tuple    # the glyph on it
     seatStroke: tuple
     shadowOpacity: float
     plateStrokeWidth: float
@@ -165,6 +168,7 @@ def theme(key='light', material='solid'):
                  accentText=color(p['accentText']['fallback']), textOnAccent=color(p['textOnAccent']),
                  selection=mix(plate, accent, p['seatTint']),
                  selectionText=color(p[p['selectionText']]) if p['selectionText'] in p else color(p['foreground']),
+                 critical=color(p['critical']), criticalFill=color(p['criticalFill']), textOnCritical=color(p['textOnCritical']),
                  seatStroke=accent, shadowOpacity=p['shadowOpacity'],
                  plateStrokeWidth=PLATE_STROKE, seatStrokeWidth=SEAT_STROKE)
 

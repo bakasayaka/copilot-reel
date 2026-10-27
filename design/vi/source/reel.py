@@ -2,7 +2,7 @@
 
 Layer order (back to front, renderer Initialize and BuildPage): backdrop (frosted only); the base
 surface (the baked shadow, the plate fill when solid, the rim); idle ring; page (seat, items,
-language chevrons); handoff clone; back chevron; drag trash (idle, then armed; not drawn here);
+language chevrons); handoff clone; back chevron; drag trash (idle, then armed);
 the two center labels. Every size comes from tokens.json via tokens.py.
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ import fonts
 from scene import Scene, arc, round_rect_path, transform_path
 from tokens import (CANVAS, PLATE_R, ORBIT_R, CENTER_R, RING, TILE, TILE_R, TILE_STROKE,
                     SEAT, SEAT_R, GLYPH_EM, BADGE, SWITCH, CHEVRON, DISABLED, LABEL, MONOGRAM, SHADOW_BLUR, SHADOW_DY,
-                    G, APP_VERSION, glyph_code, slot_angle, theme as make_theme, acrylic_recipe)
+                    G, MOTION, APP_VERSION, glyph_code, slot_angle, theme as make_theme, acrylic_recipe)
 
 C = CANVAS / 2
 
@@ -114,6 +114,9 @@ class State:
     handoff: tuple | None = None  # (index, progress 0..1 position, scale, alpha)
     back_alpha: float | None = None
     shadow: bool = True
+    dots: frozenset = frozenset()     # items with the update dot (TileBadge::Dot)
+    drag: tuple | None = None         # (index, x, y): Manage apps' lifted tile at reel-local (x, y)
+    trash: str | None = None          # 'idle' or 'armed' while a tile is dragged
 
 
 def glyph(s: Scene, code, cx, cy, em, color, alpha=1.0, knob=False):
@@ -192,13 +195,27 @@ def draw_seat(s, th, x, y, alpha=1.0, scale=1.0):
     s.rect(x - size / 2, y - size / 2, size, size, stroke=th.seatStroke, sw=w, r=r, alpha=alpha, inset=True)
 
 
-def draw_art(s, th, it: Item, x, y, *, selected=False, preferred=False, lang='EN', alpha=1.0, show_badge=True):
+def size_label(s, x, y, color, alpha=1.0):
+    """renderer DrawSizeLabel (P6): the digits at the monogram's size and a smaller % on their
+    baseline, centered together, so the tile shares the language monogram's cap height."""
+    step = MONOGRAM['sizeStep']
+    digits, percent = SIZE_LABEL.rstrip('%'), '%' if SIZE_LABEL.endswith('%') else ''
+    wd = fonts.width(digits, 'monogram', 'cjk', step['size'])
+    wp = fonts.width(percent, 'monogram', 'cjk', step['percentSize']) if percent else 0
+    base = y + fonts.cap_ratio() * step['size'] / 2
+    left = x - (wd + wp) / 2
+    s.text(left, base, digits, step['size'], color, face='monogram', alpha=alpha)
+    if percent:
+        s.text(left + wd, base, percent, step['percentSize'], color, face='monogram', alpha=alpha)
+
+
+def draw_art(s, th, it: Item, x, y, *, selected=False, preferred=False, lang='EN', alpha=1.0, show_badge=True, dot=False):
     """renderer DrawItemArt: monogram, command glyph, raster artwork, plated hairline, badge."""
     fg = th.selectionText if (selected and th.hc) else th.foreground
     if it.key == 'language':
         centered_text(s, lang, x, y, MONOGRAM['size'], fg, 'monogram', alpha)
     elif it.key == 'size':
-        centered_text(s, SIZE_LABEL, x, y, MONOGRAM['sizeStep']['size'], fg, 'monogram', alpha)
+        size_label(s, x, y, fg, alpha)
     elif it.command:
         g = command_glyph(it.key[4:], th.dark)
         glyph(s, glyph_code(g), x, y, GLYPH_EM, fg, alpha, knob=g == 'SwitchOn')
@@ -222,6 +239,11 @@ def draw_art(s, th, it: Item, x, y, *, selected=False, preferred=False, lang='EN
         pts = [(-.25, 0), (-.0833, .1667), (.25, -.1667)]
         s.path([('M', bx + pts[0][0] * e, by + pts[0][1] * e)] + [('L', bx + px * e, by + py * e) for px, py in pts[1:]],
                stroke=th.textOnAccent, sw=BADGE['checkStroke'], alpha=alpha)
+    elif dot and show_badge:
+        # A waiting update: the accent dot, with the same cutout ring (P2).
+        bx, by = x + BADGE['offset'], y - BADGE['offset']
+        s.circle(bx, by, BADGE['dotRingRadius'], fill=th.selection if selected else th.plate, alpha=alpha)
+        s.circle(bx, by, BADGE['dotRadius'], fill=th.accent, alpha=alpha)
 
 
 def is_plated(it: Item, th):
@@ -230,12 +252,12 @@ def is_plated(it: Item, th):
     return art.source_path(it.key, th.dark) is not None and art.treatment(it.key, th.dark).plated
 
 
-def draw_item(s, th, it, x, y, *, seated=False, selected=False, preferred=False, lang='EN', alpha=1.0, scale=1.0):
+def draw_item(s, th, it, x, y, *, seated=False, selected=False, preferred=False, lang='EN', alpha=1.0, scale=1.0, dot=False):
     alpha *= 1.0 if it.enabled else DISABLED
     with s.group(x * (1 - scale), y * (1 - scale), scale):
         if not is_plated(it, th) and not seated:
             draw_tile(s, th, x, y, alpha=alpha)
-        draw_art(s, th, it, x, y, selected=selected, preferred=preferred, lang=lang, alpha=alpha)
+        draw_art(s, th, it, x, y, selected=selected, preferred=preferred, lang=lang, alpha=alpha, dot=dot)
 
 
 def draw_reel(s: Scene, th, st: State, backdrop=None):
@@ -262,9 +284,9 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
         # Center state (renderer UpdateCenter).
         seat_index = -1 if st.selected < 0 or not st.items[st.selected].enabled else st.selected
         text = st.label if st.label is not None else ('' if st.selected < 0 else st.items[st.selected].name)
-        named = bool(text) and st.label_alpha > 0
+        named = bool(text) and st.label_alpha > 0 and not st.trash   # the trash alone owns the center
         ca = st.center_alpha
-        if not named:
+        if not named and not st.trash:
             s.circle(C, C, CENTER_R, stroke=th.ringIdle, sw=RING, alpha=ca)
 
         # Page: seat, items, chevrons.
@@ -281,11 +303,24 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
                 with s.group(sx * (1 - ss), sy * (1 - ss), ss):
                     draw_seat(s, th, sx, sy, sa)
             for i, it in enumerate(st.items):
-                if i in st.hidden:
+                if i in st.hidden or (st.drag and i == st.drag[0]):
                     continue
                 x, y = item_center(i, n)
                 draw_item(s, th, it, x, y, seated=i == seat_index, selected=i == seat_index, preferred=i == st.preferred,
-                          lang=st.lang, alpha=st.item_alpha.get(i, 1.0), scale=st.item_scale.get(i, 1.0))
+                          lang=st.lang, alpha=st.item_alpha.get(i, 1.0), scale=st.item_scale.get(i, 1.0), dot=i in st.dots)
+            if st.drag:
+                # The lifted tile at liftScale with its small shadow; over the armed trash it shrinks
+                # and fades beneath it (motion.events.drag).
+                index, dx, dy = st.drag
+                drag = MOTION['events']['drag']
+                armed = st.trash == 'armed'
+                scale = drag['overTrashScale'] if armed else drag['liftScale']
+                alpha = drag['overTrashOpacity'] if armed else 1.0
+                if not armed and th.shadowOpacity > 0:
+                    t = TILE * scale
+                    s.rect(dx - t / 2, dy - t / 2 + drag['liftShadowOffsetY'], t, t, fill='#000000', r=TILE_R * scale,
+                           alpha=th.shadowOpacity * .6)
+                draw_item(s, th, st.items[index], dx, dy, alpha=alpha, scale=scale)
             if st.language and n:
                 active = st.selected == 0
                 col = th.foreground if active else th.secondary
@@ -308,6 +343,17 @@ def draw_reel(s: Scene, th, st: State, backdrop=None):
         back = st.back_alpha if st.back_alpha is not None else (1.0 if st.submenu and not named else 0.0)
         if back > 0:
             glyph(s, glyph_code('BackChevron'), C, C, CHEVRON['backEm'], th.secondary, back * ca)
+
+        if st.trash:
+            # renderer DrawTrash: the critical ring at the center zone's edge around the Remove glyph;
+            # armed, a criticalFill disc with the glyph in textOnCritical, the ring kept.
+            trash = G['trash']
+            w = trash['ringStroke']
+            s.circle(C, C, CENTER_R - w / 2, stroke=th.critical, sw=w)
+            if st.trash == 'armed':
+                s.circle(C, C, trash['armedRadius'], fill=th.criticalFill)
+            glyph(s, glyph_code('Remove'), C, C, trash['em'],
+                  th.textOnCritical if st.trash == 'armed' else th.critical)
 
         if named:
             centered_text(s, label_text(text), C, C, LABEL['size'], th.foreground, 'label', st.label_alpha)

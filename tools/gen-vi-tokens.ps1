@@ -140,6 +140,23 @@ if ($sizeDefault -ge $sizeSteps.Count -or [double]$sizeSteps[$sizeDefault] -ne 1
 $brandCount = $brandLines.Count
 if ($brandCount -eq 0) { $brandLines.Add('    {nullptr, false, 1.f, 0.f, 0.f, 1.f, 1.f},  // sentinel: no brands yet; kBrandCount is 0') }
 
+# Drift guard (P11): the language tile and its monogram list one set of states, one for each
+# language the source ships (LocaleName, src/localization.h), and supportedLanguages names them all.
+$iconStates = Get-Token 'osd.language.iconStates'
+$iconStates = @($iconStates)
+$monogramStates = Get-Token 'typography.iconMonogram.states'
+$monogramStates = @($monogramStates)
+if (($iconStates -join '|') -cne ($monogramStates -join '|')) {
+    throw "tokens.json: 'osd.language.iconStates' ($($iconStates -join ', ')) and 'typography.iconMonogram.states' ($($monogramStates -join ', ')) must list the same states."
+}
+$localization = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\localization.h'), $utf8)
+$shipped = @([regex]::Matches($localization, 'L"([a-z]{2}-[A-Z]{2})"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+$supported = Get-Token 'supportedLanguages'
+$supported = @($supported)
+$missing = @($shipped | Where-Object { $supported -cnotcontains $_ })
+if ($shipped.Count -eq 0) { throw 'src/localization.h: LocaleName names no locale.' }
+if ($missing.Count) { throw "tokens.json: 'supportedLanguages' misses $($missing -join ', '), which src/localization.h ships." }
+if ($iconStates.Count -ne $shipped.Count) { throw "tokens.json: 'osd.language.iconStates' has $($iconStates.Count) states for $($shipped.Count) shipped languages." }
 # The canvas holds the plate and its whole shadow: three standard deviations of the blur plus its
 # offset fit in the margin (the shadow was clipped at its bottom with a 24 DIP margin).
 $canvasMargin = [double](Get-Number 'elevation.canvasMargin')

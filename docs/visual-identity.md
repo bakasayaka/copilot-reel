@@ -1,4 +1,4 @@
-# Visual identity v0.9: Soft Orbit
+# Visual identity v1.0: Soft Orbit
 
 Normative visual summary for the native **Copilot Reel 0.3.13** build. Every value below comes from [`design/vi/tokens.json`](../design/vi/tokens.json) (schema 0.9, hand-edited); if this page and the tokens ever disagree, the tokens win. `src/vi_tokens.h` is generated from the same file.
 
@@ -8,13 +8,13 @@ The illustrated specification (VI v0.9, 16 pages), its previews, the SVG masters
 
 | Item | Location |
 | --- | --- |
-| Illustrated specification, 16 pages (built for 0.3.13) | [output/pdf/copilot-reel-vi-v0.9.pdf](../output/pdf/copilot-reel-vi-v0.9.pdf) |
-| Page previews at 2x (1920 x 1200, built for 0.3.13) | [output/previews/v0.9/](../output/previews/v0.9) |
-| Editable SVG masters (384 DIP canvas, built for 0.3.13) | [design/vi/vectors/](../design/vi/vectors): `radial-{main,hub,language,about,manage,presets}-{light,dark}.svg`, `radial-{main,hub}-contrast.svg`, `radial-main-{light,dark}-frosted.svg`; the retired 0.3.4 `radial-preferred-*` ones are deleted |
+| Illustrated specification, 16 pages (built for 0.3.13) | [output/pdf/copilot-reel-vi-v1.0.pdf](../output/pdf/copilot-reel-vi-v1.0.pdf) |
+| Page previews at 2x (1920 x 1200, built for 0.3.13) | [output/previews/v1.0/](../output/previews/v1.0) |
+| Editable SVG masters (400 DIP canvas, built for 0.3.13) | [design/vi/vectors/](../design/vi/vectors): `radial-{main,hub,language,about,manage,presets}-{light,dark}.svg`, `radial-{main,hub}-contrast.svg`, `radial-main-{light,dark}-frosted.svg`; the retired 0.3.4 `radial-preferred-*` ones are deleted |
 | Token sheet (Typst, reads tokens.json) | [design/vi/stylesheet.typ](../design/vi/stylesheet.typ) |
 | Generator sources | [design/vi/source/](../design/vi/source): `build_vi.py`, `pages.py`, `reel.py` (mirror of `src/renderer.cpp`), `scene.py`, `art.py`, `fonts.py`, `tokens.py`, `layout.py`, `masters.py` |
 | Runtime evidence | [output/runtime/v0.3.13/](../output/runtime/v0.3.13) (the current reference stills; the motion strips are in [output/runtime/v0.3.4/](../output/runtime/v0.3.4)) and [validation](validation.md) |
-| Review bundle | `output/copilot-reel-vi-v0.9.zip` (PDF, SVG masters, tokens, sources, previews; built with the PDF) |
+| Review bundle | `output/copilot-reel-vi-v1.0.zip` (PDF, SVG masters, tokens, sources, previews; built with the PDF) |
 | Artwork provenance | [assets/brands/provenance.json](../assets/brands/provenance.json) |
 
 Rebuild (Windows; needs Segoe UI Variable, Segoe Fluent Icons, Microsoft YaHei UI, Consolas and Poppler `pdftoppm` or PyMuPDF):

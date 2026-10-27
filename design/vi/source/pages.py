@@ -1,7 +1,8 @@
-"""The VI v0.9 pages. Every product value is read from tokens.json (via tokens.py)."""
+"""The VI v1.0 pages. Every product value is read from tokens.json (via tokens.py)."""
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from functools import lru_cache
 
 from PIL import Image
@@ -14,7 +15,7 @@ from layout import (Page, W, ML, MR, CW, TOP, BOTTOM, INK, INK2, INK3, RULE, PAN
 from tokens import (T, G, PAL, MOTION, TYPE, ICON, ELEV, MATERIAL, OSD, CANVAS, PLATE_R, PLATE_STROKE, PLATE_INSET, ORBIT_R,
                     CENTER_R, RING, TILE, TILE_R, TILE_STROKE, TILE_INSET, SEAT, SEAT_R,
                     SEAT_STROKE, SEAT_INSET, GLYPH_EM, KEYLINE, BADGE, CHEVRON, DISABLED, LABEL, MONOGRAM, SHADOW_BLUR,
-                    SHADOW_DY, MAX_APPS, ROOT, color, over, contrast, slot_angle, glyph_code)
+                    SHADOW_DY, MAX_APPS, ROOT, color, over, contrast, mix, slot_angle, glyph_code)
 
 
 def f(v):
@@ -216,7 +217,12 @@ def _card_artwork(s, x, y, w, h):
 
 
 def _card_badge(s, x, y, w, h):
-    _card(s, x, y, w, h, 'Preferred badge', 'Accent disc, plate-colored cutout ring, path check.')
+    _card(s, x, y, w, h, 'Badges', 'Preferred check or update dot: one cutout ring.')
+    kd = 1.6
+    dx, dy = x + w - 54, y + 64
+    with s.group(dx - R.C * kd, dy - R.C * kd, kd):
+        R.draw_item(s, LIGHT, R.cmd('about', 'About'), R.C, R.C, dot=True)
+    caption(s, dx, dy + TILE * kd / 2 + 16, f'dot r {f(BADGE["dotRadius"])}', INK2, 'center', 10.5)
     k = 2.9
     cx, cy = x + 112, y + h / 2 + 14
     with s.group(cx - R.C * k, cy - R.C * k, k):
@@ -265,7 +271,7 @@ SAMPLE_RAMP = [('AccentLight3', '#99EBFF'), ('AccentLight2', '#4CC2FF'), ('Accen
                ('AccentDark1', '#0067C0'), ('AccentDark2', '#003E92'), ('AccentDark3', '#001A68')]
 ROLE_ROWS = [('plate', 'fill'), ('foreground', 'text'), ('secondary', 'text'), ('tile', 'fill'), ('tileStroke', 'stroke'),
              ('plateStroke', 'stroke'), ('ringIdle', 'stroke'), ('accent', 'fill'), ('accentText', 'text'),
-             ('textOnAccent', 'text'), ('selection', 'fill'), ('selectionText', 'text'), ('outline', 'stroke'),
+             ('textOnAccent', 'text'), ('selection', 'fill'), ('selectionText', 'text'), ('critical', 'trash'), ('outline', 'stroke'),
              ('shadowOpacity', 'shadow')]
 
 
@@ -283,12 +289,17 @@ def _role_value(key, role):
     if role == 'tile' and p['frostedTileAlpha'] != 1:
         return f'{v}  ·  frosted {round(p["frostedTileAlpha"] * 100)}%'
     if role == 'outline':
-        return f'{v}  ·  editor only'
+        return f'{v}  ·  editor rims'
+    if role == 'critical':
+        return f'{v}  ·  armed {p["criticalFill"]} / {p["textOnCritical"]}'
     return v
 
 
 def _hc_value(role):
     v = PAL['highContrast'][role]
+    if role == 'critical':
+        armed = PAL['highContrast']['criticalFill'].replace('COLOR_', '') + ' / ' + PAL['highContrast']['textOnCritical'].replace('COLOR_', '')
+        return v.split(' (')[0].replace('COLOR_', '') + '  ·  armed ' + armed
     if role == 'shadowOpacity':
         return 'none'
     v = v.split(' (')[0].replace(' at geometry.plate.strokeHighContrast', f', {f(G["plate"]["strokeHighContrast"])} DIP')
@@ -304,6 +315,12 @@ def _swatch(s, x, y, th, role, kind, size=24):
         s.rect(x, y, size, size, fill=plate, r=6)
         s.rect(x + 3, y + 7, size - 6, size - 8, fill='#000000', r=4, alpha=th.shadowOpacity)
         s.rect(x + 3, y + 3, size - 6, size - 8, fill=plate, stroke=th.plateStroke, sw=1, r=4)
+        return
+    if kind == 'trash':   # the armed trash: criticalFill disc, Remove glyph in textOnCritical
+        s.rect(x, y, size, size, fill=plate, r=6)
+        s.circle(x + size / 2, y + size / 2, size * .46, fill=th.criticalFill)
+        R.glyph(s, R.glyph_code('Remove'), x + size / 2, y + size / 2, size * .5, th.textOnCritical)
+        s.rect(x, y, size, size, stroke='#000000', sw=0.6, r=6, alpha=0.12, inset=True)
         return
     value = getattr(th, role) if role != 'outline' else th.outline
     if kind == 'stroke':
@@ -328,7 +345,7 @@ def p03():
         if key == 'contrast':
             caption(s, x + 98, y0, 'COLOR_* system colors', INK3, size=11)
     s.line(ML, y0 + 12, ML + col_role + 3 * col_w - 20, y0 + 12, RULE)
-    row_h = 33
+    row_h = 31
     for i, (role, kind) in enumerate(ROLE_ROWS):
         y = y0 + 22 + i * row_h
         s.text(ML, y + 17, role, 12.5, INK, face='mono')
@@ -369,9 +386,18 @@ def p03():
     # Contrast
     yy += 18
     heading(s, x0, yy, 'Contrast (WCAG 2.2)', 14)
-    s.text(x0 + wr - 92, yy, 'Light', 11, INK3, face='small-sb', align='right')
-    s.text(x0 + wr - 42, yy, 'Dark', 11, INK3, face='small-sb', align='right')
+    cols = [wr - 184, wr - 140, wr - 86, wr - 42]   # light fallback, light live, dark fallback, dark live
+    for c, (name, sub) in zip(cols, (('Light', 'fallback'), ('', 'live'), ('Dark', 'fallback'), ('', 'live'))):
+        if name:
+            s.text(x0 + c + 44, yy - 12, name, 11, INK3, face='small-sb', align='right')
+        s.text(x0 + c, yy, sub, 10, INK3, face='small', align='right')
     s.text(x0 + wr, yy, 'Need', 11, INK3, face='small-sb', align='right')
+    ramp = dict(SAMPLE_RAMP)
+
+    def live(th, key):
+        """The theme with the sample ramp's accent in place of the fallback."""
+        accent = color(ramp[PAL[key]['accent']['ramp']])
+        return replace(th, accent=accent, seatStroke=accent, selection=mix(th.plate, accent, PAL[key]['seatTint']))
     pairs = [('Label, glyphs on plate', 'foreground', 'plate', 4.5),
              ('Glyphs on tile', 'foreground', 'tile', 4.5),
              ('Glyphs on seat', 'foreground', 'selection', 4.5),
@@ -382,17 +408,16 @@ def p03():
     for label, a, b, need in pairs:
         yy += 19
         s.text(x0, yy, label, 11.5, INK2, face='small')
-        for j, th in enumerate((LIGHT, DARK)):
+        for j, th in enumerate((LIGHT, live(LIGHT, 'light'), DARK, live(DARK, 'dark'))):
             bg = over(getattr(th, b), th.plate)
             ratio = contrast(over(getattr(th, a), bg), bg)
-            xr = x0 + wr - 92 + j * 50
-            s.text(xr, yy, f'{ratio:.2f}', 11.5, INK if ratio >= need else DONT, face='small-sb', align='right')
+            s.text(x0 + cols[j], yy, f'{ratio:.2f}', 11.5, INK if ratio >= need else DONT, face='small-sb', align='right')
         s.text(x0 + wr, yy, f'{f(need)}:1', 11.5, INK3, face='small', align='right')
     yy += 19
     sample = PAL['highContrast']['previewSample']
     hc_text = contrast(color(sample['windowText']), color(sample['window']))
     hc_sel = contrast(color(sample['highlightText']), color(sample['highlight']))
-    caption(s, x0, yy + 4, f'High Contrast Black sample: text {hc_text:.1f}:1, selection {hc_sel:.1f}:1.', INK3, size=11)
+    caption(s, x0, yy + 4, f'Live: the sample ramp above. High Contrast Black sample: text {hc_text:.1f}:1, selection {hc_sel:.1f}:1.', INK3, size=11)
 
     # The roles in use: seat, glyph and badge per theme.
     yy += 30
@@ -489,18 +514,18 @@ def p04():
         s.text(x1 + 104, yy, b, 12, INK2, face='small')
     # Monogram tiles
     yb = y0 + 3 * (ph + 12) + 26
-    k2, bw2, bh2 = 1.6, 236, 112
+    k2, bw2, bh2 = 1.3, 236, 112
     for j, th in enumerate((LIGHT, DARK)):
         bx = x0 + j * (bw2 + 14)
         panel(s, bx, yb, bw2, bh2, fill=th.plate)
-        for i, code in enumerate(MONOGRAM['states']):
-            cx = bx + bw2 / 2 + (i - 1) * 74
+        for i, code in enumerate(MONOGRAM['states'] + ['size']):
+            cx = bx + bw2 / 2 + (i - 1.5) * 57
             with s.group(cx - R.C * k2, yb + bh2 / 2 - R.C * k2, k2):
                 R.draw_tile(s, th, R.C, R.C)
-                R.draw_art(s, th, R.LANGUAGE, R.C, R.C, lang=code)
+                R.draw_art(s, th, R.SIZE if code == 'size' else R.LANGUAGE, R.C, R.C, lang=code)
     tx = x0 + 2 * (bw2 + 14) + 10
-    heading(s, tx, yb + 28, 'The language is the icon', 13.5)
-    para(s, tx, yb + 50, 'EN / ZH / JA names the interface language. Built-in labels are localized; user app names never are.',
+    heading(s, tx, yb + 28, 'The state is the icon', 13.5)
+    para(s, tx, yb + 50, 'EN / ZH / JA and the reel size share one cap height: the % sits on the digits'' baseline. App names are never localized.',
          pw - (tx - x0), 12.5, 18)
     return p
 
@@ -699,6 +724,9 @@ def state_models():
                                                                                R.cmd('about', 'About')], selected=1, submenu=True)),
         ('Preferred', f'accent badge at (+{f(BADGE["offset"])}, −{f(BADGE["offset"])})', R.State([four[0], chat, four[2], R.PLUS], preferred=1)),
         ('Keyboard focus', 'the same seat; glyphs stay foreground', R.State(hub4, selected=1, submenu=True, language=True)),
+        ('Dragged', f'lifted to {f(MOTION["events"]["drag"]["liftScale"])} with a small shadow; the trash owns the center',
+         R.State([four[0], gem, four[2], R.cmd('add', 'Add app')], submenu=True, trash='idle',
+                 drag=(1, R.item_center(1, 4)[0] - 14, R.item_center(1, 4)[1] + 6))),
         ('Commit', f't = {MOTION["events"]["commit"]["holdMs"]} ms: the choice holds, the rest fades',
          R.State([four[0], claude, four[2], R.PLUS], selected=1, plate_alpha=commit_alpha, label_alpha=commit_alpha,
                  item_alpha={0: commit_alpha, 2: commit_alpha, 3: commit_alpha}, item_scale={1: MOTION['events']['commit']['pressScale']})),
@@ -706,7 +734,7 @@ def state_models():
 
 
 def p07():
-    p = Page(7, 'States', 'Six states in every appearance.',
+    p = Page(7, 'States', 'Seven states in every appearance.',
              'Each cell is the slice from the plate center to the item at 3 o\'clock. Selection is only ever the seat.')
     s = p.s
     models = state_models()
@@ -805,9 +833,9 @@ def p09():
     top, mid, bot = 384, 500, 628
     nodes = {
         'main': (xs[0], mid, 'Main', 'apps and +', R.State(R.MAIN, preferred=0)),
-        'hub': (xs[1], mid, '+ hub', 'language, appearance, reel size, tray icon, manage, add, about', R.State(R.HUB, language=True, submenu=True)),
+        'hub': (xs[1], mid, '+ hub', 'language, appearance, reel size, tray icon, manage, add, about', R.State(R.HUB, language=True, submenu=True, dots=frozenset({6}))),
         'manage': (xs[2], top, 'Manage apps', 'apps and Add app', R.State(R.MANAGE, preferred=0, submenu=True)),
-        'about': (xs[2], bot, 'About', 'the version, the author on GitHub, two switches, updates', R.State(R.ABOUT, submenu=True)),
+        'about': (xs[2], bot, 'About', 'the version, the author on GitHub, two switches, updates', R.State(R.ABOUT, submenu=True, dots=frozenset({4}))),
         'presets': (xs[3], top, 'Presets', 'five per page, Custom, paging', R.State(R.PRESETS, submenu=True)),
         'entry': (xs[3], bot, 'App actions', 'the app, edit, set as preferred, remove', R.State(R.ENTRY, preferred=0, submenu=True)),
     }
@@ -864,6 +892,7 @@ def p09():
     caption(s, hx, hy + pr + 50, 'In place, no navigation: EN / ZH / JA via chevrons or A / D;', INK2, 'center', 11.5)
     caption(s, hx, hy + pr + 65, 'Reel size and Tray icon change on each confirm.', INK2, 'center', 11.5)
     caption(s, hx, hy + pr + 80, 'Appearance opens Windows color settings.', INK2, 'center', 11.5)
+    caption(s, hx, hy + pr + 95, 'A waiting update: a dot on About and on its update tile.', INK2, 'center', 11.5)
     # Legend
     y = BOTTOM - 40
     s.line(ML, y - 22, W - MR, y - 22, RULE)
