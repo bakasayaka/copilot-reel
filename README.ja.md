@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-ja.gif"><img src="docs/readme/demo-hold-light-ja.gif" width="400" alt="Copilot キーを押したままにするとポインターの周りにリールが開き、Claude を指して離すと Claude が開きます。"></picture>
+  <picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-ja.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-hold-light-ja.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-ja.gif"><img src="docs/readme/demo-hold-light-ja.gif" width="400" alt="Copilot キーを押したままにするとポインターの周りにリールが開き、Claude を指して離すと Claude が開きます。"></picture>
 </p>
 
 <h1 align="center">Copilot Reel</h1>
@@ -23,9 +23,9 @@
 
 <table align="center">
   <tr>
-    <td align="center" width="240"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-open-dark-ja.png"><img src="docs/readme/step-open-light-ja.png" width="200" alt="ポインターの周りに開いたリール"></picture><br><b>1 · 押したまま</b><br><sub><kbd>Copilot</kbd> キーを押したままにすると、ポインターの周りにリールが開きます。</sub></td>
-    <td align="center" width="240"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-point-dark-ja.png"><img src="docs/readme/step-point-light-ja.png" width="200" alt="Claude を選択し、中央にその名前を表示"></picture><br><b>2 · 指す</b><br><sub>アプリの方向へ動かすと、中央に名前が表示されます。</sub></td>
-    <td align="center" width="240"><img src="docs/readme/step-launch.png" width="200" alt="Claude が開く"><br><b>3 · 離す</b><br><sub>アプリが開きます。起動中のアプリは前面に出ます。</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-open-dark.png"><img src="docs/readme/step-open-light.png" width="240" alt="ポインターの周りに開いたリール"></picture><br><b>1 · 押したまま</b><br><sub><kbd>Copilot</kbd> キーを押したままにすると、ポインターの周りにリールが開きます。</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-point-dark.png"><img src="docs/readme/step-point-light.png" width="240" alt="Claude を選択し、中央にその名前を表示"></picture><br><b>2 · 指す</b><br><sub>アプリの方向へ動かすと、中央に名前が表示されます。</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-launch-dark.png"><img src="docs/readme/step-launch-light.png" width="240" alt="Claude が開く"></picture><br><b>3 · 離す</b><br><sub>アプリが開きます。起動中のアプリは前面に出ます。</sub></td>
   </tr>
 </table>
 
@@ -37,15 +37,15 @@
 
 <h3 align="center">言語はその場で切り替え</h3>
 <p align="center">English、简体中文、日本語。左右の矢印で言語を切り替えても、アプリの構成は変わりません。</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-ja.gif"><img src="docs/readme/demo-hub-light-ja.gif" width="360" alt="+ のメニューで英語、中国語、日本語の順に切り替える様子"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-ja.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-hub-light-ja.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-ja.gif"><img src="docs/readme/demo-hub-light-ja.gif" width="360" alt="+ のメニューで英語、中国語、日本語の順に切り替える様子"></picture></p>
 
 <h3 align="center">ドラッグで並べ替え</h3>
 <p align="center">「アプリの管理」でアイコンを新しい位置へドラッグします。中央のごみ箱に落とすとリールから外れ、設定を保ったまま「アプリを追加」で待機します。</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-ja.gif"><img src="docs/readme/demo-drag-light-ja.gif" width="360" alt="Gemini を二つ先へ動かし、メモ帳を中央の赤いごみ箱に落とす様子"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-ja.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-drag-light-ja.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-ja.gif"><img src="docs/readme/demo-drag-light-ja.gif" width="360" alt="Gemini を二つ先へ動かし、メモ帳を中央の赤いごみ箱に落とす様子"></picture></p>
 
 <h3 align="center">更新は向こうから</h3>
 <p align="center">「バージョン情報」が一日に一度 GitHub に問い合わせます。新しい版が出ると小さな点が付き、「インストール」を選ぶとリールが自動で再起動します。</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-ja.gif"><img src="docs/readme/demo-about-light-ja.gif" width="360" alt="バージョン情報：切り替えをオンにしてオフに戻し、更新を確認して新しい版が提示される様子"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-ja.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-about-light-ja.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-ja.gif"><img src="docs/readme/demo-about-light-ja.gif" width="360" alt="バージョン情報：切り替えをオンにしてオフに戻し、更新を確認して新しい版が提示される様子"></picture></p>
 
 <br>
 

@@ -11,7 +11,10 @@ composed over GitHub's dark (#0d1117) or light (#ffffff) page, sampled at 25 fra
 with a drawn pointer and a Copilot keycap that lights while the key is held. The reel's
 opening is the first captured frame replayed through the opening motion of
 design/vi/tokens.json, because capture can only start once the window is visible. Stills keep
-the window's own alpha, so the reel and its shadow sit on either page.
+the window's own alpha, so the reel and its shadow sit on either page. The steps are language-neutral
+(Main shows no name, and app names are never localized), so one copy per theme is kept: the open reel
+cropped to its plate, Claude selected as a zoomed detail, and the commit frame of the hold, the
+reel's own pixels. Every GIF also gets a still, its fullest frame, for prefers-reduced-motion.
 
     uv run --python 3.14 --with pillow python tools/record-demos.py [--output docs/readme]
         [--demos hold,hub,drag,about,stills] [--themes dark,light] [--languages en,zh,ja]
@@ -50,7 +53,12 @@ NOTEPAD = {'en': 'Notepad', 'zh': '记事本', 'ja': 'メモ帳'}
 FONTS = Path(r'C:\Windows\Fonts')
 STEP = 400_000          # 40 ms in 100 ns ticks: 25 frames a second, a whole GIF delay
 KEY_BAND, KEY_GAP = 64, 24
-ACCENT = (96, 205, 255)
+# One accent per theme (P10), the Windows default accents the reel falls back to: the keycap, the click
+# ring and tools/readme-art.py's button share it.
+ACCENTS = {'dark': (96, 205, 255), 'light': (0, 95, 184)}
+ON_ACCENT = {'dark': (0, 0, 0), 'light': (255, 255, 255)}
+# The commit's held frame: the choice holds 50 ms while the rest fades over 83 ms (motion.events.commit).
+COMMIT_FRAME_MS = 80
 
 _kernel32 = ctypes.windll.kernel32
 _frequency = ctypes.c_int64()
@@ -174,7 +182,7 @@ class Demo:
             point = self.timeline.at_pointer(ticks)
             if point:
                 pressed = any(0 <= ticks - c < 1_800_000 for c in self.timeline.clicks)
-                draw_pointer(im, point[0] - left, point[1] - top, pressed)
+                draw_pointer(im, point[0] - left, point[1] - top, pressed, self.theme)
             return im.convert('RGB')
 
         out = []
@@ -196,7 +204,7 @@ class Demo:
             out.append((canvas(None if ticks >= hidden else frames[i][1], ticks), 40))
             ticks += STEP
         if finale:
-            out.extend(finale(canvas, ticks))
+            out.extend(finale(canvas, ticks, lambda at: frames[max(0, bisect.bisect_right(times, at) - 1)][1]))
         out.append((canvas(None, ticks + 10_000 * 400), outro_ms))
         return out
 
@@ -219,11 +227,11 @@ def cubic_bezier(t, x1, y1, x2, y2):
     return 3 * (1 - s) ** 2 * s * y1 + 3 * (1 - s) * s ** 2 * y2 + s ** 3
 
 
-def draw_pointer(im, x, y, pressed):
-    """A Windows arrow pointer with its tip at (x, y), and a ring while a click lands."""
+def draw_pointer(im, x, y, pressed, theme):
+    """A Windows arrow pointer with its tip at (x, y), and a ring in the theme's accent while a click lands."""
     d = ImageDraw.Draw(im)
     if pressed:
-        d.ellipse((x - 18, y - 18, x + 18, y + 18), outline=ACCENT + (255,), width=3)
+        d.ellipse((x - 18, y - 18, x + 18, y + 18), outline=ACCENTS[theme] + (255,), width=3)
     s = 1.6
     shape = [(0, 0), (0, 17), (4.5, 13), (7.5, 20), (10.5, 18.8), (7.5, 12), (13, 12)]
     d.polygon([(x + px * s, y + py * s) for px, py in shape], fill=(255, 255, 255, 255), outline=(0, 0, 0, 255), width=2)
@@ -234,15 +242,24 @@ def draw_keycap(im, theme, held):
     x, y = (im.width - w) // 2, im.height - h - KEY_GAP // 2 - 6
     d = ImageDraw.Draw(im)
     dark = theme == 'dark'
-    face = ACCENT if held else ((48, 54, 61) if dark else (234, 238, 242))
-    edge = ACCENT if held else ((72, 79, 88) if dark else (208, 215, 222))
-    ink = (0, 0, 0) if held else ((230, 237, 243) if dark else (31, 35, 40))
+    face = ACCENTS[theme] if held else ((48, 54, 61) if dark else (234, 238, 242))
+    edge = ACCENTS[theme] if held else ((72, 79, 88) if dark else (208, 215, 222))
+    ink = ON_ACCENT[theme] if held else ((230, 237, 243) if dark else (31, 35, 40))
     shift = 3 if held else 0
     if not held:
         d.rounded_rectangle((x, y + 4, x + w, y + h + 4), radius=12, fill=(1, 4, 9) if dark else (208, 215, 222))
     d.rounded_rectangle((x, y + shift, x + w, y + h + shift), radius=12, fill=face, outline=edge, width=2)
     font = ImageFont.truetype(str(FONTS / 'seguisb.ttf'), 22)
     d.text((x + w / 2, y + h / 2 + shift), 'Copilot', font=font, fill=ink, anchor='mm')
+
+
+def save_still(frames, path, page):
+    """The GIF's fullest frame, the one with the most pixels off the page, for prefers-reduced-motion."""
+    def ink(image):
+        flat = Image.new('RGB', image.size, page)
+        return ImageChops.difference(image, flat).convert('L').point(lambda v: 255 if v > 8 else 0).histogram()[255]
+    best = max((image for image, _ in frames[::4]), key=ink)
+    best.save(path, optimize=True)
 
 
 def save_gif(frames, path, page):
@@ -301,20 +318,14 @@ def demo_hold(d):
     d.timeline.hidden = now()
     d.finish()
     assert 'Test launch logged: Claude' in d.reel.read_log(), 'The hold must commit Claude.'
-    mark = Image.open(ROOT / 'assets/brands/claude.png').convert('RGBA')
+    released = next(t for t, held in reversed(d.timeline.key) if not held)
 
-    def finale(canvas, ticks):
-        out = []
-        for i in range(1, 9):
-            t = i / 8
-            size = round(112 + 32 * cubic_bezier(t, 0, 0, 0, 1))
-            frame = canvas(None, ticks)
-            icon = mark.resize((size, size), Image.LANCZOS)
-            alpha = icon.getchannel('A').point(lambda a: round(a * min(1.0, t * 1.6)))
-            frame.paste(icon, ((frame.width - size) // 2, (frame.height - KEY_BAND - KEY_GAP - size) // 2), alpha)
-            out.append((frame, 40))
-        out.append((out[-1][0], 1200))
-        return out
+    def finale(canvas, ticks, captured):
+        # The product's own pixels (P10): the captured commit frame, Claude's tile holding while the rest
+        # has faded, rather than an enlarged vendor mark. It is step 3 too, cropped to the plate.
+        frame = captured(released + 10_000 * COMMIT_FRAME_MS)
+        plate(frame).save(d.output / f'step-launch-{d.theme}.png', optimize=True)
+        return [(canvas(frame, ticks), 1200)]
     return d.compose(finale=finale)
 
 
@@ -395,7 +406,21 @@ def demo_about(d):
     return d.compose(keycap=False, opening=False, intro_ms=0)
 
 
-def stills(d, output, suffix):
+def plate(image):
+    """The plate and a little of its shadow: the canvas less its shadow margin."""
+    k = image.width / seam.CANVAS_DIP
+    c, r = image.width / 2, (seam.CANVAS_DIP / 2 - 24) * k
+    return image.crop((round(c - r), round(c - r), round(c + r), round(c + r)))
+
+
+def detail(image):
+    """Step 2's zoomed detail: the center name and the selected tile up and to its right (slot 1 of 8)."""
+    k = image.width / seam.CANVAS_DIP
+    c = image.width / 2
+    return image.crop((round(c - 50 * k), round(c - 120 * k), round(c + 120 * k), round(c + 50 * k)))
+
+
+def stills(d, output, theme):
     """The README's first two steps, with the pointer drawn in: the reel just opened, and Claude selected."""
     d.reel.start()
     d.move(d.anchor)
@@ -403,12 +428,12 @@ def stills(d, output, suffix):
     state = d.reel.diagnostics()
     for name, point in (('open', d.anchor), ('point', d.reel.sector(state.index('Claude'), len(state.names), radius=96))):
         d.move(point)
-        path = output / f'step-{name}-{suffix}.png'
+        path = output / f'step-{name}-{theme}.png'
         d.still(path)
         left, top, _, _ = d.reel.rect()
         image = Image.open(path).convert('RGBA')
-        draw_pointer(image, point[0] - left, point[1] - top, False)
-        image.save(path, optimize=True)
+        draw_pointer(image, point[0] - left, point[1] - top, False, theme)
+        (plate(image) if name == 'open' else detail(image)).save(path, optimize=True)
     d.move(d.anchor)
     assert d.reel.send_command(seam.CANCEL)
     d.reel.hidden()
@@ -472,17 +497,22 @@ def main():
         for language in args.languages.split(','):
             for theme in args.themes.split(','):
                 for name in args.demos.split(','):
+                    # The steps are language-neutral: one copy per theme, from the first language.
+                    if name == 'stills' and language != args.languages.split(',')[0]:
+                        continue
                     demo = Demo(name, theme, language, work, extra)
+                    demo.output = args.output
                     try:
                         if name == 'stills':
-                            stills(demo, args.output, f'{theme}-{language}')
-                            print(f'stills {theme}-{language}', flush=True)
+                            stills(demo, args.output, theme)
+                            print(f'stills {theme}', flush=True)
                             continue
                         frames = DEMOS[name](demo)
                     finally:
                         demo.reel.shutdown()
                     path = args.output / f'demo-{name}-{theme}-{language}.gif'
                     save_gif(frames, path, PAGES[theme])
+                    save_still(frames, path.with_suffix('.png'), PAGES[theme])
                     print(f'{path.name}: {len(frames)} frames, {path.stat().st_size // 1024} KiB', flush=True)
     finally:
         feed.close()

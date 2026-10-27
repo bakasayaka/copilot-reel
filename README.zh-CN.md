@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-zh.gif"><img src="docs/readme/demo-hold-light-zh.gif" width="400" alt="按住 Copilot 键，轮盘在指针周围展开；指向 Claude 后松开，Claude 随即打开。"></picture>
+  <picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-zh.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-hold-light-zh.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-zh.gif"><img src="docs/readme/demo-hold-light-zh.gif" width="400" alt="按住 Copilot 键，轮盘在指针周围展开；指向 Claude 后松开，Claude 随即打开。"></picture>
 </p>
 
 <h1 align="center">Copilot Reel</h1>
@@ -23,9 +23,9 @@
 
 <table align="center">
   <tr>
-    <td align="center" width="240"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-open-dark-zh.png"><img src="docs/readme/step-open-light-zh.png" width="200" alt="轮盘在指针周围展开"></picture><br><b>1 · 按住</b><br><sub>按住 <kbd>Copilot</kbd> 键，轮盘在指针周围展开。</sub></td>
-    <td align="center" width="240"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-point-dark-zh.png"><img src="docs/readme/step-point-light-zh.png" width="200" alt="选中 Claude，中央显示它的名称"></picture><br><b>2 · 指向</b><br><sub>朝应用的方向移动，中央会显示它的名称。</sub></td>
-    <td align="center" width="240"><img src="docs/readme/step-launch.png" width="200" alt="Claude 打开"><br><b>3 · 松开</b><br><sub>应用随即打开；已在运行的会直接切到前台。</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-open-dark.png"><img src="docs/readme/step-open-light.png" width="240" alt="轮盘在指针周围展开"></picture><br><b>1 · 按住</b><br><sub>按住 <kbd>Copilot</kbd> 键，轮盘在指针周围展开。</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-point-dark.png"><img src="docs/readme/step-point-light.png" width="240" alt="选中 Claude，中央显示它的名称"></picture><br><b>2 · 指向</b><br><sub>朝应用的方向移动，中央会显示它的名称。</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-launch-dark.png"><img src="docs/readme/step-launch-light.png" width="240" alt="Claude 打开"></picture><br><b>3 · 松开</b><br><sub>应用随即打开；已在运行的会直接切到前台。</sub></td>
   </tr>
 </table>
 
@@ -37,15 +37,15 @@
 
 <h3 align="center">语言，原地切换</h3>
 <p align="center">English、简体中文和日本語。用两侧的箭头切换语言，你的应用保持原样。</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-zh.gif"><img src="docs/readme/demo-hub-light-zh.gif" width="360" alt="+ 菜单中依次切换中文、日文和英文"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-zh.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-hub-light-zh.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-zh.gif"><img src="docs/readme/demo-hub-light-zh.gif" width="360" alt="+ 菜单中依次切换中文、日文和英文"></picture></p>
 
 <h3 align="center">拖一拖，就排好</h3>
 <p align="center">在「管理应用」里把图标拖到新位置；拖到中央的垃圾桶上，就把它移出轮盘，它会带着原有设置在「添加应用」里等你。</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-zh.gif"><img src="docs/readme/demo-drag-light-zh.gif" width="360" alt="Gemini 被拖后两格，记事本被拖到中央的红色垃圾桶上"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-zh.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-drag-light-zh.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-zh.gif"><img src="docs/readme/demo-drag-light-zh.gif" width="360" alt="Gemini 被拖后两格，记事本被拖到中央的红色垃圾桶上"></picture></p>
 
 <h3 align="center">更新，自己找上门</h3>
 <p align="center">「关于」每天向 GitHub 询问一次。有新版本时会出现一个小圆点，选择「安装」，轮盘会自行重启。</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-zh.gif"><img src="docs/readme/demo-about-light-zh.gif" width="360" alt="关于页：开关打开又关闭，然后检查更新并提示新版本"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-zh.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-about-light-zh.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-zh.gif"><img src="docs/readme/demo-about-light-zh.gif" width="360" alt="关于页：开关打开又关闭，然后检查更新并提示新版本"></picture></p>
 
 <br>
 

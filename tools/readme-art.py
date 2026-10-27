@@ -1,16 +1,16 @@
-"""Draw the README's static art into docs/readme: language pills, the download button and step 3.
+"""Draw the README's static art into docs/readme: the language pills and the download button.
 
 Every piece comes in a dark and a light variant for GitHub's two page colors, at twice its
 displayed size, with the faces the reel itself uses: Segoe UI for Latin, Reel Sans SC for
 Chinese and Reel Sans JP for Japanese. Accent fills are the Windows default accents the reel
-falls back to (#60CDFF on dark, #005FB8 on light). The demo GIFs and step stills come from
-tools/record-demos.py.
+falls back to (#60CDFF on dark, #005FB8 on light). The demo GIFs, their reduced-motion stills and the
+three step stills, step 3 the hold's own commit frame (P10), come from tools/record-demos.py.
 
     uv run --python 3.14 --with pillow python tools/readme-art.py
 """
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'docs/readme'
@@ -81,19 +81,6 @@ def download(language, theme):
     return im
 
 
-def launch():
-    """Step 3: Claude's own mark, opened, on the stills' canvas with a soft shadow."""
-    canvas = 616
-    mark = Image.open(ROOT / 'assets/brands/claude.png').convert('RGBA').resize((208, 208), Image.LANCZOS)
-    im = Image.new('RGBA', (canvas, canvas), (0, 0, 0, 0))
-    shadow = Image.new('RGBA', (canvas, canvas), (0, 0, 0, 0))
-    offset = ((canvas - mark.width) // 2, (canvas - mark.height) // 2)
-    shadow.paste((0, 0, 0, 90), (offset[0], offset[1] + 12), mark.getchannel('A'))
-    im.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(18)))
-    im.alpha_composite(mark, offset)
-    return im
-
-
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for theme in THEMES:
@@ -101,8 +88,7 @@ def main():
             for active in (True, False):
                 pill(language, active, theme).save(OUT / f'lang-{language}-{"on" if active else "off"}-{theme}.png', optimize=True)
             download(language, theme).save(OUT / f'download-{language}-{theme}.png', optimize=True)
-    launch().save(OUT / 'step-launch.png', optimize=True)
-    print(f'{len(list(OUT.glob("lang-*.png")))} pills, {len(list(OUT.glob("download-*.png")))} buttons, step-launch.png')
+    print(f'{len(list(OUT.glob("lang-*.png")))} pills, {len(list(OUT.glob("download-*.png")))} buttons')
 
 
 if __name__ == '__main__':

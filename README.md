@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-en.gif"><img src="docs/readme/demo-hold-light-en.gif" width="400" alt="Holding the Copilot key opens the reel around the pointer; pointing at Claude and letting go opens Claude."></picture>
+  <picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-en.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-hold-light-en.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hold-dark-en.gif"><img src="docs/readme/demo-hold-light-en.gif" width="400" alt="Holding the Copilot key opens the reel around the pointer; pointing at Claude and letting go opens Claude."></picture>
 </p>
 
 <h1 align="center">Copilot Reel</h1>
@@ -23,9 +23,9 @@
 
 <table align="center">
   <tr>
-    <td align="center" width="240"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-open-dark-en.png"><img src="docs/readme/step-open-light-en.png" width="200" alt="The reel open around the pointer"></picture><br><b>1 · Hold</b><br><sub>Hold <kbd>Copilot</kbd>. The reel opens around your pointer.</sub></td>
-    <td align="center" width="240"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-point-dark-en.png"><img src="docs/readme/step-point-light-en.png" width="200" alt="Claude selected, its name in the middle"></picture><br><b>2 · Point</b><br><sub>Move toward an app. Its name appears in the middle.</sub></td>
-    <td align="center" width="240"><img src="docs/readme/step-launch.png" width="200" alt="Claude opens"><br><b>3 · Let go</b><br><sub>The app opens, or comes to the front if it is already running.</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-open-dark.png"><img src="docs/readme/step-open-light.png" width="240" alt="The reel open around the pointer"></picture><br><b>1 · Hold</b><br><sub>Hold <kbd>Copilot</kbd>. The reel opens around your pointer.</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-point-dark.png"><img src="docs/readme/step-point-light.png" width="240" alt="Claude selected, its name in the middle"></picture><br><b>2 · Point</b><br><sub>Move toward an app. Its name appears in the middle.</sub></td>
+    <td align="center" width="260"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/step-launch-dark.png"><img src="docs/readme/step-launch-light.png" width="240" alt="Claude opens"></picture><br><b>3 · Let go</b><br><sub>The app opens, or comes to the front if it is already running.</sub></td>
   </tr>
 </table>
 
@@ -37,15 +37,15 @@
 
 <h3 align="center">Your language, in place</h3>
 <p align="center">English, 简体中文 and 日本語. The arrows switch the language; your apps stay exactly as they are.</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-en.gif"><img src="docs/readme/demo-hub-light-en.gif" width="360" alt="The + hub switching the language from English through Chinese and Japanese and back"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-en.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-hub-light-en.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-hub-dark-en.gif"><img src="docs/readme/demo-hub-light-en.gif" width="360" alt="The + hub switching the language from English through Chinese and Japanese and back"></picture></p>
 
 <h3 align="center">Arrange by dragging</h3>
 <p align="center">In Manage apps, drag a tile to a new place. Drop it on the trash to take it out of the reel; it waits on Add with its settings.</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-en.gif"><img src="docs/readme/demo-drag-light-en.gif" width="360" alt="Gemini dragged two places on, then Notepad dropped on the red trash in the center"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-en.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-drag-light-en.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-drag-dark-en.gif"><img src="docs/readme/demo-drag-light-en.gif" width="360" alt="Gemini dragged two places on, then Notepad dropped on the red trash in the center"></picture></p>
 
 <h3 align="center">Updates come to you</h3>
 <p align="center">About asks GitHub once a day. When a new version is out, a small dot appears; choose Install and the reel restarts by itself.</p>
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-en.gif"><img src="docs/readme/demo-about-light-en.gif" width="360" alt="About: a switch turned on and off, then Check for updates offering a new version"></picture></p>
+<p align="center"><picture><source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-en.png"><source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/demo-about-light-en.png"><source media="(prefers-color-scheme: dark)" srcset="docs/readme/demo-about-dark-en.gif"><img src="docs/readme/demo-about-light-en.gif" width="360" alt="About: a switch turned on and off, then Check for updates offering a new version"></picture></p>
 
 <br>
 
