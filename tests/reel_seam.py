@@ -29,7 +29,7 @@ WINDOW_CLASS = 'CopilotReel.Controller'
 INSTALLED_TITLE = 'Copilot Reel'
 EDITOR_CLASS = 'CopilotReel.Osd'
 DIALOG_CLASS = '#32770'
-CANVAS_DIP = 384
+CANVAS_DIP = 400
 CENTER_DIP = 192
 SECTOR_RADIUS_DIP = 112
 DEAD_ZONE_DIP = 44
@@ -609,7 +609,7 @@ class Reel:
         return (right - left) / CANVAS_DIP
 
     def canvas(self, x, y):
-        """A point given in canvas DIP (0..384) as physical screen pixels."""
+        """A point given in canvas DIP (0..400) as physical screen pixels."""
         left, top, _, _ = self.rect()
         return round(left + x * self.scale()), round(top + y * self.scale())
 

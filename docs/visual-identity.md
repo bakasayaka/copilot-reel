@@ -39,7 +39,7 @@ The generator never writes `tokens.json`. Scenes use the token accent fallbacks;
 | Element | Value |
 | --- | --- |
 | Reel scale | 0.8 (0.3.6): every DIP value in this table draws at 0.8; the effective DPI is the monitor DPI x 0.8, rounded (a 200% display draws the canvas at 616 px) |
-| Canvas | 384 x 384, including the 24 DIP shadow margin |
+| Canvas | 400 x 400, including the 32 DIP shadow margin, which holds the whole shadow (3 sigma of its blur plus its offset; 384 with a 24 DIP margin until 0.3.13 clipped its bottom) |
 | Plate | radius 168; rim 1, inset 0.5 (high contrast 2) |
 | Orbit | radius 112; slot 0 at 12 o'clock, clockwise, step 360/n |
 | Center zone | radius 44; idle ring 1 (`ringIdle`) |
@@ -153,7 +153,7 @@ The focused editor (`src/osd.cpp`, tokens `editor`) names an app and its launch 
 
 ## Placement
 
-The pointer is the plate center whenever the 384 DIP canvas fits (offset 0). At an edge or corner the whole canvas moves inward by the minimum needed; order, angles, radius and icon size are unchanged. Wherever that leaves the pointer, on the plate or outside it (168 DIP), it selects by direction as soon as it moves; there is no center entry and no gate visual (removed in 0.3.11). The opening position itself never selects. No cursor warp, no line from the pointer.
+The pointer is the plate center whenever the 400 DIP canvas fits (offset 0). At an edge or corner the whole canvas moves inward by the minimum needed; order, angles, radius and icon size are unchanged. Wherever that leaves the pointer, on the plate or outside it (168 DIP), it selects by direction as soon as it moves; there is no center entry and no gate visual (removed in 0.3.11). The opening position itself never selects. No cursor warp, no line from the pointer.
 
 Reel size (`geometry.sizeSteps` 0.7, 0.85, 1, 1.15; default 1) multiplies `geometry.scale` into the same whole effective DPI, so the canvas, the clamp and the work-area shrink above apply unchanged at every step. The hub's Reel size tile shows its step in the icon itself, the digits at the language monogram's 16 DIP and a smaller % on their baseline, never below 9 device pixels (70%, 85%, 100%, 115%); a confirm moves to the next step and the open reel is placed again around the point it opened at.
 

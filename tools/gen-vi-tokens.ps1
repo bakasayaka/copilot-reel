@@ -140,6 +140,15 @@ if ($sizeDefault -ge $sizeSteps.Count -or [double]$sizeSteps[$sizeDefault] -ne 1
 $brandCount = $brandLines.Count
 if ($brandCount -eq 0) { $brandLines.Add('    {nullptr, false, 1.f, 0.f, 0.f, 1.f, 1.f},  // sentinel: no brands yet; kBrandCount is 0') }
 
+# The canvas holds the plate and its whole shadow: three standard deviations of the blur plus its
+# offset fit in the margin (the shadow was clipped at its bottom with a 24 DIP margin).
+$canvasMargin = [double](Get-Number 'elevation.canvasMargin')
+if ([double](Get-Number 'geometry.canvas') -ne 2 * ([double](Get-Number 'geometry.plate.radius') + $canvasMargin)) {
+    throw "tokens.json: 'geometry.canvas' must be twice 'geometry.plate.radius' plus 'elevation.canvasMargin'."
+}
+if ($canvasMargin -lt 3 * [double](Get-Number 'elevation.shadowBlur') / 2 + [double](Get-Number 'elevation.shadowOffsetY')) {
+    throw "tokens.json: 'elevation.canvasMargin' must hold the shadow: 3 x shadowBlur / 2 + shadowOffsetY."
+}
 # The editor's lengths sit on its grid (P4).
 $e = 'editor'
 $editorGrid = [int](UInt "$e.grid")

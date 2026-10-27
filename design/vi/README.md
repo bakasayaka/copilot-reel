@@ -5,7 +5,7 @@ Soft Orbit for Copilot Reel 0.3.13: a Windows-neutral plate with one flyout shad
 The sources here are current for 0.3.13: they draw the seven-item hub and the About page, and the review PDF, its previews, the SVG masters and the review zip were rebuilt from them on Windows for 0.3.13.
 
 - `tokens.json`: the single, hand-edited source of design values (geometry, palettes and accent roles, material, motion, typography, per-brand artwork treatment). `tools/gen-vi-tokens.ps1` generates `src/vi_tokens.h` from it for the application; this package reads it directly.
-- `vectors/`: active SVG masters on the 384 DIP canvas: `radial-{main,hub,language,about,manage,presets}-{light,dark}.svg`, `radial-{main,hub}-contrast.svg`, `radial-main-{light,dark}-frosted.svg`. The About masters (the reel's mark selected and named `0.3.13`) replace the Preferred page's `radial-preferred-*`, which are retired.
+- `vectors/`: active SVG masters on the 400 DIP canvas: `radial-{main,hub,language,about,manage,presets}-{light,dark}.svg`, `radial-{main,hub}-contrast.svg`, `radial-main-{light,dark}-frosted.svg`. The About masters (the reel's mark selected and named `0.3.13`) replace the Preferred page's `radial-preferred-*`, which are retired.
 - `stylesheet.typ`: Typst token sheet that reads `tokens.json`; it repeats no values.
 - `source/build_vi.py`: builds the PDF, the SVG masters, the 2x previews and the review zip.
 - `source/pages.py`: the 16 specification pages (page 4 sets the label in all three scripts; page 16 compares them with Apple's pairing and the Windows faces); `source/reel.py`: vector mirror of `src/renderer.cpp`; `source/scene.py`, `art.py`, `fonts.py`, `tokens.py`, `layout.py`, `masters.py`: drawing, artwork, font, token, layout and master helpers.

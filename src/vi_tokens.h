@@ -11,7 +11,7 @@ inline constexpr float kReelScale = 0.8f;
 // The user's reel size steps multiply kReelScale; kReelSizeDefault indexes the step 1.
 inline constexpr float kReelSizeSteps[] = {0.7f, 0.85f, 1.f, 1.15f};
 inline constexpr unsigned kReelSizeCount = 4, kReelSizeDefault = 2;
-inline constexpr float kCanvas = 384.f, kPlateRadius = 168.f, kOrbitRadius = 112.f, kCenterZoneRadius = 44.f;
+inline constexpr float kCanvas = 400.f, kPlateRadius = 168.f, kOrbitRadius = 112.f, kCenterZoneRadius = 44.f;
 inline constexpr float kTile = 40.f, kTileRadius = 10.f, kTileStroke = 1.f;
 inline constexpr float kSeat = 48.f, kSeatRadius = 14.f, kSeatStroke = 1.5f, kSeatStrokeHighContrast = 2.5f;
 inline constexpr float kGlyphEm = 24.f;              // Segoe Fluent Icons em inside the tile
