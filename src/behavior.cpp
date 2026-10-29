@@ -4,6 +4,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <filesystem>
 #include <string_view>
 
 namespace reel {
@@ -111,7 +112,9 @@ bool SavePreferredTarget(const AppTarget& target) {
         const auto path = BehaviorPath();
         if (path.empty()) return false;
         const auto directory = path.substr(0, path.find_last_of(L"\\/"));
-        if (!CreateDirectoryW(directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+        std::error_code created;
+        std::filesystem::create_directories(directory, created);
+        if (created) return false;
         const std::wstring content = std::wstring(L"\xfeff") + std::wstring(kPrefix) + StableTargetKey(target) + L"\r\n";
         temporary = path + L"." + std::to_wstring(GetCurrentProcessId()) + L"." +
             std::to_wstring(GetTickCount64()) + L"." + std::to_wstring(nextTemporary.fetch_add(1)) + L".tmp";

@@ -1,5 +1,6 @@
 ﻿param(
-    # unit: check that the version copies agree, build Release x64 and run the unit tests. smoke:
+    # unit: check that the version copies agree, build Release x64, run the unit tests and, when the
+    # package is installed, the settings check inside it. smoke:
     # unit, then the seam preflight and the main-menu and hub groups. regression: unit, every seam
     # group and the still comparison.
     # installed: no build; only check that the installed package runs build\Release\CopilotReel.exe.
@@ -77,6 +78,27 @@ function Test-InstalledCopy {
     if (-not $okay) { $lines | ForEach-Object { Write-Host "  $_" } }
 }
 
+# Windows redirects %LOCALAPPDATA% only inside the package, which the seam's unpackaged instances never
+# are. settings_tests.exe --packaged runs in the installed package's context and writes its report when
+# it ends (Invoke-CommandInDesktopPackage does not wait); it never opens the reel's own files. Skipped
+# when the package is not installed.
+function Test-PackagedSettings {
+    $package = Get-AppxPackage -Name 'CopilotReel.Desktop' | Select-Object -First 1
+    if (-not $package) { Write-Host '[packaged] skipped: Copilot Reel is not installed'; return }
+    $log = Join-Path $evidence 'packaged.log'
+    $started = Get-Date
+    Invoke-CommandInDesktopPackage -PackageFamilyName $package.PackageFamilyName -AppId 'App' `
+        -Command (Join-Path $root 'build\Release\settings_tests.exe') -Args "--packaged `"$log`""
+    while (-not (Test-Path -LiteralPath $log) -and ((Get-Date) - $started).TotalSeconds -lt 30) { Start-Sleep -Milliseconds 200 }
+    if (-not (Test-Path -LiteralPath $log)) { 'No report within 30 s.' | Set-Content -LiteralPath $log -Encoding UTF8 }
+    $text = (Get-Content -LiteralPath $log -Raw -Encoding UTF8).Trim()
+    $okay = $text -like 'Packaged settings check passed*'
+    $seconds = [math]::Round(((Get-Date) - $started).TotalSeconds, 1)
+    $steps.Add([pscustomobject][ordered]@{ name = 'packaged'; passed = $okay; exitCode = [int](-not $okay); seconds = $seconds; log = $log })
+    Write-Host ("[packaged] {0} ({1} s)" -f $(if ($okay) { 'passed' } else { 'FAILED' }), $seconds)
+    if (-not $okay) { Write-Host "  $text" }
+}
+
 $python = 'uv run --python 3.14'
 if ($Tier -eq 'installed') {
     Test-InstalledCopy
@@ -84,6 +106,7 @@ if ($Tier -eq 'installed') {
     Invoke-Step 'versions' 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\check-versions.ps1' | Out-Null
     $built = Invoke-Step 'unit' 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\build.ps1 -Configuration Release -Architecture x64'
     if ($built) {
+        Test-PackagedSettings
         if ($Tier -eq 'smoke') {
             Invoke-Step 'seam' "$python python tests\run-reel-seam.py --groups a,hub" | Out-Null
         } elseif ($Tier -eq 'regression') {

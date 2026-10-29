@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cmath>
 #include <cwchar>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -116,7 +117,9 @@ bool WritePreferences(Language language, unsigned reelSize, bool trayMonochrome,
         const auto path = PreferencesPath();
         if (path.empty()) return false;
         const auto directory = path.substr(0, path.find_last_of(L"\\/"));
-        if (!CreateDirectoryW(directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+        std::error_code created;
+        std::filesystem::create_directories(directory, created);
+        if (created) return false;
         const wchar_t* value = LocaleName(language);
         const std::wstring content=std::wstring(L"\xfeff[General]\r\nLanguage=")+value+
             L"\r\nReelSize="+std::to_wstring(ReelSizePercent(reelSize))+

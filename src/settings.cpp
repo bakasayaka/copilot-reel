@@ -4,6 +4,7 @@
 #include <shlobj.h>
 #include <algorithm>
 #include <cwctype>
+#include <filesystem>
 #include <map>
 #include <new>
 #include <stdexcept>
@@ -194,8 +195,14 @@ std::wstring ConfigPath() {
         if (directory.back() != L'\\' && directory.back() != L'/') directory += L'\\';
         return directory + L"apps.ini";
     }
+    // In the package, %LOCALAPPDATA% is redirected to its LocalCache\Local folder, which can sit on
+    // another volume (Windows can make LocalCache a junction to <drive>:\WpSystem\<user SID>\...). A
+    // rename through the redirection then fails with ERROR_NOT_SAME_DEVICE, so the reel uses that
+    // folder itself: the same files, where a temporary file and its replacement always share a volume.
+    // Outside a package the flag changes nothing.
     PWSTR directory = nullptr;
-    if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_CREATE, nullptr, &directory))) return {};
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_CREATE | KF_FLAG_RETURN_FILTER_REDIRECTION_TARGET,
+        nullptr, &directory))) return {};
     std::wstring path;
     try { path = directory; } catch (...) { CoTaskMemFree(directory); throw; }
     CoTaskMemFree(directory);
@@ -300,9 +307,13 @@ bool WriteList(const std::wstring& path, const FileFormat& format, const std::ve
         if (!Validate(targets, error, format)) return false;
         if (path.empty()) { error = Tr(L"Cannot locate the user configuration directory.", L"无法定位用户配置目录。", L"利用者の構成フォルダーが見つかりません。"); return false; }
         // COPILOT_REEL_DATA_DIR may end in '/', which ConfigPath keeps.
+        // A new package has no LocalCache\Local yet, so every missing level is created.
         const auto directory = path.substr(0, path.find_last_of(L"\\/"));
-        if (!CreateDirectoryW(directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) {
-            error = std::wstring(Tr(L"Cannot create the configuration directory: ", L"无法创建配置目录：", L"構成フォルダーを作成できません: ")) + WinError(GetLastError());
+        std::error_code created;
+        std::filesystem::create_directories(directory, created);
+        if (created) {
+            error = std::wstring(Tr(L"Cannot create the configuration directory: ", L"无法创建配置目录：", L"構成フォルダーを作成できません: ")) +
+                WinError(static_cast<DWORD>(created.value()));
             return false;
         }
         std::wstring content = std::wstring(L"\xfeff; ") + format.comment + L". UTF-16 LE; backslashes are escaped.\r\n[" +
