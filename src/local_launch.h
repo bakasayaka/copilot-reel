@@ -29,7 +29,8 @@ std::wstring ShortcutTarget(const std::wstring& link);
 // in a remote session, CLIENTNAME, into the process environment where they are missing. App
 // activation starts the reel without them, unlike a start from Explorer, and the programs the
 // reel starts inherit its environment: Claude Science opens its window only when SESSIONNAME
-// is set. A variable that is already set is kept. Returns the names it set.
+// is set. A variable that is already set is kept, and an empty value (CLIENTNAME in a console
+// session) stays undefined, as Explorer leaves it. Returns the names it set.
 std::vector<std::wstring> InheritSessionEnvironment();
 
 // The arguments a shortcut launches with (a profile, a project, a URL): the first non-empty

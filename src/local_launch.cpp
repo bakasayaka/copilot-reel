@@ -133,6 +133,8 @@ std::vector<std::wstring> InheritSessionEnvironment() {
         const std::wstring variable(name.data(),nameLength);
         std::wstring text(value.data(),bytes/sizeof(wchar_t));
         while(!text.empty() && text.back()==L'\0')text.pop_back();
+        // A console session keeps an empty CLIENTNAME there; Explorer leaves it undefined.
+        if(text.empty())continue;
         SetLastError(ERROR_SUCCESS);
         if(GetEnvironmentVariableW(variable.c_str(),nullptr,0)!=0 || GetLastError()!=ERROR_ENVVAR_NOT_FOUND)continue;
         if(SetEnvironmentVariableW(variable.c_str(),text.c_str()))set.push_back(variable);

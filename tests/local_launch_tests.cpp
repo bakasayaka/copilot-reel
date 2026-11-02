@@ -189,6 +189,13 @@ void SessionEnvironmentChecks() {
     const bool reported=std::find(set.begin(),set.end(),L"SESSIONNAME")!=set.end();
     if(named)Check(reported && Variable(L"SESSIONNAME")==expected.data(),"a missing SESSIONNAME is the session's own");
     else Check(!reported && GetEnvironmentVariableW(L"SESSIONNAME",nullptr,0)==0,"without the session's key nothing is invented");
+    // A console session keeps CLIENTNAME empty in its key; like Explorer, the reel leaves it undefined.
+    std::array<wchar_t,1024> client{};
+    bytes=static_cast<DWORD>(client.size()*sizeof(wchar_t));
+    if(RegGetValueW(HKEY_CURRENT_USER,key.c_str(),L"CLIENTNAME",RRF_RT_REG_SZ,nullptr,client.data(),&bytes)==ERROR_SUCCESS && !client[0] &&
+       GetEnvironmentVariableW(L"CLIENTNAME",nullptr,0)==0)
+        Check(std::find(set.begin(),set.end(),L"CLIENTNAME")==set.end() && GetEnvironmentVariableW(L"CLIENTNAME",nullptr,0)==0,
+            "an empty CLIENTNAME stays undefined");
     Check(SetEnvironmentVariableW(L"SESSIONNAME",L"Kept")!=0,"a set SESSIONNAME");
     set=reel::InheritSessionEnvironment();
     Check(Variable(L"SESSIONNAME")==L"Kept" && std::find(set.begin(),set.end(),L"SESSIONNAME")==set.end(),"a SESSIONNAME already set is kept");
