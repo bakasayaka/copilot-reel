@@ -114,4 +114,30 @@ std::wstring InstalledIdentity(const AppTarget& app) {
     }
     return L"file:"+target;
 }
+
+std::vector<std::wstring> InheritSessionEnvironment() {
+    std::vector<std::wstring> set;
+    DWORD session=0;
+    if(!ProcessIdToSessionId(GetCurrentProcessId(),&session))return set;
+    HKEY key=nullptr;
+    const auto path=L"Volatile Environment\\"+std::to_wstring(session);
+    if(RegOpenKeyExW(HKEY_CURRENT_USER,path.c_str(),0,KEY_QUERY_VALUE,&key)!=ERROR_SUCCESS)return set;
+    std::array<wchar_t,256> name{};  // value names are at most 16383 characters; these are short
+    std::array<wchar_t,1024> value{};
+    for(DWORD index=0;;++index) {
+        DWORD nameLength=static_cast<DWORD>(name.size()),type=0,bytes=static_cast<DWORD>(value.size()*sizeof(wchar_t));
+        const LONG status=RegEnumValueW(key,index,name.data(),&nameLength,nullptr,&type,
+            reinterpret_cast<BYTE*>(value.data()),&bytes);
+        if(status==ERROR_NO_MORE_ITEMS)break;
+        if(status!=ERROR_SUCCESS || type!=REG_SZ || nameLength==0)continue;
+        const std::wstring variable(name.data(),nameLength);
+        std::wstring text(value.data(),bytes/sizeof(wchar_t));
+        while(!text.empty() && text.back()==L'\0')text.pop_back();
+        SetLastError(ERROR_SUCCESS);
+        if(GetEnvironmentVariableW(variable.c_str(),nullptr,0)!=0 || GetLastError()!=ERROR_ENVVAR_NOT_FOUND)continue;
+        if(SetEnvironmentVariableW(variable.c_str(),text.c_str()))set.push_back(variable);
+    }
+    RegCloseKey(key);
+    return set;
+}
 }

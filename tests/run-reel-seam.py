@@ -156,6 +156,11 @@ def assert_launch(g, expected, name):
     targets = reel.launched_targets()
     assert len(targets) == expected and targets[-1] == name, targets
     assert reel.launch_arguments()[-1] == '--radial-probe=' + name.split()[-1], reel.launch_arguments()
+    # The instance starts without SESSIONNAME, as app activation starts the installed reel; what it
+    # launches must still see the session's value, as a start from Explorer does.
+    expected = seam.session_name()
+    if expected:
+        assert reel.launch_environment()[-1] == 'SESSIONNAME=' + expected, reel.launch_environment()
 
 
 def assert_no_launch(g, expected):
@@ -396,6 +401,8 @@ def group_a(g):
     release(g)
     assert_no_launch(g, 1)
     g.passed('the pointer selects a sector, duplicate starts are ignored, and the release launches exactly once')
+    if seam.session_name():
+        g.passed("an instance started without SESSIONNAME launches with the session's value, as Explorer does")
 
     open_hold(g, ANCHOR)
     reel.pointer(reel.sector_of('Probe 1'))

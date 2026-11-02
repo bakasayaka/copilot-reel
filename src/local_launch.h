@@ -4,6 +4,7 @@
 #include <cwctype>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace reel {
 // Checks shortcut destinations without executing or rewriting them. Requires
@@ -23,6 +24,13 @@ std::wstring InstalledIdentity(const AppTarget& app);
 // A shortcut's raw destination with environment strings expanded, read without
 // Resolve; empty when the link cannot be read. Requires COM.
 std::wstring ShortcutTarget(const std::wstring& link);
+
+// Copies this session's variables from HKCU\Volatile Environment\<session id>, SESSIONNAME and,
+// in a remote session, CLIENTNAME, into the process environment where they are missing. App
+// activation starts the reel without them, unlike a start from Explorer, and the programs the
+// reel starts inherit its environment: Claude Science opens its window only when SESSIONNAME
+// is set. A variable that is already set is kept. Returns the names it set.
+std::vector<std::wstring> InheritSessionEnvironment();
 
 // The arguments a shortcut launches with (a profile, a project, a URL): the first non-empty
 // arguments along a chain of up to four links, read without Resolve; empty when there are

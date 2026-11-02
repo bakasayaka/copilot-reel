@@ -3,6 +3,7 @@
 #include <shobjidl.h>
 #include <shlobj.h>
 #include <winrt/base.h>
+#include <algorithm>
 #include <array>
 #include <cwctype>
 #include <filesystem>
@@ -165,6 +166,34 @@ void CatalogChecks() {
         Check(kEntries[index].core || hasRule,"a discover-only product can be discovered");
     }
 }
+
+std::wstring Variable(const wchar_t* name) {
+    std::array<wchar_t,1024> value{};
+    const DWORD length=GetEnvironmentVariableW(name,value.data(),static_cast<DWORD>(value.size()));
+    return length<value.size()?std::wstring(value.data(),length):std::wstring();
+}
+
+// App activation starts the reel without SESSIONNAME; the reel takes it from the session, as
+// Explorer does, so the programs it starts see it. Only this test process's environment changes.
+void SessionEnvironmentChecks() {
+    DWORD session=0;
+    Check(ProcessIdToSessionId(GetCurrentProcessId(),&session)!=0,"the test knows its session");
+    std::array<wchar_t,1024> expected{};
+    DWORD bytes=static_cast<DWORD>(expected.size()*sizeof(wchar_t));
+    const auto key=L"Volatile Environment\\"+std::to_wstring(session);
+    const bool named=RegGetValueW(HKEY_CURRENT_USER,key.c_str(),L"SESSIONNAME",RRF_RT_REG_SZ,nullptr,expected.data(),&bytes)==ERROR_SUCCESS;
+    const auto original=Variable(L"SESSIONNAME");
+    const bool hadOriginal=GetEnvironmentVariableW(L"SESSIONNAME",nullptr,0)!=0;
+    Check(SetEnvironmentVariableW(L"SESSIONNAME",nullptr)!=0,"SESSIONNAME removed as activation leaves it out");
+    auto set=reel::InheritSessionEnvironment();
+    const bool reported=std::find(set.begin(),set.end(),L"SESSIONNAME")!=set.end();
+    if(named)Check(reported && Variable(L"SESSIONNAME")==expected.data(),"a missing SESSIONNAME is the session's own");
+    else Check(!reported && GetEnvironmentVariableW(L"SESSIONNAME",nullptr,0)==0,"without the session's key nothing is invented");
+    Check(SetEnvironmentVariableW(L"SESSIONNAME",L"Kept")!=0,"a set SESSIONNAME");
+    set=reel::InheritSessionEnvironment();
+    Check(Variable(L"SESSIONNAME")==L"Kept" && std::find(set.begin(),set.end(),L"SESSIONNAME")==set.end(),"a SESSIONNAME already set is kept");
+    SetEnvironmentVariableW(L"SESSIONNAME",hadOriginal?original.c_str():nullptr);
+}
 }
 
 int main() {
@@ -257,6 +286,7 @@ int main() {
         Check(reel::catalog::MatchRule(reel::ShortcutTarget(cursorLink))!=nullptr,"the loaded link names its catalog rule");
 
         CatalogChecks();
+        SessionEnvironmentChecks();
         std::cout<<"Local launch tests passed: "<<checks<<" checks; no destination was executed.\n";
         return 0;
     } catch(const std::exception& error) {

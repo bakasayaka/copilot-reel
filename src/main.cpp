@@ -1703,6 +1703,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int) {
         if(command==Command::Quit || command==Command::Cancel) {
             if(ready)CloseHandle(ready);CloseHandle(mutex);return 0;
         }
+        // Only the resident starts apps, and they inherit its environment.
+        for(const auto& name:InheritSessionEnvironment())Log(L"Session environment: "+name+L" from the session, as Explorer passes it");
         WNDCLASSEXW cls{sizeof(cls)};cls.lpfnWndProc=WindowProcedure;cls.hInstance=instance;cls.lpszClassName=kWindowClass;cls.hCursor=LoadCursorW(nullptr,IDC_ARROW);
         cls.hIcon=LoadIconW(instance,MAKEINTRESOURCEW(1));RegisterClassExW(&cls);
         Controller controller(smoke);

@@ -41,16 +41,20 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR arguments, int) {
         const DWORD code = okay ? ERROR_SUCCESS : (failure != ERROR_SUCCESS ? failure : ERROR_WRITE_FAULT);
         CloseHandle(file);
         if(okay) {
-            const std::wstring argumentPath=directory+L"launch-probe-args.txt";
-            HANDLE argumentFile=CreateFileW(argumentPath.c_str(),FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,
-                nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
-            if(argumentFile!=INVALID_HANDLE_VALUE) {
-                const std::wstring line=std::wstring(arguments)+L"\n";
+            const auto append=[&](const wchar_t* name,const std::wstring& line) {
+                HANDLE file=CreateFileW((directory+name).c_str(),FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,
+                    nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+                if(file==INVALID_HANDLE_VALUE)return;
                 const int length=WideCharToMultiByte(CP_UTF8,0,line.data(),static_cast<int>(line.size()),nullptr,0,nullptr,nullptr);
                 std::string utf8(length,'\0');
                 WideCharToMultiByte(CP_UTF8,0,line.data(),static_cast<int>(line.size()),utf8.data(),length,nullptr,nullptr);
-                WriteFile(argumentFile,utf8.data(),static_cast<DWORD>(utf8.size()),&written,nullptr);CloseHandle(argumentFile);
-            }
+                WriteFile(file,utf8.data(),static_cast<DWORD>(utf8.size()),&written,nullptr);CloseHandle(file);
+            };
+            append(L"launch-probe-args.txt",std::wstring(arguments)+L"\n");
+            // A start from Explorer carries SESSIONNAME; the reel must pass it on (Claude Science needs it).
+            std::array<wchar_t,256> session{};
+            const DWORD sessionLength=GetEnvironmentVariableW(L"SESSIONNAME",session.data(),static_cast<DWORD>(session.size()));
+            append(L"launch-probe-env.txt",L"SESSIONNAME="+std::wstring(session.data(),sessionLength<session.size()?sessionLength:0)+L"\n");
         }
         return static_cast<int>(code);
     } catch (...) {

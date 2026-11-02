@@ -68,6 +68,9 @@ FAST_TAP, FAST_HOLD_START, FAST_HOLD_STOP = range(3)
 PAGE_MAIN, PAGE_MANAGE, PAGE_PRESETS, PAGE_SETTINGS, PAGE_ENTRY, PAGE_ABOUT = 0, 1, 2, 3, 5, 6
 
 VK_TAB, VK_RETURN, VK_ESCAPE, VK_SPACE = 0x09, 0x0D, 0x1B, 0x20
+# The session's own variables (HKCU\Volatile Environment\<session id>): Explorer passes them on,
+# app activation does not.
+SESSION_VARIABLES = ('SESSIONNAME', 'CLIENTNAME')
 VK_LEFT, VK_RIGHT, VK_DELETE = 0x25, 0x27, 0x2E
 VK_A, VK_D = ord('A'), ord('D')
 VK_NONE = 0  # routes nowhere: a Key packet with it is a pure ordering barrier
@@ -290,6 +293,19 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest().upper()
 
 
+def session_name():
+    """This session's SESSIONNAME as Windows records it ('Console', 'RDP-Tcp#3'), or None."""
+    import winreg
+    session = w.DWORD()
+    if not ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(session)):
+        return None
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf'Volatile Environment\{session.value}') as key:
+            return winreg.QueryValueEx(key, 'SESSIONNAME')[0]
+    except OSError:
+        return None
+
+
 def encode_ini(value):
     return value.replace('\\', '\\\\').replace('\t', '\\t')
 
@@ -387,11 +403,15 @@ class Reel:
         self.log = self.data / 'run.log'
         self.marker = self.data / 'launch-probe.txt'
         self.arguments = self.data / 'launch-probe-args.txt'
+        self.launch_env = self.data / 'launch-probe-env.txt'
         self.data.mkdir(parents=True, exist_ok=True)
 
     # Process lifetime -------------------------------------------------------------------
     def environment(self, pointer=None, run_id=None, data=None):
-        env = {key: value for key, value in os.environ.items() if not key.upper().startswith('COPILOT_REEL_')}
+        # App activation starts the installed reel without the session's variables; so does the seam,
+        # so the reel itself must hand them to what it launches.
+        env = {key: value for key, value in os.environ.items()
+               if not key.upper().startswith('COPILOT_REEL_') and key.upper() not in SESSION_VARIABLES}
         env['COPILOT_REEL_DATA_DIR'] = str(data or self.data)
         env['COPILOT_REEL_TEST_INPUT'] = run_id or self.run_id
         point = pointer or self.cursor
@@ -569,6 +589,10 @@ class Reel:
 
     def launch_arguments(self):
         return self.arguments.read_text(encoding='utf-8').splitlines() if self.arguments.exists() else []
+
+    def launch_environment(self):
+        """One 'SESSIONNAME=<value>' line per probe launch."""
+        return self.launch_env.read_text(encoding='utf-8').splitlines() if self.launch_env.exists() else []
 
     def launched_targets(self):
         return re.findall(r'Launching target: ([^\r\n]+)', self.read_log())
