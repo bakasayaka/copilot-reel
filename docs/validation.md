@@ -1,6 +1,6 @@
 # Validation status
 
-Snapshot: 2026-10-30, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.15**, updated by the reel's own updater from the release `v0.3.15`, the latest release. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-11-02, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.16**, updated by the reel's own updater from the release `v0.3.16`, the latest release. This records demonstrated behavior and its limits, not full release acceptance.
 
 ## Verified in v0.3.16
 
@@ -18,6 +18,7 @@ Snapshot: 2026-10-30, Windows 11 25H2 build `26200.9711`, x64. Installed applica
 - 180 stills against `output/runtime/v0.3.14`, with the live highlight #0078D7. |
 | References | Still `output/runtime/v0.3.14`; nothing drawn changed. The high-contrast stills draw with the live `GetSysColor(COLOR_HIGHLIGHT)`, and on the test computer it switched between #0078D7 and #0078D4 during the work. `HKCU\Control Panel\Colors` kept `Hilight=0 120 212` throughout. While the live highlight was #0078D4, two regression runs failed on the twelve high-contrast stills that show it, each pixel three levels lower in blue only; every other still matched. A set recaptured then (not kept) failed the next run, once the highlight was #0078D7 again. That run also failed seam group b: the instance logged an appearance change mid-group and its open Settings page was canceled after a 2 s stall. |
 | Also in this release | An empty per-session value (a console session's `CLIENTNAME`) stays undefined, as Explorer leaves it; the first build set it to an empty string. |
+| Update, end to end | The release `v0.3.16` (x64 and ARM64, signed and timestamped, GitHub's asset digests equal to the local files) was published as Latest, and `v0.3.15` was removed with its tag. The installed 0.3.15.0 found it with `--update-check` in 0.28 s. `--update-install` handed it to Windows after 1.4 s, and 0.3.16.0 logged Ready 5.4 s after the install started. Its first line was "Session environment: SESSIONNAME from the session", so Windows starts the installed reel without it. `apps.ini`, `behavior.ini` and `parked.ini` are byte-identical to a backup taken before; `preferences.ini` differs only in `LastCheck`. `tools/test.ps1 -Tier installed` passed (`artifacts/qa/test-20261102-163758`). Claude Science chosen in the installed reel has not been tried with a real press yet. |
 
 ## Verified in v0.3.15
 
