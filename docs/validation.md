@@ -1,6 +1,6 @@
 # Validation status
 
-Snapshot: 2026-11-02, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.16**, updated by the reel's own updater from the release `v0.3.16`, the latest release. This records demonstrated behavior and its limits, not full release acceptance.
+Snapshot: 2026-11-06, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.16.0 built from `a575017`** (the Custom app list, not released), installed with `tools/install-development.ps1`; the latest release is still `v0.3.16`. This records demonstrated behavior and its limits, not full release acceptance.
 
 ## Not released: Custom app opens on Start's apps (2026-11-06)
 
@@ -12,6 +12,7 @@ Snapshot: 2026-11-02, Windows 11 25H2 build `26200.9711`, x64. Installed applica
 | Editor | `editor_tests` (`CreateHiddenAddEditor`), in English, Chinese and Japanese under light 100%, dark 125%, frosted 150% and contrast 175%: the sheet is titled Add app; Enter manually and Add are 128 DIP side buttons on the footer row; only Add is accent-filled; the app already in the reel is left out; every word fits; Enter manually opens the Add app form, whose Choose app… goes back and chooses; Esc closes the sheet; Add appends the chosen app to `apps.ini` in a temporary data folder and closes the sheet; with every app in the reel, the list says so and Add is disabled. 188 checks on 21 captures per appearance. |
 | Launch keys | `installed_apps_tests` (768 checks): an executable's key is its full path and arguments, unchanged by case, name or working folder; other arguments differ; a package's key is its AUMID; websites and missing executables have none; every one of the 247 listed apps carries its key. |
 | Run | `tools/test.ps1 -Tier unit` passed (`artifacts/qa/test-20261106-022417`), and `-Tier smoke` passed with the seam's main-menu and hub groups (`artifacts/qa/test-20261106-022641`). The regression tier and the stills were not run: nothing the reel draws changed. |
+| Installed | Pushed as `a575017` and installed from it on the test computer: Release x64 (`CopilotReel.exe` SHA-256 `88B21EFF…`, the same as the smoke run's build), packaged as 0.3.16.0, signed and timestamped, then `tools/install-development.ps1`. `apps.ini`, `behavior.ini`, `parked.ini` and `preferences.ini` are byte-identical to the backup it took (`artifacts/backups/20261106-023244`). The reel runs in the background, and `tools/test.ps1 -Tier installed` passed (`artifacts/qa/test-20261106-023250`). |
 
 Not verified: the flow in a running reel. The editor takes the foreground, so the seam does not open it; it needs one check by hand: Custom app, a search, Add, and the reel back on Manage apps with the new app.
 
