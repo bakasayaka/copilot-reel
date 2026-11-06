@@ -30,6 +30,15 @@ bool IsFile(const std::wstring& path) {
 }
 }
 
+std::wstring LaunchKey(const AppTarget& app) {
+    const auto identity=InstalledIdentity(app);
+    if(identity.empty())return {};
+    auto arguments=app.arguments;
+    if(arguments.empty() && app.kind==TargetKind::Shell && LaunchIdentity(app.target).ends_with(L".lnk"))
+        arguments=ShortcutArguments(app.target);
+    return identity+L'|'+LaunchIdentity(arguments);
+}
+
 std::vector<InstalledApp> InstalledApps() {
     std::vector<InstalledApp> result;
     winrt::com_ptr<IShellItem> folder;
@@ -48,7 +57,9 @@ std::vector<InstalledApp> InstalledApps() {
         // IsVerifiedLocalApplication, so an offline server never stalls the list.
         if(!app->packaged && !IsNetworkPath(app->target.target) && !IsFile(app->target.target))continue;
         const auto key=LaunchIdentity(app->target.target)+L'|'+app->target.arguments;
-        if(seen.insert(key).second)result.push_back(std::move(*app));
+        if(!seen.insert(key).second)continue;
+        app->key=LaunchKey(app->target);
+        result.push_back(std::move(*app));
     }
     std::stable_sort(result.begin(),result.end(),[](const InstalledApp& a,const InstalledApp& b) {
         return CompareStringEx(LOCALE_NAME_USER_DEFAULT,LINGUISTIC_IGNORECASE|SORT_DIGITSASNUMBERS,

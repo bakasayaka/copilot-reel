@@ -49,10 +49,29 @@ int main() {
 
     // This machine's Start entries: whatever is installed, every listed app passes the tap's own verifier.
     winrt::init_apartment(winrt::apartment_type::single_threaded);
+
+    // Launch keys: the Custom app list leaves out an app the reel already launches with the same arguments.
+    wchar_t system[MAX_PATH]{};
+    check(GetSystemDirectoryW(system,MAX_PATH)>0,"the system folder");
+    const std::wstring notepad=std::wstring(system)+L"\\notepad.exe";
+    std::wstring shouting=notepad;
+    for(auto& c:shouting)c=static_cast<wchar_t>(std::towupper(c));
+    const AppTarget plain{L"Notepad",TargetKind::Shell,notepad,L"",L""};
+    const auto plainKey=LaunchKey(plain);
+    check(plainKey==L"file:"+LaunchIdentity(notepad)+L"|","an executable's key is its full path and its arguments");
+    check(LaunchKey({L"Editor",TargetKind::Shell,shouting,L"",L"C:\\"})==plainKey,"names, case and working folders do not change the key");
+    check(LaunchKey({L"Notepad",TargetKind::Shell,notepad,L"/A",L""})!=plainKey,"other arguments are another launch");
+    check(LaunchKey({L"Notepad",TargetKind::Aumid,L"Microsoft.WindowsNotepad_8wekyb3d8bbwe!App",L"",L""})==
+          L"aumid:microsoft.windowsnotepad_8wekyb3d8bbwe!app|","a package's key is its AUMID");
+    check(LaunchKey({L"Site",TargetKind::Shell,L"https://example.com",L"",L""}).empty() &&
+          LaunchKey({L"Gone",TargetKind::Shell,L"C:\\Missing\\gone.exe",L"",L""}).empty(),
+          "websites and missing executables have no key");
+
     const auto apps=InstalledApps();
     for(const auto& app:apps) {
         check(IsVerifiedLocalApplication(app.target),"every listed app is a verified local application");
         check(!app.target.name.empty() && !app.item.empty(),"every listed app has a name and a Start item");
+        check(!app.key.empty() && app.key==LaunchKey(app.target),"every listed app carries its launch key");
     }
     std::wcout<<L"Installed apps tests passed: "<<checks<<L" checks; "<<apps.size()<<L" Start apps listed.\n";
     return 0;

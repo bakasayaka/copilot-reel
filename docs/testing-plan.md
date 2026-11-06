@@ -214,7 +214,7 @@ Before any driver code runs, a static self-check refuses to start if the driver 
 
 ### What stays outside the quiet tier
 
-- Focus tier, not yet ported: opening the editor from the reel (Edit app, Custom app, a missing preset) and `GetOpenFileNameW`, which activate themselves. The editor's pages are checked without either: `tests/editor_tests.cpp` builds them in windows that are never shown or activated and checks their printed pixels.
+- Focus tier, not yet ported: opening the editor from the reel (Edit app, Custom app, a missing preset) and `GetOpenFileNameW`, which activate themselves. The editor's pages are checked without either: `tests/editor_tests.cpp` builds them in windows that are never shown or activated and checks their printed pixels. That includes the Add app list Custom app opens on (`CreateHiddenAddEditor`): its title, its footer on the grid, Add accent-filled and Enter manually not, the reel's app left out, the words fitting in each language, Enter manually and Choose app… from the form, Esc, and Add saving the reel into a data folder of the test's own (`COPILOT_REEL_DATA_DIR`) and closing.
 - Real-input smoke, run only with the user's explicit consent and with the installed instance stopped:
   - Raw Input wake-up and `RIDEV_INPUTSINK` delivery while another app has focus, including Escape during a hold;
   - system `WM_NCHITTEST` and `WM_MOUSEACTIVATE` routing;

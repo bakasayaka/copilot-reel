@@ -44,7 +44,7 @@ constexpr int kListRows = vi::kEditorListRows, kRowHeight = vi::kEditorRow, kLis
 enum class Page { Editor, Advanced, Picker, Confirm };
 enum Id : int {
     Back = 100, Save, Name, Target, Browse, Advanced, Kind, Arguments, Directory, Done, ChooseApp,
-    Search, InstalledList, Pick, InstalledViewport, DontSave, Stay, LeaveTitle = 400, FirstLabel = 500
+    Search, InstalledList, Pick, InstalledViewport, DontSave, Stay, Manual, LeaveTitle = 400, FirstLabel = 500
 };
 constexpr wchar_t kViewportClass[] = L"CopilotReel.ListViewport";
 // Start's All apps arrive from a worker: the list, then each icon as it is extracted. The worker
@@ -99,11 +99,18 @@ struct State {
     struct Leave { bool open = false; int index = -1; std::optional<AppTarget> preset; } leave;
     bool updatingScroll = false;
     int scrollX = 0, scrollY = 0;
+    // A blank addition (Custom app) opens on Start's list rather than the form: choosing there adds
+    // the app at once, and Enter manually leaves for the form, which then works as for any new app.
+    bool listFirst = false;
     // Start's All apps for the picker, read once per window; `visible` indexes the search result.
     std::vector<InstalledApp> installed;
     std::vector<RowIcon> icons;
     std::vector<size_t> visible;
     std::wstring query;
+    // The LaunchKeys of the reel's apps other than the one being edited: the list leaves them out,
+    // as Add leaves out the agents already in the reel. `available` counts what remains.
+    std::set<std::wstring> taken;
+    size_t available = 0;
     UINT iconSize = 0;
     bool listing = false, listed = false;
     std::shared_ptr<InstalledInbox> inbox;
@@ -149,12 +156,11 @@ State* StateOf(HWND window) { return window ? reinterpret_cast<State*>(GetWindow
 void BuildPage(State& state);
 void NavigateBack(State& state);
 
+// The list a blank addition opens on is the Add app sheet itself; reached from the form, it is Choose app.
 const wchar_t* PageTitle(const State& state) {
-    switch(state.page) {
-    case Page::Advanced:return Tr(L"Advanced",L"高级选项",L"詳細設定");
-    case Page::Picker:return Tr(L"Choose app",L"选择应用",L"アプリを選択");
-    default:return state.adding?Tr(L"Add app",L"添加应用",L"アプリを追加"):Tr(L"Edit app",L"编辑应用",L"アプリを編集");
-    }
+    if(state.page==Page::Advanced)return Tr(L"Advanced",L"高级选项",L"詳細設定");
+    if(state.page==Page::Picker && !state.listFirst)return Tr(L"Choose app",L"选择应用",L"アプリを選択");
+    return state.adding?Tr(L"Add app",L"添加应用",L"アプリを追加"):Tr(L"Edit app",L"编辑应用",L"アプリを編集");
 }
 
 void UpdateScrollbars(State& state) {
@@ -389,6 +395,7 @@ HRESULT PaintSheet(State& state, ID2D1RenderTarget* target) {
         if (!state.listed || state.visible.empty()) {
             const auto* message = !state.listed ? Tr(L"Reading apps from Start…",L"正在读取开始菜单中的应用…",L"スタートからアプリを読み込んでいます…") :
                 state.installed.empty() ? Tr(L"No apps were found in Start.",L"开始菜单中没有找到应用。",L"スタートにアプリが見つかりませんでした。") :
+                !state.available ? Tr(L"Every app in Start is already in the reel.",L"开始菜单中的应用都已在轮盘中。",L"スタートのアプリはすべてリールにあります。") :
                 Tr(L"No apps match your search.",L"没有匹配的应用。",L"検索に一致するアプリはありません。");
             DrawText(state,target,message,D2D1::RectF(kMargin,listMiddle-12,width-kMargin,listMiddle+12),
                 state.appearance.secondary,vi::kEditorBodySize,false,DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -712,11 +719,25 @@ void ResizeToPage(State& state) {
     UpdateScrollbars(state);
 }
 
-// Lists the installed apps whose name matches the search and selects the first, so Enter picks it.
+// The apps already in the reel, other than the one being edited, which the list leaves out.
+// LaunchKey reads at most eight targets and their shortcuts, once per page.
+void ReadTaken(State& state) {
+    state.taken.clear();
+    for(size_t i=0;i<state.apps.size();++i)
+        if(state.adding || static_cast<int>(i)!=state.selected)
+            if(auto key=LaunchKey(state.apps[i]);!key.empty())state.taken.insert(std::move(key));
+}
+// Lists the installed apps that are not in the reel and whose name matches the search, and
+// selects the first, so Enter picks it.
 void Filter(State& state) {
     state.visible.clear();
-    for(size_t i=0;i<state.installed.size();++i)
-        if(MatchesQuery(state.installed[i].target.name,state.query))state.visible.push_back(i);
+    state.available=0;
+    for(size_t i=0;i<state.installed.size();++i) {
+        const auto& app=state.installed[i];
+        if(!app.key.empty() && state.taken.contains(app.key))continue;
+        ++state.available;
+        if(MatchesQuery(app.target.name,state.query))state.visible.push_back(i);
+    }
     if(const auto list=state.Control(InstalledList)) {
         SendMessageW(list,WM_SETREDRAW,FALSE,0);
         SendMessageW(list,LB_RESETCONTENT,0,0);
@@ -799,8 +820,16 @@ void BuildPage(State& state) {
         // The kind column is as wide as its widest label in this language (E4).
         state.kindColumn=editor::WidestText(state.textFactory.Get(),Format(state,vi::kEditorCaptionSize),
             {Tr(L"Packaged app",L"打包应用",L"パッケージ アプリ"),Tr(L"Desktop app",L"桌面应用",L"デスクトップ アプリ")});
-        Button(state,Back,Tr(L"Back",L"返回",L"戻る"),kMargin,kFooterY);
-        Button(state,Pick,Tr(L"Choose",L"选择",L"選択"),primaryX,kFooterY);
+        // Opened on the list, the footer leads to the form instead of back to it, and the primary
+        // action adds the chosen app; reached from the form, it goes back and fills the form.
+        if(state.listFirst) {
+            Button(state,Manual,Tr(L"Enter manually",L"手动输入",L"手動で入力"),kMargin,kFooterY);
+            Button(state,Pick,Tr(L"Add",L"添加",L"追加"),primaryX,kFooterY);
+        } else {
+            Button(state,Back,Tr(L"Back",L"返回",L"戻る"),kMargin,kFooterY);
+            Button(state,Pick,Tr(L"Choose",L"选择",L"選択"),primaryX,kFooterY);
+        }
+        ReadTaken(state);
         Filter(state);
         break;
     }
@@ -869,11 +898,16 @@ void ChangePage(State& state,Page page) {
     state.page=page;
     BuildPage(state);
 }
+void ReadInstalledApps(State& state);
+// A blank addition (Custom app) starts on Start's list; a preset or an existing app on the form.
 void StartEdit(State& state,bool adding,const AppTarget* preset=nullptr) {
     state.adding=adding; state.dirty=false;
     state.draft=adding?AppTarget{}:state.apps.at(static_cast<size_t>(state.selected));
     if(adding && preset)state.draft=*preset;
-    ChangePage(state,Page::Editor);
+    state.listFirst=adding && !preset;
+    state.query.clear();
+    ChangePage(state,state.listFirst?Page::Picker:Page::Editor);
+    if(state.listFirst)ReadInstalledApps(state);
 }
 // Carries out what waited on the leave confirmation: closing, or another app's editor.
 void Proceed(State& state) {
@@ -896,7 +930,9 @@ void Leave(State& state,State::Leave request) {
     ChangePage(state,Page::Confirm);
 }
 void NavigateBack(State& state) {
-    if(state.page==Page::Advanced || state.page==Page::Picker)ChangePage(state,Page::Editor);
+    // The list a blank addition opens on is the sheet's first page: Esc closes it, as on the form.
+    if(state.page==Page::Picker && state.listFirst)Leave(state,{});
+    else if(state.page==Page::Advanced || state.page==Page::Picker)ChangePage(state,Page::Editor);
     else if(state.page==Page::Confirm)ChangePage(state,state.leftPage);
     else Leave(state,{});
 }
@@ -977,11 +1013,18 @@ void CloseInstalled(State& state) {
     state.inbox->apps.reset();
     state.inbox->icons.clear();
 }
-// The chosen app replaces the whole draft: its name, launch method, target and arguments.
+// The chosen app replaces the whole draft: its name, launch method, target and arguments. On the
+// list a blank addition opens on, it is added at once, as Add's one-tap entries are, and the sheet
+// closes; a failed save leaves the list as it was. Otherwise the form shows it for Save.
 void PickInstalled(State& state) {
-    const auto selected=SendMessageW(state.Control(InstalledList),LB_GETCURSEL,0,0);
-    if(selected==LB_ERR || static_cast<size_t>(selected)>=state.visible.size())return;
+    const HWND list=state.Control(InstalledList);
+    const auto selected=list?SendMessageW(list,LB_GETCURSEL,0,0):LB_ERR;
+    if(state.page!=Page::Picker || selected==LB_ERR || static_cast<size_t>(selected)>=state.visible.size())return;
     state.draft=state.installed[state.visible[static_cast<size_t>(selected)]].target;
+    if(state.listFirst) {
+        if(SaveDraft(state))DestroyWindow(state.window);
+        return;
+    }
     state.dirty=true;
     ChangePage(state,Page::Editor);
 }
@@ -1026,7 +1069,9 @@ void Command(State& state,int id,int notification) {
         InvalidateRect(state.window,nullptr,FALSE);InvalidateRect(state.Control(id),nullptr,TRUE);return;
     }
     if(id==Search && notification==EN_CHANGE) {state.query=Text(state.Control(Search));Filter(state);return;}
-    if(id==InstalledList && notification==LBN_DBLCLK) {PickInstalled(state);return;}
+    // A double-click picks once the list has returned from it: picking rebuilds or closes the sheet,
+    // which destroys the list.
+    if(id==InstalledList && notification==LBN_DBLCLK) {PostMessageW(state.window,WM_COMMAND,MAKEWPARAM(Pick,BN_CLICKED),0);return;}
     if(notification==EN_CHANGE) {
         if(id==Name)state.draft.name=Text(state.Control(Name));
         else if(id==Target)state.draft.target=Text(state.Control(Target));
@@ -1048,6 +1093,8 @@ void Command(State& state,int id,int notification) {
     case Done:ChangePage(state,Page::Editor);break;
     case Browse:BrowseTarget(state);break;
     case ChooseApp:state.query.clear();ChangePage(state,Page::Picker);ReadInstalledApps(state);break;
+    // From here on the sheet is the form of a new app: its Choose app… fills the form again.
+    case Manual:state.listFirst=false;ChangePage(state,Page::Editor);break;
     case Pick:PickInstalled(state);break;
     case Save:
         if(state.page!=Page::Confirm)CompleteEdit(state);
@@ -1076,7 +1123,9 @@ LRESULT CALLBACK OsdProc(HWND window,UINT message,WPARAM wParam,LPARAM lParam) {
             if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,state->factory.GetAddressOf())) ||
                 FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),
                     reinterpret_cast<IUnknown**>(state->textFactory.GetAddressOf()))))return -1;
-            UpdateFont(*state);UpdateAppearance(*state);BuildPage(*state);return 0;
+            UpdateFont(*state);UpdateAppearance(*state);BuildPage(*state);
+            if(state->page==Page::Picker)ReadInstalledApps(*state);
+            return 0;
         case WM_PAINT:Paint(*state);return 0;
         case WM_PRINTCLIENT:PrintSheet(*state,reinterpret_cast<HDC>(wParam));return 0;
         case WM_ERASEBKGND:return 1;
@@ -1202,6 +1251,8 @@ void ShowOsdAt(HWND owner,int editorIndex,const AppTarget* preset=nullptr) {
         state->selected=std::max(0,editorIndex);
         state->draft=state->adding?AppTarget{}:state->apps.at(static_cast<size_t>(editorIndex));
         if(state->adding && preset)state->draft=*preset;
+        state->listFirst=state->adding && !preset;
+        state->page=state->listFirst?Page::Picker:Page::Editor;
         POINT pointer{};GetCursorPos(&pointer);
         MONITORINFO monitor{sizeof(monitor)};GetMonitorInfoW(MonitorFromPoint(pointer,MONITOR_DEFAULTTONEAREST),&monitor);
         const DWORD extended=WS_EX_CONTROLPARENT;
@@ -1243,6 +1294,16 @@ HWND CreateHiddenEditor(const AppTarget& draft,std::vector<InstalledApp> install
     if(!RegisterClasses())return nullptr;
     auto state=std::make_unique<State>();
     state->hidden=true;state->adding=true;state->draft=draft;
+    state->icons.assign(installed.size(),{});
+    state->installed=std::move(installed);state->listed=true;
+    return CreateWindowExW(WS_EX_CONTROLPARENT,kOsdClass,L"Copilot Reel",kStyle,0,0,
+        kWidth,kHeight,nullptr,nullptr,GetModuleHandleW(nullptr),&state);
+}
+HWND CreateHiddenAddEditor(std::vector<InstalledApp> installed,std::vector<AppTarget> reel) {
+    if(!RegisterClasses())return nullptr;
+    auto state=std::make_unique<State>();
+    state->hidden=true;state->adding=true;state->listFirst=true;state->page=Page::Picker;
+    state->apps=std::move(reel);
     state->icons.assign(installed.size(),{});
     state->installed=std::move(installed);state->listed=true;
     return CreateWindowExW(WS_EX_CONTROLPARENT,kOsdClass,L"Copilot Reel",kStyle,0,0,

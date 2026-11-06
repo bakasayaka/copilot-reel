@@ -2,11 +2,13 @@
 #include "editor_layout.h"
 #include "localization.h"
 #include "osd.h"
+#include "settings.h"
 #include "typography.h"
 #include "vi_tokens.h"
 
 #include <wincodec.h>
 #include <wrl/client.h>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -222,6 +224,15 @@ int Captures(const std::wstring& override, const std::wstring& name) {
     AppTarget draft;
     draft.name = L"Notepad";
     draft.target = L"C:\\Windows\\System32\\notepad.exe";
+    // The reel the Custom app list sees holds Notepad, which Start offers as App 3: the list leaves it out.
+    const std::vector<AppTarget> reel{draft};
+    installed[2].key = LaunchKey(draft);
+    Check(!installed[2].key.empty() && LaunchKey(installed[0].target).empty(), "Notepad has a launch key and a missing executable none");
+    // Adding saves the reel: this capture's own data folder, never the user's.
+    const auto data = std::filesystem::temp_directory_path() / (L"copilot-reel-editor-" + name);
+    std::filesystem::remove_all(data);
+    std::filesystem::create_directories(data);
+    SetEnvironmentVariableW(L"COPILOT_REEL_DATA_DIR", data.c_str());
     const std::pair<Language, const char*> languages[]{{Language::English, "en"}, {Language::SimplifiedChinese, "zh"}, {Language::Japanese, "ja"}};
     unsigned pages = 0;
     for (const auto& [language, code] : languages) {
@@ -338,7 +349,94 @@ int Captures(const std::wstring& override, const std::wstring& name) {
         Check(trimmed.empty(), "the sheet's words fit:" + trimmed);
         DestroyWindow(editor);
         Check(!IsWindow(editor), "the hidden editor closes");
+
+        // Custom app: the sheet opens on Start's list, titled Add app, with Enter manually opposite Add.
+        const auto title = [](HWND window) {
+            wchar_t text[256]{};
+            GetWindowTextW(window, text, 256);
+            return std::wstring(text);
+        };
+        const auto click = [](HWND window, HWND button) {
+            SendMessageW(window, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(button), BN_CLICKED), reinterpret_cast<LPARAM>(button));
+        };
+        const auto rows = [](HWND list) {
+            std::vector<std::wstring> names;
+            for (LRESULT i = 0, count = SendMessageW(list, LB_GETCOUNT, 0, 0); i < count; ++i) {
+                wchar_t text[256]{};
+                SendMessageW(list, LB_GETTEXT, i, reinterpret_cast<LPARAM>(text));
+                names.emplace_back(text);
+            }
+            return names;
+        };
+        const auto addTitle = std::wstring(L"Copilot Reel — ") + Tr(L"Add app", L"添加应用", L"アプリを追加");
+        const auto* addText = Tr(L"Add", L"添加", L"追加");
+        const auto* manualText = Tr(L"Enter manually", L"手动输入", L"手動で入力");
+        HWND adder = CreateHiddenAddEditor(installed, reel);
+        Check(adder != nullptr, "the Custom app sheet opens");
+        capture = Print(adder);
+        save(capture, "add");
+        Check(!IsWindowVisible(adder) && GetForegroundWindow() != adder && GetActiveWindow() != adder,
+            "the Custom app sheet is never shown or activated");
+        Check(title(adder) == addTitle, "the list Custom app opens on is titled Add app");
+        const HWND addButton = Find(adder, addText), manual = Find(adder, manualText);
+        Check(addButton && manual && !Find(adder, Tr(L"Back", L"返回", L"戻る")) && !Find(adder, Tr(L"Choose", L"选择", L"選択")),
+            "its footer holds Enter manually and Add, not Back and Choose");
+        const RECT addBounds = Bounds(adder, addButton), manualBounds = Bounds(adder, manual);
+        const int footer = px(vi::kEditorHeight - vi::kEditorMargin - vi::kEditorControl);
+        Check(manualBounds.left == px(vi::kEditorMargin) && manualBounds.top == footer && addBounds.top == footer &&
+              manualBounds.right - manualBounds.left == px(vi::kEditorSideButton) && addBounds.right - addBounds.left == px(vi::kEditorSideButton) &&
+              addBounds.right == px(vi::kEditorWidth - vi::kEditorMargin), "Enter manually and Add sit on the footer's grid");
+        const auto fillOf = [&](HWND button) { return capture.At(Bounds(adder, button).left + px(4), (Bounds(adder, button).top + Bounds(adder, button).bottom) / 2); };
+        Check(Near(fillOf(addButton), look.accent), "Add is accent-filled");
+        Check(Near(fillOf(manual), editor::Over(look.tile, look.surface)), "Enter manually keeps the tile fill");
+        const HWND addList = Find(adder, L"", L"ListBox");
+        const auto names = rows(addList);
+        Check(names.size() == installed.size() - 1 && std::find(names.begin(), names.end(), L"App 3") == names.end(),
+            "the list leaves out the app already in the reel");
+        // E2 on this page too: the first row is the seat, so Enter adds what the user sees.
+        const RECT addShown = Bounds(adder, Find(adder, L"", L"CopilotReel.ListViewport"));
+        Check(SendMessageW(addList, LB_GETCURSEL, 0, 0) == 0 &&
+              Near(capture.At(addShown.left + px(4 + static_cast<int>(vi::kTile) + 6), addShown.top + px(vi::kEditorRow) / 2), look.selection),
+            "the first row is selected and seated");
+        trimmed.clear();
+        for (const auto& text : TrimmedEditorText(adder)) trimmed += " [" + Narrow(text) + "]";
+        Check(trimmed.empty(), "the Add app list's words fit:" + trimmed);
+        // Enter manually opens the form of a new app, whose Choose app… then fills the form again.
+        click(adder, manual);
+        Check(IsWindow(adder) && title(adder) == addTitle && Find(adder, Tr(L"Save", L"保存", L"保存")) && !Find(adder, manualText),
+            "Enter manually opens the Add app form");
+        click(adder, Find(adder, Tr(L"Choose app…", L"选择应用…", L"アプリを選択…")));
+        Check(title(adder) == std::wstring(L"Copilot Reel — ") + Tr(L"Choose app", L"选择应用", L"アプリを選択") &&
+              Find(adder, Tr(L"Back", L"返回", L"戻る")) && Find(adder, Tr(L"Choose", L"选择", L"選択")) && !Find(adder, addText),
+            "from the form, the list goes back and chooses");
+        // Esc on the list it opened on closes the sheet; nothing was changed, so it asks nothing.
+        DestroyWindow(adder);
+        adder = CreateHiddenAddEditor(installed, reel);
+        SendMessageW(adder, WM_KEYDOWN, VK_ESCAPE, 0);
+        Check(!IsWindow(adder), "Esc closes the sheet from the list it opened on");
+        // Add saves the reel with the chosen app and closes the sheet at once.
+        adder = CreateHiddenAddEditor(installed, reel);
+        click(adder, Find(adder, addText));
+        Check(!IsWindow(adder), "Add closes the sheet");
+        std::wstring error;
+        const auto saved = LoadTargets(error);
+        Check(error.empty() && saved.size() == 2 && saved[0].target == draft.target && saved[1].name == L"App 1" &&
+              saved[1].target == installed[0].target.target && saved[1].kind == TargetKind::Shell,
+            "Add appends the chosen app to the reel");
+        std::filesystem::remove(data / L"apps.ini");
+        // Every app in Start already in the reel: the list explains it, in words that fit.
+        adder = CreateHiddenAddEditor({installed[2]}, reel);
+        capture = Print(adder);
+        save(capture, "add-all-in-reel");
+        Check(!(GetWindowLongPtrW(Find(adder, L"", L"CopilotReel.ListViewport"), GWL_STYLE) & WS_VISIBLE) &&
+              !IsWindowEnabled(Find(adder, addText)),
+            "with nothing left to add, the list hides and Add is disabled");
+        trimmed.clear();
+        for (const auto& text : TrimmedEditorText(adder)) trimmed += " [" + Narrow(text) + "]";
+        Check(trimmed.empty(), "the all-in-reel message fits:" + trimmed);
+        DestroyWindow(adder);
     }
+    std::filesystem::remove_all(data);
     std::cout << "  " << Narrow(name) << ": " << checks << " checks on " << pages << " captures\n";
     CoUninitialize();
     return 0;

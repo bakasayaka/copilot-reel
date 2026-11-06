@@ -15,6 +15,7 @@ struct InstalledApp {
     AppTarget target;   // what the reel stores: an AUMID, or the shortcut's executable and arguments
     std::wstring item;  // the entry's AppsFolder parsing name, which shows its Start icon
     bool packaged=false;
+    std::wstring key;   // LaunchKey(target): the editor leaves out an app the reel already holds
 };
 
 // The reel entry a Start entry becomes, from its display name, parsing name and shortcut
@@ -46,9 +47,15 @@ inline bool MatchesQuery(std::wstring_view name,std::wstring_view query) {
     return true;
 }
 
+// The application and arguments a target launches, lowercase: InstalledIdentity, then '|' and the
+// arguments, or, for a shortcut saved without arguments, the shortcut's own. Two Chrome profiles
+// differ; a shortcut and its executable with the same arguments do not. Empty for a target that
+// is not a verified local application. Requires COM.
+std::wstring LaunchKey(const AppTarget& app);
+
 // Start's All apps that StartEntryApp accepts and whose executable exists, one per target
-// and arguments, sorted by name for the user's locale. Reads the Shell and the disk, so it
-// runs off the UI thread. Requires COM.
+// and arguments, sorted by name for the user's locale, each with its LaunchKey. Reads the Shell
+// and the disk, so it runs off the UI thread. Requires COM.
 std::vector<InstalledApp> InstalledApps();
 
 // The entry's Start icon, `size` pixels square, as premultiplied BGRA; empty when the Shell
