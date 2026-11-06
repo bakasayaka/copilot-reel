@@ -2,6 +2,19 @@
 
 Snapshot: 2026-11-02, Windows 11 25H2 build `26200.9711`, x64. Installed application: **0.3.16**, updated by the reel's own updater from the release `v0.3.16`, the latest release. This records demonstrated behavior and its limits, not full release acceptance.
 
+## Not released: Custom app opens on Start's apps (2026-11-06)
+
+**+ › Add app › Custom app** opens the editor on Start's All apps instead of the form, so an app can be added without knowing where it is installed or which file starts it. Choosing one adds it at once; **Enter manually** opens the form.
+
+| Item | Evidence and scope |
+| --- | --- |
+| The list's source | Start's All apps on the test computer: 320 entries, of which the list keeps 46 packages and the shortcuts to an existing `.exe` (247 listed). The rest are documents, websites, `.bat` and `.msc` files, shell locations and `steam://` games, none of which a short tap may open. |
+| Editor | `editor_tests` (`CreateHiddenAddEditor`), in English, Chinese and Japanese under light 100%, dark 125%, frosted 150% and contrast 175%: the sheet is titled Add app; Enter manually and Add are 128 DIP side buttons on the footer row; only Add is accent-filled; the app already in the reel is left out; every word fits; Enter manually opens the Add app form, whose Choose app… goes back and chooses; Esc closes the sheet; Add appends the chosen app to `apps.ini` in a temporary data folder and closes the sheet; with every app in the reel, the list says so and Add is disabled. 188 checks on 21 captures per appearance. |
+| Launch keys | `installed_apps_tests` (768 checks): an executable's key is its full path and arguments, unchanged by case, name or working folder; other arguments differ; a package's key is its AUMID; websites and missing executables have none; every one of the 247 listed apps carries its key. |
+| Run | `tools/test.ps1 -Tier unit` passed (`artifacts/qa/test-20261106-022417`), and `-Tier smoke` passed with the seam's main-menu and hub groups (`artifacts/qa/test-20261106-022641`). The regression tier and the stills were not run: nothing the reel draws changed. |
+
+Not verified: the flow in a running reel. The editor takes the foreground, so the seam does not open it; it needs one check by hand: Custom app, a search, Add, and the reel back on Manage apps with the new app.
+
 ## Verified in v0.3.16
 
 0.3.16 passes the session's environment on to the apps the reel opens. On the test computer, Claude Science 0.1.71 did not open from the reel while every other app did.
